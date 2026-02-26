@@ -225,6 +225,22 @@ func CaptureKubectl(args []string) (string, error) {
 	return string(b), err
 }
 
+// CaptureKubectlCtx is like CaptureKubectl but kills the kubectl subprocess when
+// ctx is cancelled or its deadline is exceeded. This prevents callers from
+// blocking indefinitely when a parent operation (e.g. a watch loop) is stopped.
+func CaptureKubectlCtx(ctx context.Context, args []string) (string, error) {
+	if err := ensureKubectlAvailable(); err != nil {
+		return "", fmt.Errorf("kubectl not available: %w", err)
+	}
+	cmd := exec.CommandContext(ctx, getKubectlBinary(), args...)
+	cmd.Env = kubectlEnv()
+	b, err := cmd.CombinedOutput()
+	if ctx.Err() != nil {
+		return string(b), ctx.Err()
+	}
+	return string(b), err
+}
+
 // KubectlVersionClient returns the client version (major, minor) from kubectl version --client -o json.
 // Returns 0,0 and nil error if parsing fails (caller can ignore).
 func KubectlVersionClient() (major, minor int, err error) {

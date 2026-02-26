@@ -67,7 +67,7 @@ type oncallState struct {
 func runOncallLoop(a *app, ctx context.Context, client *ai.Client, interval time.Duration, watch bool, stdout io.Writer, in io.Reader) error {
 	state := &oncallState{}
 	// Initial snapshot
-	if report, err := buildIncidentReport(a, 2*time.Hour, 5); err == nil {
+	if report, err := buildIncidentReport(ctx, a, 2*time.Hour, 5); err == nil {
 		state.mu.Lock()
 		state.snapshot = formatIncidentReportForPrompt(report)
 		state.snapshotTime = time.Now()
@@ -83,7 +83,7 @@ func runOncallLoop(a *app, ctx context.Context, client *ai.Client, interval time
 				case <-ctx.Done():
 					return
 				case <-ticker.C:
-					report, err := buildIncidentReport(a, 2*time.Hour, 5)
+					report, err := buildIncidentReport(ctx, a, 2*time.Hour, 5)
 					if err != nil {
 						continue
 					}
@@ -141,7 +141,7 @@ func runOncallLoop(a *app, ctx context.Context, client *ai.Client, interval time
 			continue
 		}
 		if strings.HasPrefix(lower, "/snapshot") {
-			report, err := buildIncidentReport(a, 2*time.Hour, 5)
+			report, err := buildIncidentReport(ctx, a, 2*time.Hour, 5)
 			if err != nil {
 				fmt.Fprintf(stdout, "Snapshot error: %v\n", err)
 				continue

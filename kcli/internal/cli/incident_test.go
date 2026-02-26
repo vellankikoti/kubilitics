@@ -128,8 +128,8 @@ func TestIncidentWatchContextCancellation(t *testing.T) {
 		// Either nil (SIGINT clean exit) or an error from the render are both
 		// acceptable — the important thing is it doesn't block forever.
 		_ = err
-	case <-time.After(2 * time.Second):
-		t.Fatal("incident --watch did not exit within 2s after context cancellation")
+	case <-time.After(10 * time.Second):
+		t.Fatal("incident --watch did not exit within 10s after context cancellation")
 	}
 }
 

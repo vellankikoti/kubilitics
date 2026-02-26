@@ -435,6 +435,13 @@ func (a *app) captureKubectl(args []string) (string, error) {
 	return runner.CaptureKubectl(full)
 }
 
+// captureKubectlCtx is like captureKubectl but kills the kubectl subprocess
+// when ctx is cancelled, preventing indefinite blocking in watch loops.
+func (a *app) captureKubectlCtx(ctx context.Context, args []string) (string, error) {
+	full := a.scopeArgsFor(args)
+	return runner.CaptureKubectlCtx(ctx, full)
+}
+
 func (a *app) captureKubectlWithTimeout(args []string, timeout time.Duration) (string, error) {
 	full := a.scopeArgsFor(args)
 	return runner.CaptureKubectlWithTimeout(full, timeout)

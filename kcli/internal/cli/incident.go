@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -126,7 +127,7 @@ func newIncidentCmd(a *app) *cobra.Command {
 					window = d
 				}
 
-				report, err := buildIncidentReport(a, window, restartThreshold)
+				report, err := buildIncidentReport(cmd.Context(), a, window, restartThreshold)
 				if err != nil {
 					return err
 				}
@@ -158,7 +159,7 @@ func newIncidentCmd(a *app) *cobra.Command {
 						window = d
 					}
 				}
-				report, err := buildIncidentReport(a, window, restartThreshold)
+				report, err := buildIncidentReport(cmd.Context(), a, window, restartThreshold)
 				if err != nil {
 					return err
 				}
@@ -262,7 +263,7 @@ func newIncidentExportCmd(a *app) *cobra.Command {
 			if outPath == "" {
 				outPath = "incident-bundle"
 			}
-			return runIncidentExport(a, window, outPath, withLogs, cmd.OutOrStdout())
+			return runIncidentExport(cmd.Context(), a, window, outPath, withLogs, cmd.OutOrStdout())
 		},
 	}
 	cmd.Flags().StringVar(&since, "since", "1h", "time window for events and report")
@@ -271,8 +272,8 @@ func newIncidentExportCmd(a *app) *cobra.Command {
 	return cmd
 }
 
-func runIncidentExport(a *app, window time.Duration, outPath string, withLogs bool, stdout io.Writer) error {
-	report, err := buildIncidentReport(a, window, 5)
+func runIncidentExport(ctx context.Context, a *app, window time.Duration, outPath string, withLogs bool, stdout io.Writer) error {
+	report, err := buildIncidentReport(ctx, a, window, 5)
 	if err != nil {
 		return err
 	}
@@ -673,16 +674,16 @@ func parseNamespacedPod(v string) (namespace, pod string, err error) {
 	return strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]), nil
 }
 
-func buildIncidentReport(a *app, recentWindow time.Duration, restartThreshold int) (*incidentReport, error) {
-	pods, err := fetchPods(a)
+func buildIncidentReport(ctx context.Context, a *app, recentWindow time.Duration, restartThreshold int) (*incidentReport, error) {
+	pods, err := fetchPods(ctx, a)
 	if err != nil {
 		return nil, err
 	}
-	nodes, err := fetchNodes(a)
+	nodes, err := fetchNodes(ctx, a)
 	if err != nil {
 		return nil, err
 	}
-	events, err := fetchEvents(a)
+	events, err := fetchEvents(ctx, a)
 	if err != nil {
 		return nil, err
 	}
@@ -767,8 +768,8 @@ func buildIncidentReport(a *app, recentWindow time.Duration, restartThreshold in
 	return report, nil
 }
 
-func fetchPods(a *app) (*k8sPodList, error) {
-	out, err := a.captureKubectl([]string{"get", "pods", "-A", "-o", "json"})
+func fetchPods(ctx context.Context, a *app) (*k8sPodList, error) {
+	out, err := a.captureKubectlCtx(ctx, []string{"get", "pods", "-A", "-o", "json"})
 	if err != nil {
 		return nil, err
 	}
@@ -779,8 +780,8 @@ func fetchPods(a *app) (*k8sPodList, error) {
 	return &pods, nil
 }
 
-func fetchNodes(a *app) (*k8sNodeList, error) {
-	out, err := a.captureKubectl([]string{"get", "nodes", "-o", "json"})
+func fetchNodes(ctx context.Context, a *app) (*k8sNodeList, error) {
+	out, err := a.captureKubectlCtx(ctx, []string{"get", "nodes", "-o", "json"})
 	if err != nil {
 		return nil, err
 	}

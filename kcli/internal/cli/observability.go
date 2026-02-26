@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -94,14 +95,14 @@ func newHealthCmd(a *app) *cobra.Command {
 			}
 			switch strings.ToLower(strings.TrimSpace(args[0])) {
 			case "pods", "pod":
-				s, err := fetchPodHealthSummary(a)
+				s, err := fetchPodHealthSummary(cmd.Context(), a)
 				if err != nil {
 					return err
 				}
 				printPodHealthSummary(cmd, s)
 				return nil
 			case "nodes", "node":
-				s, err := fetchNodeHealthSummary(a)
+				s, err := fetchNodeHealthSummary(cmd.Context(), a)
 				if err != nil {
 					return err
 				}
@@ -116,11 +117,11 @@ func newHealthCmd(a *app) *cobra.Command {
 }
 
 func printOverallHealth(a *app, cmd *cobra.Command) error {
-	pods, err := fetchPodHealthSummary(a)
+	pods, err := fetchPodHealthSummary(cmd.Context(), a)
 	if err != nil {
 		return err
 	}
-	nodes, err := fetchNodeHealthSummary(a)
+	nodes, err := fetchNodeHealthSummary(cmd.Context(), a)
 	if err != nil {
 		return err
 	}
@@ -140,7 +141,7 @@ func newRestartsCmd(a *app) *cobra.Command {
 		Short:   "List pods sorted by restart count",
 		GroupID: "observability",
 		RunE: func(c *cobra.Command, _ []string) error {
-			pods, err := fetchPods(a)
+			pods, err := fetchPods(c.Context(), a)
 			if err != nil {
 				return err
 			}
@@ -242,14 +243,14 @@ func newInstabilityCmd(a *app) *cobra.Command {
 		GroupID: "observability",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			fmt.Fprintln(cmd.OutOrStdout(), "== Restart Leaders ==")
-			pods, err := fetchPods(a)
+			pods, err := fetchPods(cmd.Context(), a)
 			if err != nil {
 				return err
 			}
 			printRestartTable(cmd, buildRestartRecords(pods, 1, time.Time{}))
 
 			fmt.Fprintln(cmd.OutOrStdout(), "\n== Recent Warning Events ==")
-			records, err := fetchEvents(a)
+			records, err := fetchEvents(cmd.Context(), a)
 			if err != nil {
 				return err
 			}
@@ -266,7 +267,7 @@ func newInstabilityCmd(a *app) *cobra.Command {
 		Use:   "pods",
 		Short: "Pod-only instability summary (restart leaders)",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			pods, err := fetchPods(a)
+			pods, err := fetchPods(cmd.Context(), a)
 			if err != nil {
 				return err
 			}
@@ -297,7 +298,7 @@ func newEventsCmd(a *app) *cobra.Command {
 				}
 				return a.runKubectl(args)
 			}
-			records, err := fetchEvents(a)
+			records, err := fetchEvents(c.Context(), a)
 			if err != nil {
 				return err
 			}
@@ -335,8 +336,8 @@ func newEventsCmd(a *app) *cobra.Command {
 	return cmd
 }
 
-func fetchPodHealthSummary(a *app) (podHealthSummary, error) {
-	list, err := fetchPods(a)
+func fetchPodHealthSummary(ctx context.Context, a *app) (podHealthSummary, error) {
+	list, err := fetchPods(ctx, a)
 	if err != nil {
 		return podHealthSummary{}, err
 	}
@@ -367,8 +368,8 @@ func fetchPodHealthSummary(a *app) (podHealthSummary, error) {
 	return s, nil
 }
 
-func fetchNodeHealthSummary(a *app) (nodeHealthSummary, error) {
-	list, err := fetchNodes(a)
+func fetchNodeHealthSummary(ctx context.Context, a *app) (nodeHealthSummary, error) {
+	list, err := fetchNodes(ctx, a)
 	if err != nil {
 		return nodeHealthSummary{}, err
 	}
@@ -434,8 +435,8 @@ func printNodeHealthSummary(cmd *cobra.Command, s nodeHealthSummary) {
 	fmt.Fprintf(cmd.OutOrStdout(), "  pressure(memory=%d disk=%d pid=%d)\n", s.MemoryPress, s.DiskPress, s.PIDPress)
 }
 
-func fetchEvents(a *app) ([]eventRecord, error) {
-	out, err := a.captureKubectl([]string{"get", "events", "-A", "-o", "json"})
+func fetchEvents(ctx context.Context, a *app) ([]eventRecord, error) {
+	out, err := a.captureKubectlCtx(ctx, []string{"get", "events", "-A", "-o", "json"})
 	if err != nil {
 		return nil, err
 	}
