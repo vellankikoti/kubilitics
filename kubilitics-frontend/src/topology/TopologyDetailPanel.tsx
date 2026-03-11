@@ -1,7 +1,8 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
+import { Copy, Check, ChevronRight } from "lucide-react";
 import type { TopologyResponse, TopologyNode, TopologyEdge, NodeMetrics } from "./types/topology";
 import { categoryIcon, formatBytes, formatCPU } from "./nodes/nodeUtils";
-import { getStatusBadge, getCategoryColor, A11Y } from "./constants/designTokens";
+import { getStatusBadge, getCategoryColor, getEdgeColor, A11Y } from "./constants/designTokens";
 
 export interface TopologyDetailPanelProps {
   selectedNodeId: string | null;
@@ -202,11 +203,36 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function InfoRow({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function InfoRow({ label, value, highlight, copyable = true }: { label: string; value: string; highlight?: boolean; copyable?: boolean }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }).catch(() => {});
+  }, [value]);
+
   return (
-    <div className="flex justify-between py-0.5">
+    <div className="group flex justify-between py-0.5 items-center">
       <span className="text-muted-foreground">{label}</span>
-      <span className={`text-right max-w-[55%] truncate ${highlight ? "font-semibold text-amber-600" : ""}`} title={value}>{value}</span>
+      <span className="flex items-center gap-1 max-w-[60%]">
+        <span className={`text-right truncate ${highlight ? "font-semibold text-amber-600" : ""}`} title={value}>{value}</span>
+        {copyable && (
+          <button
+            type="button"
+            className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-gray-100"
+            onClick={handleCopy}
+            aria-label={`Copy ${label}`}
+          >
+            {copied ? (
+              <Check className="h-3 w-3 text-emerald-500" />
+            ) : (
+              <Copy className="h-3 w-3 text-gray-400" />
+            )}
+          </button>
+        )}
+      </span>
     </div>
   );
 }
@@ -225,31 +251,36 @@ function ConnectionRow({
   const peerId = direction === "outgoing" ? edge.target : edge.source;
   const peerName = peer?.name ?? peerId.split("/").pop() ?? peerId;
   const peerKind = peer?.kind ?? peerId.split("/")[0] ?? "";
-  const arrow = direction === "outgoing" ? "\u2192" : "\u2190";
   const icon = peer ? categoryIcon(peer.category) : "";
+  const edgeColor = getEdgeColor((edge as any).relationshipCategory);
 
   return (
     <button
       type="button"
-      className={`flex w-full items-center gap-1.5 rounded-lg px-1.5 py-1.5 text-left hover:bg-muted/50 ${A11Y.focusRing} ${A11Y.transition}`}
+      className={`group flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-gray-50 border border-transparent hover:border-gray-100 ${A11Y.focusRing} ${A11Y.transition}`}
       onClick={() => onNavigate(peerId)}
       role="listitem"
       aria-label={`${direction === "outgoing" ? "connects to" : "connected from"} ${peerKind} ${peerName} via ${edge.label}`}
     >
-      <span className="text-[10px]" aria-hidden="true">{icon}</span>
-      <span className="text-[10px] text-muted-foreground" aria-hidden="true">{arrow}</span>
+      {/* Direction indicator */}
+      <div
+        className="flex-shrink-0 w-1 h-8 rounded-full"
+        style={{ backgroundColor: edgeColor }}
+        aria-hidden="true"
+      />
+      <span className="text-sm flex-shrink-0" aria-hidden="true">{icon}</span>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[11px] font-medium">{peerName}</div>
-        <div className="flex items-center gap-1 text-[9px] text-muted-foreground">
-          <span>{peerKind}</span>
+        <div className="truncate text-[11px] font-medium text-gray-900">{peerName}</div>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          <span className="text-[9px] text-gray-400">{peerKind}</span>
           {edge.label && (
-            <>
-              <span aria-hidden="true">|</span>
-              <span>{edge.label}</span>
-            </>
+            <span className="inline-flex items-center px-1.5 py-0 rounded text-[9px] font-medium bg-gray-100 text-gray-500">
+              {edge.label}
+            </span>
           )}
         </div>
       </div>
+      <ChevronRight className="h-3 w-3 text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" aria-hidden="true" />
     </button>
   );
 }

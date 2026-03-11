@@ -20,6 +20,7 @@ import { useTopologyWebSocket } from "./hooks/useTopologyWebSocket";
 import { useTopologyStore } from "./store/topologyStore";
 import { buildExportFilename } from "./export/exportTopology";
 import type { ExportFormat } from "./TopologyCanvas";
+import { TopologyWelcomeTips } from "./TopologyWelcomeTips";
 import type { ViewMode } from "./types/topology";
 
 export function TopologyPage() {
@@ -214,11 +215,13 @@ export function TopologyPage() {
         onFitView={handleFitView}
       />
 
-      {/* Breadcrumbs */}
+      {/* Breadcrumbs — clickable for back-navigation */}
       <TopologyBreadcrumbs
         viewMode={viewMode}
         namespace={activeNamespace}
         resource={viewMode === "resource" ? resource : null}
+        onNavigate={handleViewModeChange}
+        onClearNamespace={() => setSelectedNamespaces(new Set())}
       />
 
       {/* Partial error banner */}
@@ -253,6 +256,9 @@ export function TopologyPage() {
         visible={showHelp}
         onClose={() => setShowHelp(false)}
       />
+
+      {/* First-time welcome tips */}
+      <TopologyWelcomeTips />
     </div>
   );
 }

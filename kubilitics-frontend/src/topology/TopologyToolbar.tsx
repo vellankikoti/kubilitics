@@ -267,6 +267,34 @@ export function TopologyToolbar({
           <kbd className="absolute right-2.5 top-1/2 -translate-y-1/2 hidden sm:inline-flex h-5 items-center rounded border border-gray-200 bg-gray-100 px-1.5 text-[10px] font-medium text-gray-400">
             /
           </kbd>
+          {/* Search syntax help — shows when focused with empty query */}
+          {showSearchResults && searchResults.length === 0 && !searchQuery && (
+            <div className="absolute left-0 top-full z-50 mt-1.5 w-80 rounded-xl border border-gray-200 bg-white shadow-2xl p-3">
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Search syntax</div>
+              <div className="space-y-1.5 text-[11px]">
+                <div className="flex items-center gap-2">
+                  <kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono text-[10px] text-gray-500 border border-gray-200">nginx</kbd>
+                  <span className="text-gray-500">Search by name</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono text-[10px] text-gray-500 border border-gray-200">kind:Pod</kbd>
+                  <span className="text-gray-500">Filter by resource type</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono text-[10px] text-gray-500 border border-gray-200">ns:default</kbd>
+                  <span className="text-gray-500">Filter by namespace</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono text-[10px] text-gray-500 border border-gray-200">status:error</kbd>
+                  <span className="text-gray-500">Filter by health status</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <kbd className="px-1.5 py-0.5 rounded bg-gray-100 font-mono text-[10px] text-gray-500 border border-gray-200">label:app=web</kbd>
+                  <span className="text-gray-500">Filter by label</span>
+                </div>
+              </div>
+            </div>
+          )}
           {showSearchResults && searchResults.length > 0 && (
             <div className="absolute left-0 top-full z-50 mt-1.5 max-h-72 w-96 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl">
               <div className="sticky top-0 px-3 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b border-gray-100 bg-white/95 backdrop-blur-sm rounded-t-xl">
