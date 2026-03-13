@@ -702,7 +702,10 @@ export function Sidebar() {
             aria-label="Collapse sidebar"
           >
             <ChevronLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5 shrink-0" aria-hidden />
-            <span className="font-semibold text-[13px]">Collapse Sidebar</span>
+            <span className="font-semibold text-[13px] flex-1 text-left">Collapse Sidebar</span>
+            <kbd className="hidden group-hover:inline-flex items-center rounded border bg-muted/80 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground" aria-hidden>
+              {/Mac|iPod|iPhone|iPad/.test(navigator.userAgent) ? '⌘B' : 'Ctrl+B'}
+            </kbd>
           </button>
         )}
       </div>

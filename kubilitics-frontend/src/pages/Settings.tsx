@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Save, RotateCcw, CheckCircle2, XCircle, Loader2, AlertTriangle, RefreshCw, Download } from 'lucide-react';
+import { Save, RotateCcw, CheckCircle2, XCircle, Loader2, AlertTriangle, RefreshCw, Download, Palette, Keyboard, Info, Sun, Moon, Monitor } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -26,6 +26,8 @@ import {
 } from '@/services/aiService';
 import { DEFAULT_BACKEND_BASE_URL, DEFAULT_AI_BASE_URL, DEFAULT_AI_WS_URL } from '@/lib/backendConstants';
 import { isTauri } from '@/lib/tauri';
+import { useThemeStore, type Theme } from '@/stores/themeStore';
+import { cn } from '@/lib/utils';
 
 const settingsSchema = z.object({
   backendBaseUrl: z.string().url({ message: 'Please enter a valid URL' }),
@@ -693,6 +695,12 @@ export default function Settings() {
         </CardContent>
       </Card>
 
+      {/* ─── Appearance ─── */}
+      <AppearanceSection />
+
+      {/* ─── Keyboard Shortcuts ─── */}
+      <KeyboardShortcutsSection />
+
       {isDesktop && (
         <Card>
           <CardHeader>
@@ -833,6 +841,191 @@ export default function Settings() {
           </CardContent>
         </Card>
       )}
+
+      {/* ─── About ─── */}
+      <AboutSection />
     </div>
+  );
+}
+
+/* ─── Appearance Section ──────────────────────────────────── */
+
+const themeOptions: { value: Theme; icon: typeof Sun; label: string }[] = [
+  { value: 'light', icon: Sun, label: 'Light' },
+  { value: 'dark', icon: Moon, label: 'Dark' },
+  { value: 'system', icon: Monitor, label: 'System' },
+];
+
+function AppearanceSection() {
+  const { theme, setTheme } = useThemeStore();
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    // Check system preference for reduced motion
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduceMotion(mq.matches);
+  }, []);
+
+  const handleReduceMotion = (enabled: boolean) => {
+    setReduceMotion(enabled);
+    document.documentElement.classList.toggle('reduce-motion', enabled);
+    toast.success(enabled ? 'Animations reduced' : 'Animations restored');
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Palette className="h-5 w-5" />
+          Appearance
+        </CardTitle>
+        <CardDescription>
+          Customize the look and feel of Kubilitics.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Theme Selection */}
+        <div className="space-y-3">
+          <label className="text-sm font-medium">Theme</label>
+          <div className="grid grid-cols-3 gap-3">
+            {themeOptions.map(({ value, icon: Icon, label }) => (
+              <button
+                key={value}
+                onClick={() => {
+                  setTheme(value);
+                  toast.success(`Theme set to ${label}`);
+                }}
+                className={cn(
+                  'flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all press-effect',
+                  theme === value
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border-border hover:border-primary/40 hover:bg-muted/50 text-muted-foreground'
+                )}
+                aria-pressed={theme === value}
+                aria-label={`Set theme to ${label}`}
+              >
+                <Icon className="h-6 w-6" />
+                <span className="text-sm font-medium">{label}</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            System theme follows your operating system's light/dark preference.
+          </p>
+        </div>
+
+        {/* Reduce Motion */}
+        <div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
+          <div className="space-y-0.5">
+            <div className="text-sm font-medium">Reduce Motion</div>
+            <div className="text-xs text-muted-foreground">
+              Minimize animations for accessibility or preference
+            </div>
+          </div>
+          <Switch checked={reduceMotion} onCheckedChange={handleReduceMotion} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ─── Keyboard Shortcuts Section ──────────────────────────── */
+
+const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
+const mod = isMac ? '⌘' : 'Ctrl';
+
+const shortcuts: { category: string; items: { keys: string; description: string }[] }[] = [
+  {
+    category: 'Navigation',
+    items: [
+      { keys: `${mod}+K`, description: 'Open command palette / search' },
+      { keys: `${mod}+B`, description: 'Toggle sidebar' },
+      { keys: 'G then P', description: 'Go to Pods' },
+      { keys: 'G then N', description: 'Go to Nodes' },
+      { keys: '/', description: 'Focus search' },
+    ],
+  },
+  {
+    category: 'Actions',
+    items: [
+      { keys: 'Escape', description: 'Close dialog / deselect' },
+      { keys: `${mod}+Enter`, description: 'Submit form / confirm action' },
+      { keys: `${mod}+.`, description: 'Toggle AI assistant' },
+    ],
+  },
+];
+
+function KeyboardShortcutsSection() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Keyboard className="h-5 w-5" />
+          Keyboard Shortcuts
+        </CardTitle>
+        <CardDescription>
+          Navigate faster with keyboard shortcuts.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {shortcuts.map(({ category, items }) => (
+          <div key={category} className="space-y-3">
+            <h4 className="text-sm font-medium text-muted-foreground">{category}</h4>
+            <div className="space-y-2">
+              {items.map(({ keys, description }) => (
+                <div key={keys} className="flex items-center justify-between rounded-lg border px-4 py-2.5">
+                  <span className="text-sm">{description}</span>
+                  <kbd className="inline-flex items-center gap-1 rounded-md border bg-muted px-2 py-1 text-xs font-mono text-muted-foreground">
+                    {keys}
+                  </kbd>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+/* ─── About Section ───────────────────────────────────────── */
+
+function AboutSection() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Info className="h-5 w-5" />
+          About Kubilitics
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="font-medium text-muted-foreground">Product</p>
+            <p>Kubilitics — Kubernetes, Made Human</p>
+          </div>
+          <div>
+            <p className="font-medium text-muted-foreground">Version</p>
+            <p>1.0.0</p>
+          </div>
+          <div>
+            <p className="font-medium text-muted-foreground">Platform</p>
+            <p>{typeof __VITE_IS_TAURI_BUILD__ !== 'undefined' && __VITE_IS_TAURI_BUILD__ ? 'Desktop (Tauri)' : 'Browser'}</p>
+          </div>
+          <div>
+            <p className="font-medium text-muted-foreground">License</p>
+            <p>Proprietary</p>
+          </div>
+        </div>
+        <div className="pt-4 border-t">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            AI-powered Kubernetes operating system with topology visualization, intelligent
+            investigation, and offline-first desktop experience. Built for platform engineers,
+            SREs, and DevOps teams who want deep visibility into their clusters.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
