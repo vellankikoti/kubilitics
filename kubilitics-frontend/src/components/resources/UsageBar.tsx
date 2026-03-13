@@ -40,17 +40,15 @@ export function parseMemory(value: string): number | null {
 }
 
 /**
- * Format CPU for display in cores with full precision (no rounding).
- * Reference: "0", "0.01", "0.015" — small values never rounded to zero.
+ * Format CPU for display in cores with 3 decimal precision.
+ * Always shows 3 decimals so users can see real values (e.g. 0.001 not 0).
  */
 function formatCpuDisplay(value: string): string {
   if (!value || value.trim() === '-') return '-';
   const millicores = parseCpu(value);
   if (millicores === null) return value;
-  if (millicores === 0) return '0';
   const cores = millicores / 1000;
-  const fixed = cores >= 1 ? cores.toFixed(2) : cores.toFixed(3);
-  return fixed.replace(/\.?0+$/, '') || '0';
+  return cores >= 1 ? cores.toFixed(2) : cores.toFixed(3);
 }
 
 /**
@@ -80,15 +78,13 @@ function formatMemoryDisplay(value: string): string {
   return `${num.toFixed(3)} ${unit}`;
 }
 
-/** CPU in cores with 2–3 decimals (e.g. 0.12, 0.003). Never round non-zero usage to zero. */
+/** CPU in cores with 3 decimals (e.g. 0.120, 0.003, 0.000). Always shows 3 decimals. */
 function formatCpuCompact(value: string): string {
   if (!value || value.trim() === '-') return '-';
   const millicores = parseCpu(value);
   if (millicores === null) return value;
-  if (millicores === 0) return '0';
   const cores = millicores / 1000;
-  const fixed = cores >= 1 ? cores.toFixed(2) : cores.toFixed(3);
-  return fixed.replace(/\.?0+$/, '') || '0';
+  return cores >= 1 ? cores.toFixed(2) : cores.toFixed(3);
 }
 
 /** Memory with 2–3 decimals (e.g. 15.55 Mi, 0.36 Mi). Never round non-zero usage to zero. */
