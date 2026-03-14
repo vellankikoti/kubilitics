@@ -71,7 +71,7 @@ export const DashboardLayout = () => {
             <div className="min-h-[24rem] flex flex-col">
               <ClusterResourceIntelligence />
             </div>
-            <div className="min-h-[24rem] flex flex-col rounded-2xl border border-border/60 bg-card p-6 shadow-[var(--shadow-1)]">
+            <div className="min-h-[24rem] flex flex-col rounded-2xl border border-border/60 bg-card p-6 shadow">
               <SectionHeader icon={Zap} title="Quick Actions" />
               <QuickActionsGrid />
             </div>

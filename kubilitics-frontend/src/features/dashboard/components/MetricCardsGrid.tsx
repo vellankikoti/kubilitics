@@ -168,7 +168,7 @@ export const MetricCardsGrid = () => {
                 "relative bg-white dark:bg-[hsl(228,14%,11%)]",
                 "border border-slate-200 dark:border-slate-700",
                 "rounded-2xl overflow-hidden",
-                "shadow-[var(--shadow-1)]",
+                "shadow",
                 /* Layout */
                 "flex items-center gap-4",
                 "py-5 pl-0 pr-5",
@@ -176,7 +176,7 @@ export const MetricCardsGrid = () => {
                 "transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
                 c.hoverBorder,
                 "hover:shadow-[var(--shadow-3)] hover:-translate-y-[2px]",
-                "active:translate-y-0 active:shadow-[var(--shadow-1)]",
+                "active:translate-y-0 active:shadow",
               )}
             >
               {/* ── Left accent stripe ── */}
