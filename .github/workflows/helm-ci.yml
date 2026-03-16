@@ -43,6 +43,11 @@ jobs:
         with:
           version: '3.14.0'
 
+      - name: Add Helm repositories
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo update
+
       - name: Lint chart
         working-directory: deploy/helm/kubilitics
         run: |
@@ -107,6 +112,11 @@ jobs:
           - role: control-plane
           EOF
 
+      - name: Add Helm repositories
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo update
+
       - name: Install chart with test values
         working-directory: deploy/helm/kubilitics
         run: |
@@ -163,6 +173,11 @@ jobs:
           VERSION=$(helm show chart . | grep '^version:' | awk '{print $2}')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Chart version: $VERSION"
+
+      - name: Add Helm repositories
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo update
 
       - name: Package chart
         working-directory: deploy/helm/kubilitics
