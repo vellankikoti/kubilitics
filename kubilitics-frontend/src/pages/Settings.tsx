@@ -80,6 +80,8 @@ export default function Settings() {
   const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const setCurrentClusterId = useBackendConfigStore((s) => s.setCurrentClusterId);
   const setActiveCluster = useClusterStore((s) => s.setActiveCluster);
+  const setClusters = useClusterStore((s) => s.setClusters);
+  const storeClusters = useClusterStore((s) => s.clusters);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -99,6 +101,11 @@ export default function Settings() {
     },
     onSuccess: (_, cluster) => {
       queryClient.invalidateQueries({ queryKey: ['backend', 'clusters', effectiveBackendBaseUrl] });
+
+      // Remove from Zustand store so header dropdown updates immediately
+      const remainingStore = storeClusters.filter((c) => c.id !== cluster.id);
+      setClusters(remainingStore);
+
       if (cluster.id === currentClusterId) {
         const remaining = clusters.filter((c) => c.id !== cluster.id);
         setCurrentClusterId(remaining[0]?.id ?? null);

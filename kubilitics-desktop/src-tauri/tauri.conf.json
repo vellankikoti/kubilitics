@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "identifier": "com.kubilitics.desktop",
   "build": {
+    "beforeDevCommand": "cd ../kubilitics-frontend && npm run dev",
     "beforeBuildCommand": "",
     "devUrl": "http://localhost:5173",
     "frontendDist": "../dist"

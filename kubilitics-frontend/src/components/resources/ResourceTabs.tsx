@@ -42,8 +42,8 @@ export function ResourceTabs({ tabs, activeTab, onTabChange, className }: Resour
                   'relative flex items-center gap-2 shrink-0 px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200',
                   'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background',
                   isActive
-                    ? 'bg-primary text-primary-foreground shadow-md border border-primary font-semibold'
-                    : 'text-foreground/80 hover:text-foreground hover:bg-muted/60 border border-transparent'
+                    ? 'bg-primary/10 text-primary shadow-sm border border-primary/25 font-semibold'
+                    : 'text-foreground/70 hover:text-foreground hover:bg-muted/60 border border-transparent'
                 )}
               >
                 {Icon && <Icon className="h-4 w-4 shrink-0" aria-hidden />}
@@ -53,7 +53,7 @@ export function ResourceTabs({ tabs, activeTab, onTabChange, className }: Resour
                     className={cn(
                       'shrink-0 min-w-[1.25rem] h-5 px-1.5 rounded-full text-[10px] font-semibold flex items-center justify-center',
                       isActive
-                        ? 'bg-primary-foreground/20 text-primary-foreground'
+                        ? 'bg-primary/15 text-primary'
                         : 'bg-muted text-foreground/70'
                     )}
                   >

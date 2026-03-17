@@ -98,6 +98,10 @@ export function useAutoConnect(): UseAutoConnectReturn {
   const [isResolved, setIsResolved] = useState(false);
 
   // Guards
+  // NOTE: didRun uses a module-level flag (not useRef) to survive React StrictMode
+  // double-mount in development. StrictMode unmounts→remounts, which aborts the
+  // first controller, but didRun.current is already true so the second mount skips.
+  // Using a ref that resets on unmount would cause the same issue.
   const didRun = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -187,6 +191,7 @@ export function useAutoConnect(): UseAutoConnectReturn {
    * 6. If 0 -> resolved with empty (user needs to add manually)
    */
   useEffect(() => {
+    console.log('[auto-connect] effect: isDesktopMode=', isDesktopMode, 'didRun=', didRun.current);
     if (!isDesktopMode || didRun.current) return;
     didRun.current = true;
 
@@ -212,12 +217,15 @@ export function useAutoConnect(): UseAutoConnectReturn {
     (async () => {
       try {
         const baseUrl = getEffectiveBackendBaseUrl(storedBackendUrl);
+        console.log('[auto-connect] baseUrl:', baseUrl || '(empty, using proxy)');
 
         // Fetch registered + discovered in parallel
         const [registered, discovered] = await Promise.all([
-          getClusters(baseUrl).catch(() => [] as BackendCluster[]),
-          discoverClusters(baseUrl).catch(() => [] as BackendCluster[]),
+          getClusters(baseUrl).catch((e) => { console.warn('[auto-connect] getClusters failed:', e); return [] as BackendCluster[]; }),
+          discoverClusters(baseUrl).catch((e) => { console.warn('[auto-connect] discoverClusters failed:', e); return [] as BackendCluster[]; }),
         ]);
+
+        console.log('[auto-connect] registered:', registered.length, 'discovered:', discovered.length);
 
         if (controller.signal.aborted) return;
 
@@ -226,8 +234,11 @@ export function useAutoConnect(): UseAutoConnectReturn {
         const unregistered = discovered.filter((d) => !registeredContexts.has(d.context));
         const allBackend = [...registered, ...unregistered];
 
+        console.log('[auto-connect] total contexts:', allBackend.length, allBackend.map(c => c.name));
+
         if (allBackend.length === 0) {
           // No contexts found at all
+          console.log('[auto-connect] no contexts found, resolving empty');
           setIsAutoConnecting(false);
           setIsResolved(true);
           return;
@@ -281,11 +292,14 @@ export function useAutoConnect(): UseAutoConnectReturn {
         }
 
         // Multiple contexts: show picker
+        console.log('[auto-connect] multiple contexts detected, showing picker');
         setContexts(allContexts);
 
         // Pre-select the current-context if available
         const current = allContexts.find((c) => c.isCurrent);
-        setSelectedContext(current?.context ?? allContexts[0]?.context ?? null);
+        const selected = current?.context ?? allContexts[0]?.context ?? null;
+        console.log('[auto-connect] pre-selected context:', selected);
+        setSelectedContext(selected);
 
         clearTimeout(timeoutId);
         setIsAutoConnecting(false);
@@ -304,8 +318,13 @@ export function useAutoConnect(): UseAutoConnectReturn {
     })();
 
     return () => {
+      // NOTE: Do NOT call controller.abort() here.
+      // React StrictMode unmounts→remounts in dev. If we abort on unmount,
+      // the async flow from the first mount (which we want to keep running
+      // since didRun prevents re-execution) gets killed at the signal check.
+      // The timeout self-cleans, and navigation away will unmount the whole
+      // component tree anyway.
       clearTimeout(timeoutId);
-      controller.abort();
     };
     // Run once on mount — dependencies are stable refs/setters
     // eslint-disable-next-line react-hooks/exhaustive-deps

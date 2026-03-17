@@ -4,6 +4,9 @@ import { visualizer } from "rollup-plugin-visualizer";
 import path from "path";
 
 const isTauriBuild = process.env.TAURI_BUILD === 'true';
+// Tauri sets TAURI_ENV_PLATFORM during both `cargo tauri dev` and `cargo tauri build`.
+// When present, we're running inside a real Tauri webview — do NOT mock the Tauri API.
+const isTauriDev = !!process.env.TAURI_ENV_PLATFORM;
 
 // Suppress noisy "ws proxy socket error: write EPIPE" messages that flood the
 // console when the backend isn't running. These are harmless in dev — the
@@ -106,6 +109,7 @@ export default defineConfig(({ mode }) => ({
       return {
         "/api": proxyOptions("/api"),
         "/health": proxyOptions("/health"),
+        "/ws": { target, changeOrigin: true, ws: true, configure: (proxy: any) => { proxy.on("error", () => {}); } },
       };
     })(),
   },
@@ -134,9 +138,10 @@ export default defineConfig(({ mode }) => ({
       "@utils": path.resolve(__dirname, "./src/utils"),
       "@lib": path.resolve(__dirname, "./src/lib"),
       "@i18n": path.resolve(__dirname, "./src/i18n"),
-      // Only mock Tauri APIs when running in browser (not in real Tauri desktop builds).
-      // TAURI_BUILD=true means we're building for the actual desktop app — use real @tauri-apps/api.
-      ...(isTauriBuild ? {} : {
+      // Only mock Tauri APIs when running in browser without Tauri.
+      // In `cargo tauri dev` (TAURI_ENV_PLATFORM set) or production builds (TAURI_BUILD=true),
+      // use the real @tauri-apps/api so IPC calls go to the Rust backend.
+      ...((isTauriBuild || isTauriDev) ? {} : {
         "@tauri-apps/api/core": path.resolve(__dirname, "./src/mocks/tauri-core.ts"),
       }),
     },

@@ -29,6 +29,8 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { useFleetOverview } from '@/hooks/useFleetOverview';
 import type { FleetCluster, FleetAggregates } from '@/hooks/useFleetOverview';
 import { useBackendConfigStore } from '@/stores/backendConfigStore';
+import { useClusterStore } from '@/stores/clusterStore';
+import { useQueryClient } from '@tanstack/react-query';
 
 // ─── Animation variants ──────────────────────────────────────────────────────
 
@@ -303,11 +305,28 @@ function EmptyState() {
 
 export default function FleetDashboard() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const setCurrentClusterId = useBackendConfigStore((s) => s.setCurrentClusterId);
+  const { setActiveCluster, clusters: storeClusters } = useClusterStore();
   const { clusters, aggregates, isLoading, isError, error } = useFleetOverview();
 
   function handleClusterClick(cluster: FleetCluster) {
+    // Update BOTH stores so header, topology exports, and all downstream
+    // consumers see the correct cluster immediately.
     setCurrentClusterId(cluster.id);
+
+    // Find the matching Cluster object from the clusterStore
+    const storeCluster = storeClusters.find((c) => c.id === cluster.id);
+    if (storeCluster) {
+      setActiveCluster(storeCluster);
+    }
+
+    // Clear stale queries from the previous cluster so fresh data loads
+    queryClient.removeQueries({ queryKey: ['k8s'] });
+    queryClient.removeQueries({ queryKey: ['backend', 'resources'] });
+    queryClient.removeQueries({ queryKey: ['backend', 'resource'] });
+    queryClient.removeQueries({ queryKey: ['backend', 'events'] });
+
     navigate(`/dashboard?cluster=${encodeURIComponent(cluster.id)}`);
   }
 
