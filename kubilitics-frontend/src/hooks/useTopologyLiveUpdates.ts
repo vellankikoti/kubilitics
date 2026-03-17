@@ -2,16 +2,21 @@
  * Task 8.4: Real-time topology updates via WebSocket
  * When backend broadcasts resource_update or topology_update, invalidate topology query
  * so useClusterTopology refetches and the graph updates without full page refresh.
+ *
+ * NOTE: Resource changes are silently applied — no toast per event. Showing a toast
+ * for every pod/deployment change would flood the UI in any real cluster.
  */
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useBackendWebSocket } from './useBackendWebSocket';
-import { toast } from 'sonner';
 
 export interface UseTopologyLiveUpdatesOptions {
   clusterId: string | null | undefined;
   enabled?: boolean;
 }
+
+/** Batch invalidation window (ms) to avoid rapid-fire refetches. */
+const INVALIDATION_DEBOUNCE_MS = 500;
 
 /**
  * Subscribes to backend WebSocket; on resource_update or topology_update
@@ -22,20 +27,20 @@ export function useTopologyLiveUpdates({
   enabled = true,
 }: UseTopologyLiveUpdatesOptions) {
   const queryClient = useQueryClient();
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onMessage = useCallback(
     (data: { type?: string; event?: string; resource?: Record<string, unknown> }) => {
       if (!clusterId) return;
       const type = data.type;
-      const event = data.event;
 
-      if (type === 'resource_update' && event) {
-        queryClient.invalidateQueries({ queryKey: ['topology', clusterId] });
-        const label = event === 'added' ? 'New resource added' : event === 'modified' ? 'Resource updated' : 'Resource deleted';
-        toast.info(label);
-      } else if (type === 'topology_update') {
-        queryClient.invalidateQueries({ queryKey: ['topology', clusterId] });
-        toast.info('Topology updated');
+      if (type === 'resource_update' || type === 'topology_update') {
+        // Debounce: batch rapid events into a single invalidation
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+          debounceRef.current = null;
+          queryClient.invalidateQueries({ queryKey: ['topology', clusterId] });
+        }, INVALIDATION_DEBOUNCE_MS);
       }
     },
     [clusterId, queryClient]

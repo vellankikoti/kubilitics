@@ -188,9 +188,9 @@ export default function ClusterConnect() {
           : '';
 
     if (description && description !== fallbackTitle) {
-      toast.error(fallbackTitle, { description });
+      toast.error(fallbackTitle, { id: 'cluster-connect-error', description });
     } else {
-      toast.error(fallbackTitle);
+      toast.error(fallbackTitle, { id: 'cluster-connect-error' });
     }
   }, []);
 
@@ -1187,11 +1187,11 @@ function InClusterSetupView({ isBackendConfigured, health, handleConnect, naviga
         toast.success('Backend connected', { description: url });
       } else {
         setConnectionStatus('error');
-        toast.error('Backend unreachable', { description: `HTTP ${res.status}` });
+        toast.error('Backend unreachable', { id: 'backend-health-check', description: `HTTP ${res.status}` });
       }
     } catch (err) {
       setConnectionStatus('error');
-      toast.error('Connection failed', { description: String(err) });
+      toast.error('Connection failed', { id: 'backend-health-check', description: String(err) });
     } finally {
       setIsTestingConnection(false);
     }

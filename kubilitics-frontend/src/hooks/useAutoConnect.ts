@@ -157,6 +157,7 @@ export function useAutoConnect(): UseAutoConnectReturn {
       const message = err instanceof Error ? err.message : String(err);
       setError(message);
       toast.error('Connection failed', {
+        id: 'cluster-connect-status',
         description: message,
       });
     } finally {
@@ -202,6 +203,7 @@ export function useAutoConnect(): UseAutoConnectReturn {
         setIsResolved(true);
         setError('Auto-connect timed out');
         toast.warning('Auto-connect timed out', {
+          id: 'auto-connect-status',
           description: 'Select a context manually to continue.',
         });
       }
@@ -295,6 +297,7 @@ export function useAutoConnect(): UseAutoConnectReturn {
         setIsAutoConnecting(false);
         setIsResolved(true);
         toast.error('Auto-connect failed', {
+          id: 'auto-connect-status',
           description: message,
         });
       }

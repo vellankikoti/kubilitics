@@ -154,11 +154,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
         theme={effectiveTheme}
         offset={24}
         gap={8}
-        visibleToasts={5}
+        visibleToasts={3}
         closeButton
         richColors={false}
         toastOptions={{
-          duration: 4000,
+          duration: 3500,
           classNames: {
             toast: "apple-toast",
           },

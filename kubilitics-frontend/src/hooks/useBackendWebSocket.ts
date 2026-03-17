@@ -6,10 +6,13 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 
-const DEFAULT_MAX_RETRIES = 10;
-const INITIAL_RECONNECT_MS = 1000;
+const DEFAULT_MAX_RETRIES = 20;
+const INITIAL_RECONNECT_MS = 2000;
 const MAX_RECONNECT_MS = 30_000;
-const BACKOFF_MULTIPLIER = 2;
+const BACKOFF_MULTIPLIER = 1.5;
+
+/** Stable toast ID so we never stack multiple "live updates paused" toasts. */
+const WS_TOAST_ID = 'ws-live-updates-paused';
 
 export interface BackendWebSocketMessage {
   type?: string;
@@ -68,6 +71,8 @@ export function useBackendWebSocket(options: UseBackendWebSocketOptions = {}) {
       retryCountRef.current = 0;
       setConnected(true);
       setError(null);
+      // Dismiss any lingering "live updates paused" toast on successful reconnect
+      toast.dismiss(WS_TOAST_ID);
     };
 
     ws.onmessage = (event) => {
@@ -89,12 +94,13 @@ export function useBackendWebSocket(options: UseBackendWebSocketOptions = {}) {
         const errorMsg = `WebSocket disconnected after ${maxRetries} retries`;
         setError(errorMsg);
 
-        // Show a high-visibility toast with a clear call to action.
-        // Let it auto-dismiss after a short time; persistent state is surfaced
-        // via BackendStatusBanner and ConnectionRequiredBanner.
-        toast.error('Live updates paused', {
-          description: 'WebSocket connection to the backend was lost. Click Reconnect to try again.',
-          duration: 12000,
+        // Show a single warning toast (not error) with a reconnect action.
+        // Uses a stable ID to prevent duplicate toasts from stacking.
+        // Persistent state is surfaced via BackendStatusBanner.
+        toast.warning('Live updates paused', {
+          id: WS_TOAST_ID,
+          description: 'Real-time connection lost. Click Reconnect to try again.',
+          duration: 8000,
           action: {
             label: 'Reconnect',
             onClick: () => {

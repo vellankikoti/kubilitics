@@ -107,8 +107,9 @@ function useNotificationWebSocket(
       // Map WebSocket event types to notification categories
       const eventType = data.type ?? data.event ?? '';
 
-      // Skip heartbeat/ping messages
+      // Skip heartbeat/ping and routine resource change events (too noisy for notification centre)
       if (eventType === 'ping' || eventType === 'heartbeat') return;
+      if (eventType === 'resource_update' || eventType === 'topology_update') return;
 
       // Determine category from event type
       let category: NotificationCategory = 'cluster';
