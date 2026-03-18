@@ -67,7 +67,7 @@ test-reports:
 env-example:
 	@if [ ! -f .env ]; then cp -n .env.example .env 2>/dev/null || true; echo "Created .env from .env.example (if present)"; fi
 
-# Build desktop app (Go backend + kcli + frontend + Tauri bundle)
+# Build desktop app (Go backend + frontend + Tauri bundle)
 # Output: kubilitics-desktop/src-tauri/target/release/bundle/
 desktop: backend
 	@chmod +x scripts/build-desktop.sh
