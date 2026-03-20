@@ -87,7 +87,7 @@ RUN apk --no-cache add curl ca-certificates && \
     test -s /usr/local/bin/kubectl && \
     echo "kubectl ${KUBECTL_VERSION} for ${KARCH} downloaded: $(ls -lh /usr/local/bin/kubectl | awk '{print $5}')"
 
-# ── Stage 3: Runtime ──────────────────────────────────────────────────────────
+# ── Stage 4: Runtime ──────────────────────────────────────────────────────────
 # Runtime stage uses the TARGET platform — this is the actual container image.
 FROM alpine:${ALPINE_VERSION} AS runtime
 

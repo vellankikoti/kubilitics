@@ -74,7 +74,7 @@ export function BackendStartupOverlay() {
           if (!isHiddenRef.current) {
             isHiddenRef.current = true;
             resetBackendCircuit();
-          markBackendReady();
+            markBackendReady();
             // Hide overlay immediately when backend becomes ready
             setVisible(false);
           }
@@ -112,7 +112,7 @@ export function BackendStartupOverlay() {
           if (status === 'ready' && !isHiddenRef.current) {
             isHiddenRef.current = true;
             resetBackendCircuit();
-          markBackendReady();
+            markBackendReady();
             setVisible(false);
             if (pollIntervalRef.current) {
               clearInterval(pollIntervalRef.current);

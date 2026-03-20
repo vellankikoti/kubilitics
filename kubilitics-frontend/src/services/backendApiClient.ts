@@ -1711,7 +1711,7 @@ export async function getClusterKubeconfig(
   try {
     response = await fetch(url, { headers });
   } catch (e) {
-    if (isNetworkError(e) && backendEverReady) markBackendUnavailable();
+    if (isNetworkError(e) && !isCORSError(e) && backendEverReady) markBackendUnavailable();
     throw e;
   }
   if (!response.ok) {
