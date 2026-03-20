@@ -21,7 +21,7 @@ export function SectionOverviewHeader({
     icon: Icon,
     onSync,
     isSyncing = false,
-    showAiButton = true,
+    showAiButton = false,
     aiButtonText = 'AI Recommendations',
     extraActions,
 }: SectionOverviewHeaderProps) {

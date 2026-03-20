@@ -47,7 +47,26 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 RUN test -f /out/kubilitics-backend || \
     (echo "ERROR: backend binary not found (TARGETOS=${TARGETOS} TARGETARCH=${TARGETARCH})" && exit 1)
 
-# ── Stage 2: kubectl downloader ───────────────────────────────────────────────
+# ── Stage 2: kcli builder ─────────────────────────────────────────────────────
+# Clone and cross-compile kcli for the target platform.
+# Runs natively on amd64, produces binary for TARGETARCH via Go cross-compilation.
+FROM --platform=linux/amd64 golang:${GO_VERSION}-alpine AS kcli-builder
+
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
+ENV GOTOOLCHAIN=local
+
+RUN apk --no-cache add git
+RUN git clone --depth 1 https://github.com/kubilitics/kubilitics-kcli.git /kcli
+
+WORKDIR /kcli
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -ldflags="-s -w" -o /out/kcli ./cmd/kcli && \
+    test -f /out/kcli
+
+# ── Stage 3: kubectl downloader ───────────────────────────────────────────────
 # Download the pinned kubectl binary for the TARGET architecture.
 # Runs on amd64 (native), downloads the correct arch binary for the target image.
 FROM --platform=linux/amd64 alpine:${ALPINE_VERSION} AS kubectl-fetcher
@@ -84,6 +103,9 @@ RUN addgroup -g 1000 kubilitics && \
 # kubectl (pinned version, correct arch downloaded in kubectl-fetcher stage)
 COPY --from=kubectl-fetcher /usr/local/bin/kubectl /usr/local/bin/kubectl
 
+# kcli (cross-compiled from kubilitics-kcli repo)
+COPY --from=kcli-builder /out/kcli /usr/local/bin/kcli
+
 # Application binaries (cross-compiled natively, correct arch)
 COPY --from=builder /out/kubilitics-backend .
 
@@ -93,6 +115,7 @@ RUN mkdir -p /data && \
     # Verify binaries are present and non-empty (cannot exec cross-arch binaries
     # at image build time — smoke test happens at container startup instead)
     test -s /usr/local/bin/kubectl && \
+    test -s /usr/local/bin/kcli && \
     test -s /app/kubilitics-backend
 
 USER kubilitics
