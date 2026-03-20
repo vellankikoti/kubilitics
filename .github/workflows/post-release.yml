@@ -16,13 +16,15 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      HAS_WINGET_TOKEN: ${{ secrets.WINGET_TOKEN != '' }}
     steps:
       - name: Skip if no token
-        if: ${{ secrets.WINGET_TOKEN == '' }}
+        if: env.HAS_WINGET_TOKEN != 'true'
         run: echo "WINGET_TOKEN not set — skipping winget submission"
 
       - uses: vedantmgoyal9/winget-releaser@v2
-        if: ${{ secrets.WINGET_TOKEN != '' }}
+        if: env.HAS_WINGET_TOKEN == 'true'
         with:
           identifier: Kubilitics.Kubilitics
           installers-regex: 'Kubilitics-.*-x64-setup\.exe$'
@@ -34,6 +36,8 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      HAS_HOMEBREW_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -42,11 +46,11 @@ jobs:
         run: |
           TAG="${{ github.event.workflow_run.head_branch }}"
           VERSION="${TAG#v}"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Update Homebrew formula
-        if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' }}
+        if: env.HAS_HOMEBREW_TOKEN == 'true'
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
@@ -58,7 +62,7 @@ jobs:
 
           # Update kubilitics formula version
           if [ -f "packaging/homebrew/kubilitics.rb" ]; then
-            sed -e "s/version \".*\"/version \"$VERSION\"/" \
+            sed -e "s/version \".*\"/version \"${VERSION}\"/" \
               packaging/homebrew/kubilitics.rb > kubilitics-updated.rb
 
             git clone "https://x-access-token:${GH_TOKEN}@github.com/kubilitics/homebrew-tap.git" tap
@@ -67,6 +71,6 @@ jobs:
             git config user.name "kubilitics-bot"
             git config user.email "bot@kubilitics.io"
             git add Formula/kubilitics.rb
-            git commit -m "kubilitics $VERSION" || echo "No changes"
+            git commit -m "kubilitics ${VERSION}" || echo "No changes"
             git push
           fi

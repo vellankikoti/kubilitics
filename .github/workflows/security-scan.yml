@@ -30,11 +30,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
-        # Build from repo root so Dockerfile can COPY both kubilitics-backend/ and kcli/
-        run: docker build -t kubilitics-backend:test -f kubilitics-backend/Dockerfile .
+        # Dockerfile is self-contained: it clones kcli from GitHub during build
+        run: docker build -t kubilitics-backend:test kubilitics-backend/
 
       - name: Run Trivy vulnerability scanner (table output)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           image-ref: 'kubilitics-backend:test'
           format: 'table'
