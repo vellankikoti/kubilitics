@@ -20,7 +20,8 @@ const PageLoader = () => (
 );
 
 // Pages - Entry & Setup
-const SettingsPage = lazy(() => import("./pages/Settings"));
+// Settings is eagerly imported to avoid Tauri WebView lazy-load failures
+import SettingsPage from "./pages/Settings";
 const ModeSelection = lazy(() => import("./pages/ModeSelection"));
 const ClusterConnect = lazy(() => import("./pages/ClusterConnect"));
 const ConnectedRedirect = lazy(() => import("./pages/ConnectedRedirect"));
