@@ -104,22 +104,22 @@ function InlinePortForward({
   );
 
   const handleStart = async () => {
+    // Prevent double-click
+    if (isStarting) return;
     if (!selectedPort || !localPort) {
       toast.error('Please select a port and local port');
       return;
     }
-    // Resolve cluster ID from multiple sources
     const resolvedClusterId = clusterId
       || useBackendConfigStore.getState().currentClusterId
       || useClusterStore.getState().activeCluster?.id
       || null;
-    // baseUrl can be '' in dev mode (Vite proxy) — that's valid
     if (baseUrl == null) {
       toast.error('Backend URL not configured');
       return;
     }
     if (!resolvedClusterId) {
-      toast.error(`No cluster ID found. Debug: backendStore=${useBackendConfigStore.getState().currentClusterId}, clusterStore=${useClusterStore.getState().activeCluster?.id}`);
+      toast.error('No cluster connected. Select a cluster first.');
       return;
     }
     setIsStarting(true);
@@ -144,9 +144,8 @@ function InlinePortForward({
         startedAt: Date.now(),
       });
       toast.success('Port forwarding active', {
-        description: `Tunnel open at http://localhost:${localPort}`,
+        description: `Click "Open" to access http://localhost:${localPort}`,
       });
-      void openExternal(`http://localhost:${localPort}`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       toast.error('Port forward failed', { description: msg });
