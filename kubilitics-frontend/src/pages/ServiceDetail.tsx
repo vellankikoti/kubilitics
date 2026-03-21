@@ -209,12 +209,12 @@ function InlinePortForward({
       {/* Create new forward */}
       <SectionCard title="Create Port Forward" icon={ExternalLink}>
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="flex flex-wrap items-end gap-4">
             {/* Service port selection */}
-            <div>
+            <div className="flex-1 min-w-[180px]">
               <label className="text-sm font-medium mb-1.5 block">Container Port</label>
               <select
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
                 value={selectedPort}
                 onChange={(e) => {
                   const p = Number(e.target.value);
@@ -231,23 +231,24 @@ function InlinePortForward({
             </div>
 
             {/* Local port */}
-            <div>
+            <div className="flex-1 min-w-[180px]">
               <label className="text-sm font-medium mb-1.5 block">Local Port</label>
               <Input
                 type="number"
                 value={localPort}
                 onChange={(e) => setLocalPort(e.target.value)}
                 placeholder="e.g. 8080"
+                className="h-10"
               />
             </div>
 
             {/* Start button */}
-            <div className="flex items-end">
+            <div>
               <Button
                 type="button"
                 onClick={handleStart}
                 disabled={isStarting || !selectedPort || !localPort}
-                className="w-full"
+                className="h-10 px-6"
               >
                 {isStarting ? (
                   <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Starting...</>
@@ -521,7 +522,7 @@ export default function ServiceDetail() {
       content: (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SectionCard title="Service info" icon={Globe}>
-            <div className="grid grid-cols-2 gap-y-3 gap-x-6 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-8 text-sm">
               <DetailRow label="Type" value={
                 <Badge variant="secondary" className="font-semibold">{serviceType}</Badge>
               } />
@@ -551,10 +552,10 @@ export default function ServiceDetail() {
               <DetailRow label="IP Family Policy" value={
                 <Badge variant="outline">{svc.spec?.ipFamilyPolicy ?? '—'}</Badge>
               } />
-              <DetailRow label="Publish Not Ready Addresses" value={
-                <Badge variant={svc.spec?.publishNotReadyAddresses ? 'destructive' : 'outline'}>
-                  {svc.spec?.publishNotReadyAddresses ? 'true' : 'false'}
-                </Badge>
+              <DetailRow label="Publish Not Ready" value={
+                <span className={cn('font-semibold', svc.spec?.publishNotReadyAddresses ? 'text-destructive' : 'text-muted-foreground')}>
+                  {svc.spec?.publishNotReadyAddresses ? 'Yes' : 'No'}
+                </span>
               } />
               <DetailRow label="Age" value={
                 <span className="font-medium">{age}</span>
