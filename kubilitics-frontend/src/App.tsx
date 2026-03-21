@@ -265,6 +265,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
   const [isHydrated, setIsHydrated] = useState(false);
+  const [restoreTimedOut, setRestoreTimedOut] = useState(false);
   const { restoreAttempted, restoreFailed } = useRestoreClusterFromBackend();
 
   useEffect(() => {
@@ -286,15 +287,24 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Safety timeout: if restore takes more than 8 seconds, stop waiting
+  useEffect(() => {
+    const timer = setTimeout(() => setRestoreTimedOut(true), 8000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Settings page is always accessible, even without cluster
+  const isSettingsPage = location.pathname === '/settings';
+
   if (!isHydrated) return <PageLoader />;
 
   // If we have a persisted cluster ID but no activeCluster yet, wait for restore (or show loader until it fails).
   const canRestore = currentClusterId && isBackendConfigured();
-  if (!activeCluster && canRestore && !restoreFailed) {
+  if (!activeCluster && canRestore && !restoreFailed && !restoreTimedOut && !isSettingsPage) {
     return <PageLoader />;
   }
 
-  if (!activeCluster) {
+  if (!activeCluster && !isSettingsPage) {
     const returnUrl = encodeURIComponent(location.pathname + location.search);
     return <Navigate to={returnUrl ? `/connect?returnUrl=${returnUrl}` : '/connect'} replace />;
   }
