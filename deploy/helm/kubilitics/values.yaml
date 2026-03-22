@@ -90,10 +90,10 @@ config:
   logLevel: "info"
   # Authentication mode: "required" (production default), "optional" (accepts Bearer or anonymous), "disabled" (no auth)
   # IMPORTANT: "required" mandates JWT tokens for all API access. Set secret.authJWTSecret (>= 32 chars).
-  authMode: "required"
-  # allowedOrigins for CORS. REQUIRED in production: set to your frontend origin(s), e.g. ["https://kubilitics.example.com"].
+  authMode: "optional"
+  # allowedOrigins for CORS. REQUIRED in production: set to your frontend origin(s), e.g. "https://kubilitics.example.com".
   # Do not use "*" in production. Development default in backend is localhost:5173, localhost:819.
-  allowedOrigins: "https://your-domain.com"
+  allowedOrigins: "http://localhost:5173,http://localhost:819"
   requestTimeoutSec: 30
   topologyTimeoutSec: 30
   shutdownTimeoutSec: 15

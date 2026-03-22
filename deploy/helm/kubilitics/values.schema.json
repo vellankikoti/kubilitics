@@ -346,10 +346,13 @@
   "allOf": [
     {
       "if": {
+        "required": ["config"],
         "properties": {
           "config": {
+            "required": ["database"],
             "properties": {
               "database": {
+                "required": ["type"],
                 "properties": {
                   "type": {
                     "const": "postgresql"
@@ -384,8 +387,10 @@
     },
     {
       "if": {
+        "required": ["config"],
         "properties": {
           "config": {
+            "required": ["authMode"],
             "properties": {
               "authMode": {
                 "const": "required"
