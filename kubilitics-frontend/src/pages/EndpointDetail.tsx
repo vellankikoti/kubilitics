@@ -26,6 +26,7 @@ import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/back
 import { useActiveClusterId } from '@/hooks/useActiveClusterId';
 import { toast } from 'sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
+import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 
 interface EndpointsResource extends KubernetesResource {
   subsets?: Array<{
@@ -176,6 +177,7 @@ export default function EndpointDetail() {
               </CardContent>
             </Card>
           ))}
+          <ResourceOverviewMetadata metadata={ep.metadata} skipMetadataGrid />
         </div>
       ),
     },

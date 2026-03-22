@@ -23,6 +23,7 @@ import { useActiveClusterId } from '@/hooks/useActiveClusterId';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
 import { toast } from 'sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
+import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 
 interface ValidatingWebhookResource extends KubernetesResource {
   webhooks?: Array<{
@@ -200,6 +201,7 @@ export default function ValidatingWebhookDetail() {
               </Card>
             ))
           )}
+          <ResourceOverviewMetadata metadata={wh?.metadata} skipMetadataGrid />
         </div>
       ),
     },

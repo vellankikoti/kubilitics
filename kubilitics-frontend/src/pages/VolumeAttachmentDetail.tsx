@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
+import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 import {
   ResourceDetailLayout,
   MetadataSection,
@@ -184,6 +185,7 @@ export default function VolumeAttachmentDetail() {
               </div>
             </SectionCard>
           )}
+          <ResourceOverviewMetadata metadata={va?.metadata} skipMetadataGrid />
         </div>
       ),
     },

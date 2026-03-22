@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
+import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 import {
   ResourceDetailLayout,
   ResourceComparisonView,
@@ -180,6 +181,7 @@ export default function DeviceClassDetail() {
               ) : null}
             </div>
           </SectionCard>
+          <ResourceOverviewMetadata metadata={dc?.metadata} skipMetadataGrid />
         </div>
       ),
     },

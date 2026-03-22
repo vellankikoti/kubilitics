@@ -27,6 +27,7 @@ import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { toast } from 'sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
+import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 
 interface NetworkPolicyResource extends KubernetesResource {
   spec?: {
@@ -87,7 +88,6 @@ export default function NetworkPolicyDetail() {
   const updateNetworkPolicy = useUpdateK8sResource('networkpolicies');
 
   const podsInNs = useK8sResourceList<KubernetesResource>('pods', namespace, { enabled: !!namespace });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const podSelector = np.spec?.podSelector?.matchLabels ?? {};
   const affectedPods = useMemo(() => {
     if (!podsInNs.data?.items?.length || !Object.keys(podSelector).length) return [];
@@ -277,6 +277,7 @@ export default function NetworkPolicyDetail() {
               </CardContent>
             </Card>
           )}
+          <ResourceOverviewMetadata metadata={np.metadata} skipMetadataGrid />
         </div>
       ),
     },

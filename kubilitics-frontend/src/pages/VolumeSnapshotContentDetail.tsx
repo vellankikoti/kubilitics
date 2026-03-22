@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
+import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 import {
   ResourceDetailLayout,
   MetadataSection,
@@ -125,8 +126,8 @@ export default function VolumeSnapshotContentDetail() {
   const sourceSpec = spec.source ?? {};
   const vsRef = spec.volumeSnapshotRef ?? {};
 
-  const driver = vsc?.spec?.driver ?? (vsc as unknown as Record<string, unknown>)?.driver ?? '—';
-  const deletionPolicy = vsc?.spec?.deletionPolicy ?? (vsc as unknown as Record<string, unknown>)?.deletionPolicy ?? 'Delete';
+  const driver = vsc?.spec?.driver ?? (vsc as any)?.driver ?? '—';
+  const deletionPolicy = vsc?.spec?.deletionPolicy ?? (vsc as any)?.deletionPolicy ?? 'Delete';
   const snapshotClass = spec.volumeSnapshotClassName ?? '—';
   const restoreSize = status.restoreSize ?? '—';
   const readyToUse = status.readyToUse === true;
@@ -199,6 +200,7 @@ export default function VolumeSnapshotContentDetail() {
               </Link>
             </SectionCard>
           )}
+          <ResourceOverviewMetadata metadata={vsc?.metadata} skipMetadataGrid />
         </div>
       ),
     },

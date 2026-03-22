@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
+import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
 import {
   ResourceDetailLayout,
@@ -169,6 +170,7 @@ export default function ComponentStatusDetail() {
               </CardContent>
             </Card>
           </div>
+          <ResourceOverviewMetadata metadata={cs?.metadata} skipMetadataGrid />
         </div>
       ),
     },

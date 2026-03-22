@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
+import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 import {
   ResourceDetailLayout,
   MetadataSection,
@@ -286,6 +287,7 @@ export default function RuntimeClassDetail() {
               </CardContent>
             </Card>
           </div>
+          <ResourceOverviewMetadata metadata={k8sRc?.metadata} skipMetadataGrid />
         </div>
       ),
     },

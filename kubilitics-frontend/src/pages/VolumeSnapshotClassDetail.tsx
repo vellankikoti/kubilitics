@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
+import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 import {
   ResourceDetailLayout,
   MetadataSection,
@@ -111,8 +112,8 @@ export default function VolumeSnapshotClassDetail() {
 
   const vscName = vsc?.metadata?.name ?? '';
   const status: ResourceStatus = 'Healthy';
-  const driver = (vsc as K8sVolumeSnapshotClass & { spec?: { driver?: string } })?.driver ?? (vsc as unknown as Record<string, unknown>)?.spec?.driver ?? '—';
-  const deletionPolicy = (vsc as K8sVolumeSnapshotClass & { spec?: { deletionPolicy?: string } })?.deletionPolicy ?? (vsc as unknown as Record<string, unknown>)?.spec?.deletionPolicy ?? 'Delete';
+  const driver = (vsc as K8sVolumeSnapshotClass & { spec?: { driver?: string } })?.driver ?? (vsc as any)?.spec?.driver ?? '—';
+  const deletionPolicy = (vsc as K8sVolumeSnapshotClass & { spec?: { deletionPolicy?: string } })?.deletionPolicy ?? (vsc as any)?.spec?.deletionPolicy ?? 'Delete';
   const isDefault = vsc?.metadata?.annotations?.['snapshot.storage.kubernetes.io/is-default-class'] === 'true';
 
   const statusCards = [
@@ -160,6 +161,7 @@ export default function VolumeSnapshotClassDetail() {
               View <Link to="/volumesnapshots" className="text-primary hover:underline">Volume Snapshots</Link> and filter by snapshot class to see usage.
             </p>
           </SectionCard>
+          <ResourceOverviewMetadata metadata={vsc?.metadata} skipMetadataGrid />
         </div>
       ),
     },

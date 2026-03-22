@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
+import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 import {
   ResourceDetailLayout,
   ResourceComparisonView,
@@ -36,7 +37,7 @@ interface K8sResourceSlice extends KubernetesResource {
 }
 
 function formatCapacity(rs: K8sResourceSlice): string {
-  const raw = rs as unknown as Record<string, unknown>;
+  const raw = rs as any;
   const named = raw.namedResources as { entries?: Array<{ capacity?: Record<string, string> }> } | undefined;
   const structured = raw.structuredResources as { capacity?: Record<string, string> } | undefined;
   if (named?.entries?.length) {
@@ -126,8 +127,8 @@ export default function ResourceSliceDetail() {
     );
   }
 
-  const raw = rs as unknown as Record<string, unknown>;
-  const driver = raw.driver ?? (raw.spec as Record<string, unknown>)?.driver ?? '—';
+  const raw = rs as any;
+  const driver = raw.driver ?? raw.spec?.driver ?? '—';
   const nodeName = raw.nodeName ?? raw.spec?.nodeName;
   const pool = raw.pool ?? raw.spec?.pool;
   const poolName = pool?.name ?? '—';
@@ -181,6 +182,7 @@ export default function ResourceSliceDetail() {
               <div><p className="text-muted-foreground mb-1">Age</p><p>{age}</p></div>
             </div>
           </SectionCard>
+          <ResourceOverviewMetadata metadata={rs?.metadata} skipMetadataGrid />
         </div>
       ),
     },

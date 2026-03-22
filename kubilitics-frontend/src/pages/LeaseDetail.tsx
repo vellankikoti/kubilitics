@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
+import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 import {
   ResourceDetailLayout,
   MetadataSection,
@@ -171,6 +172,7 @@ export default function LeaseDetail() {
               </div>
             </SectionCard>
           </div>
+          <ResourceOverviewMetadata metadata={lease?.metadata} skipMetadataGrid />
         </div>
       ),
     },

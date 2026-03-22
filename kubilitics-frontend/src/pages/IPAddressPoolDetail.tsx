@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
+import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 import {
   ResourceDetailLayout,
   ResourceComparisonView,
@@ -161,6 +162,7 @@ export default function IPAddressPoolDetail() {
               <div><p className="text-muted-foreground mb-1">Age</p><p>{age}</p></div>
             </div>
           </SectionCard>
+          <ResourceOverviewMetadata metadata={pool?.metadata} skipMetadataGrid />
         </div>
       ),
     },
