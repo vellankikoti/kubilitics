@@ -612,12 +612,6 @@ export default function DeploymentDetail() {
       icon: LayoutDashboard,
       content: (
         <div className="space-y-6">
-          <MetadataSection
-            metadata={deployment.metadata}
-            showMetadataGrid
-            createdLabel={age}
-            namespace={deployment.metadata?.namespace}
-          />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <SectionCard icon={Info} title="Deployment Information" tooltip={<p className="text-xs text-muted-foreground">Configuration and status details</p>}>
               <div className="space-y-4">
