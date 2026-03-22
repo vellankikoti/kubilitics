@@ -80,12 +80,28 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Gitleaks
+        run: |
+          curl -sSfL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks_8.24.3_linux_x64.tar.gz | tar xz
+          sudo mv gitleaks /usr/local/bin/
+
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: true
-          GITLEAKS_ENABLE_SUMMARY: true
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gitleaks detect --source . --report-format sarif --report-path gitleaks-results.sarif --exit-code 0
+
+      - name: Upload Gitleaks SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: gitleaks-results.sarif
+          category: gitleaks
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gitleaks-results
+          path: gitleaks-results.sarif
+          retention-days: 30
 
   kubescape:
     name: Kubescape K8s Security
@@ -94,7 +110,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run Kubescape
-        uses: kubescape/github-action@v3
+        uses: kubescape/github-action@v3.0.21
         with:
           format: sarif
           outputFile: kubescape-results.sarif
