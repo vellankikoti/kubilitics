@@ -118,7 +118,7 @@ export interface ResourceCounts {
 // limit:100 is enough to show a count badge; full data is fetched on the list page.
 const DIRECT_K8S_QUERY_OPTIONS = {
   refetchInterval: false as const,
-  staleTime: 5 * 60 * 1000,
+  staleTime: 10 * 60 * 1000, // 10 minutes — sidebar counts don't need to be real-time
   placeholderData: (prev: any) => prev,
   limit: 100,
 };
@@ -149,9 +149,8 @@ export function useResourceCounts(): { counts: ResourceCounts; isLoading: boolea
   // is configured), and one for types NOT covered (always enabled when connected).
   const backendCovers = isBackendConfigured();
   const coveredEnabled = isConnected && !backendCovers;
-  // When backend IS configured, don't fire 34 individual list queries for sidebar counts.
-  // Show 0 for uncovered types — counts appear when user navigates to the list page.
-  const uncoveredEnabled = isConnected && !backendCovers;
+  // Types not covered by the backend summary still need individual queries for sidebar counts.
+  const uncoveredEnabled = isConnected;
   const coveredOptions = { ...DIRECT_K8S_QUERY_OPTIONS, enabled: coveredEnabled };
   const uncoveredOptions = { ...DIRECT_K8S_QUERY_OPTIONS, enabled: uncoveredEnabled };
 
