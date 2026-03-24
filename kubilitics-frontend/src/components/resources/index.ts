@@ -26,6 +26,7 @@ export { Sparkline, LiveMetric, useLiveMetrics } from './PodSparkline';
 export { UsageBar, parseCpu, parseMemory, calculatePodResourceMax, type UsageBarProps, type UsageBarKind, type UsageBarVariant } from './UsageBar';
 export { MetricBar } from './MetricBar';
 export { DetailPodTable, type DetailPodTableProps } from './DetailPodTable';
+export { FileTransferDialog, type FileTransferDialogProps } from './FileTransferDialog';
 export { ResourceComparisonView } from './ResourceComparisonView';
 export { ResourceTopologyView, type ResourceTopologyViewProps } from './ResourceTopologyView';
 export { X } from 'lucide-react'; // Export X if needed, or just let users import from lucide-react

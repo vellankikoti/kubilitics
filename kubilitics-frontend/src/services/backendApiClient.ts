@@ -1888,3 +1888,80 @@ export async function stopPortForward(
     { method: 'DELETE' }
   );
 }
+
+// ── File Transfer ────────────────────────────────────────────────────────
+
+/** A single file/directory entry from the container filesystem. */
+export interface ContainerFileEntry {
+  name: string;
+  type: 'file' | 'dir' | 'link' | 'other';
+  size: number;
+  modified: string;
+}
+
+/** POST /api/v1/clusters/{clusterId}/resources/{namespace}/{pod}/ls — lists files in a container directory. */
+export async function listContainerFiles(
+  baseUrl: string,
+  clusterId: string,
+  namespace: string,
+  pod: string,
+  path: string,
+  container: string
+): Promise<ContainerFileEntry[]> {
+  return backendRequest<ContainerFileEntry[]>(
+    baseUrl,
+    `clusters/${encodeURIComponent(clusterId)}/resources/${encodeURIComponent(namespace)}/${encodeURIComponent(pod)}/ls`,
+    { method: 'POST', body: JSON.stringify({ path, container }) }
+  );
+}
+
+/** Build the download URL for a file inside a container (used for direct browser download). */
+export function getContainerFileDownloadUrl(
+  baseUrl: string,
+  clusterId: string,
+  namespace: string,
+  pod: string,
+  path: string,
+  container: string
+): string {
+  const normalizedBase = baseUrl.replace(/\/+$/, '');
+  return `${normalizedBase}${API_PREFIX}/clusters/${encodeURIComponent(clusterId)}/resources/${encodeURIComponent(namespace)}/${encodeURIComponent(pod)}/download?path=${encodeURIComponent(path)}&container=${encodeURIComponent(container)}`;
+}
+
+/** POST /api/v1/clusters/{clusterId}/resources/{namespace}/{pod}/upload — uploads a file to a container. */
+export async function uploadContainerFile(
+  baseUrl: string,
+  clusterId: string,
+  namespace: string,
+  pod: string,
+  path: string,
+  container: string,
+  file: File
+): Promise<{ success: boolean; message: string }> {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('path', path);
+  form.append('container', container);
+
+  const normalizedBase = baseUrl.replace(/\/+$/, '');
+  const url = `${normalizedBase}${API_PREFIX}/clusters/${encodeURIComponent(clusterId)}/resources/${encodeURIComponent(namespace)}/${encodeURIComponent(pod)}/upload`;
+
+  const headers: Record<string, string> = {};
+
+  // Desktop mode (Tauri): Send kubeconfig with each request
+  if (isTauri()) {
+    const { activeCluster, kubeconfigContent } = useClusterStore.getState();
+    if (kubeconfigContent) {
+      headers['X-Kubeconfig'] = btoa(kubeconfigContent);
+    } else if (activeCluster?.kubeconfig) {
+      headers['X-Kubeconfig'] = btoa(activeCluster.kubeconfig);
+    }
+  }
+
+  const response = await fetch(url, { method: 'POST', body: form, headers });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new BackendApiError(body || response.statusText, response.status, undefined);
+  }
+  return response.json();
+}

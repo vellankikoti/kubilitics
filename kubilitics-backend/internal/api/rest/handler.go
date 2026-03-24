@@ -361,6 +361,11 @@ func SetupRoutes(router *mux.Router, h *Handler) {
 	// kcli TUI/session state for frontend sync
 	router.Handle("/clusters/{clusterId}/kcli/tui/state", h.wrapWithRBAC(h.GetKCLITUIState, auth.RoleViewer)).Methods("GET")
 
+	// File transfer (browse/download/upload files in pod containers)
+	router.Handle("/clusters/{clusterId}/resources/{namespace}/{pod}/ls", h.wrapWithRBAC(h.ListContainerFiles, auth.RoleViewer)).Methods("POST")
+	router.Handle("/clusters/{clusterId}/resources/{namespace}/{pod}/download", h.wrapWithRBAC(h.DownloadContainerFile, auth.RoleViewer)).Methods("GET")
+	router.Handle("/clusters/{clusterId}/resources/{namespace}/{pod}/upload", h.wrapWithRBAC(h.UploadContainerFile, auth.RoleOperator)).Methods("POST")
+
 	// Download kubeconfig for a cluster - BE-AUTHZ-001: viewer can read kubeconfig
 	router.Handle("/clusters/{clusterId}/kubeconfig", h.wrapWithRBAC(h.GetKubeconfig, auth.RoleViewer)).Methods("GET")
 

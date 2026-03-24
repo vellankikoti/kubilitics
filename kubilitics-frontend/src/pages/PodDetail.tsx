@@ -32,6 +32,7 @@ import {
   CalendarClock,
   FileCode,
   GitCompare,
+  FolderOpen,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -54,6 +55,7 @@ import {
   LogViewer,
   DeleteConfirmDialog,
   PortForwardDialog,
+  FileTransferDialog,
   MetricsDashboard,
   ResourceTopologyView,
   ResourceComparisonView,
@@ -208,6 +210,7 @@ export default function PodDetail() {
   const [selectedTerminalContainer, setSelectedTerminalContainer] = useState<string | undefined>(undefined);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showPortForwardDialog, setShowPortForwardDialog] = useState(false);
+  const [showFileTransferDialog, setShowFileTransferDialog] = useState(false);
   const [portForwardInitial, setPortForwardInitial] = useState<{ containerName: string; port: number } | null>(null);
 
   const { isConnected } = useConnectionStatus();
@@ -918,6 +921,12 @@ export default function PodDetail() {
             onClick: () => setShowPortForwardDialog(true),
           },
           {
+            icon: FolderOpen,
+            label: 'Browse Files',
+            description: 'Browse, upload, and download container files',
+            onClick: () => setShowFileTransferDialog(true),
+          },
+          {
             icon: RotateCcw,
             label: 'Restart Pod',
             description: 'Delete and recreate the pod',
@@ -1019,6 +1028,17 @@ export default function PodDetail() {
         }))}
         initialContainer={portForwardInitial?.containerName}
         initialPort={portForwardInitial?.port}
+      />
+
+      {/* File Transfer Dialog */}
+      <FileTransferDialog
+        open={showFileTransferDialog}
+        onOpenChange={setShowFileTransferDialog}
+        podName={pod.metadata?.name || ''}
+        namespace={pod.metadata?.namespace || ''}
+        baseUrl={backendBaseUrl ?? ''}
+        clusterId={clusterId ?? ''}
+        containers={(pod.spec?.containers || []).map(c => ({ name: c.name }))}
       />
     </>
   );
