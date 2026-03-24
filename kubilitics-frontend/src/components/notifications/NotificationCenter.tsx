@@ -21,7 +21,6 @@ import {
   CheckCheck,
   Trash2,
   Server,
-  Brain,
   AlertCircle,
   AlertTriangle,
   Info,
@@ -59,7 +58,6 @@ interface FilterTab {
 const FILTER_TABS: FilterTab[] = [
   { id: 'all', label: 'All', Icon: Bell },
   { id: 'cluster', label: 'Cluster', Icon: Server },
-  { id: 'ai', label: 'AI', Icon: Brain },
 ];
 
 const SEVERITY_ICONS: Record<NotificationSeverity, React.ElementType> = {
