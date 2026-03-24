@@ -156,8 +156,11 @@ function MonacoDiffView({ original, modified, originalLabel, modifiedLabel }: {
         </div>
       )}
 
-      {/* Monaco diff editor */}
-      <div className="rounded-xl border border-border/60 overflow-hidden shadow-sm ring-1 ring-black/[0.02] dark:ring-white/[0.02]">
+      {/* Monaco diff editor — isolation + transform create a stacking context
+           that forces WKWebView to clip Monaco's internal position:absolute elements
+           (line number gutter, scroll decorations) within the overflow:hidden boundary.
+           Without this, WKWebView lets them bleed through during scroll. */}
+      <div className="rounded-xl border border-border/60 overflow-hidden shadow-sm ring-1 ring-black/[0.02] dark:ring-white/[0.02] relative isolate" style={{ transform: 'translateZ(0)', WebkitTransform: 'translateZ(0)' }}>
         <LazyDiffEditor
           original={original}
           modified={modified}

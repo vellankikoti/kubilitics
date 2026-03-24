@@ -680,7 +680,7 @@ export function ClusterShellPanel({
             Select a cluster to activate terminal.
           </div>
         ) : (
-          <div ref={wrapperRef} className="h-full w-full p-2">
+          <div ref={wrapperRef} className="h-full w-full p-2 pl-3">
             <div
               ref={containerRef}
               className="h-full w-full cursor-text"
@@ -688,6 +688,8 @@ export function ClusterShellPanel({
               style={{
                 fontSmooth: 'antialiased',
                 WebkitFontSmoothing: 'antialiased',
+                WebkitTextSizeAdjust: '100%',
+                transform: 'translateZ(0)',
               }}
             />
           </div>

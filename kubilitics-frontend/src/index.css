@@ -696,6 +696,36 @@
   animation: row-fade-out 0.3s ease-out forwards;
 }
 
+/* ─── Tauri WKWebView: Monaco Editor stacking context fix ──────────────────
+   WKWebView doesn't properly clip position:absolute children (line numbers,
+   scroll decorations) within overflow:hidden containers. Force a compositing
+   layer on the Monaco wrapper so the GPU handles clipping correctly.
+   ─────────────────────────────────────────────────────────────────────────── */
+.monaco-editor,
+.monaco-diff-editor {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+/* ─── Tauri WKWebView: xterm.js rendering fixes ────────────────────────────
+   WKWebView can miscalculate xterm viewport dimensions and clip text.
+   Force proper box model and prevent text-size adjustment.
+   ─────────────────────────────────────────────────────────────────────────── */
+.xterm {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+.xterm-viewport {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto !important;
+}
+.xterm-screen {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
 /* ─── Sonner Toast Styles (global for Tauri WKWebView reliability) ──────────
    These MUST live in the global stylesheet, not in a React <style> tag,
    because Tauri's WKWebView can race: the first toast fires before

@@ -102,8 +102,13 @@ export function PodTerminal({
       const fit = new FitAddon();
       term.loadAddon(fit);
       term.open(container);
-      // Fit after a brief delay to ensure layout is stable
-      requestAnimationFrame(() => fit.fit());
+      // Fit after layout settles — double-rAF for WKWebView which may
+      // not have finished its layout pass after a single frame.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        fit.fit();
+        // WKWebView sometimes needs an extra kick after initial render
+        setTimeout(() => fit.fit(), 150);
+      }));
       xtermRef.current = term;
       fitRef.current = fit;
     }
@@ -266,11 +271,19 @@ export function PodTerminal({
         </div>
       </div>
 
-      {/* Terminal — always dark background + light text regardless of app theme */}
+      {/* Terminal — always dark background + light text regardless of app theme.
+           Uses explicit height (not flex-1) for WKWebView compatibility — flex-1
+           can compute to 0px in Tauri's WKWebView when the flex parent hasn't
+           settled its layout before xterm.js FitAddon measures the container.
+           padding-left prevents text from touching the container edge. */}
       <div
         ref={termRef}
-        className="flex-1 bg-[#0f172a] text-slate-200 [&_.xterm]:!bg-[#0f172a] [&_.xterm-viewport]:!bg-[#0f172a]"
-        style={isMaximized ? { height: 'calc(100vh - 120px)' } : { minHeight: '360px', height: 'min(520px, calc(100vh - 300px))' }}
+        className="bg-[#0f172a] text-slate-200 pl-2 [&_.xterm]:!bg-[#0f172a] [&_.xterm-viewport]:!bg-[#0f172a]"
+        style={{
+          height: isMaximized ? 'calc(100vh - 120px)' : 'min(520px, calc(100vh - 300px))',
+          minHeight: '360px',
+          WebkitTextSizeAdjust: '100%',
+        }}
       />
     </div>
   );
