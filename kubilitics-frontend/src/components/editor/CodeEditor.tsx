@@ -2,6 +2,7 @@ import { useRef, useCallback, useState, useEffect } from 'react';
 import Editor, { type OnMount, type OnChange } from '@monaco-editor/react';
 import type * as monacoType from 'monaco-editor';
 import { cn } from '@/lib/utils';
+import { useThemeStore } from '@/stores/themeStore';
 
 // PERF: Monaco setup is no longer in main.tsx (saves ~4MB from initial bundle).
 // Import it here — since CodeEditor is always lazy-loaded, this runs only when needed.
@@ -17,12 +18,14 @@ function TextareaFallback({
   readOnly,
   minHeight,
   fontSize,
+  isDark,
 }: {
   value: string;
   onChange?: (v: string) => void;
   readOnly: boolean;
   minHeight: string;
   fontSize: 'small' | 'medium' | 'large';
+  isDark: boolean;
 }) {
   const sizeMap = { small: '13px', medium: '15px', large: '17px' };
   return (
@@ -33,9 +36,8 @@ function TextareaFallback({
         readOnly={readOnly}
         spellCheck={false}
         className={cn(
-          'flex-1 w-full resize-none font-mono p-4',
-          'bg-[#FAFCFF] text-[#1b1f23] border-0 outline-none',
-          'leading-relaxed',
+          'flex-1 w-full resize-none font-mono p-4 border-0 outline-none leading-relaxed',
+          isDark ? 'bg-[#0d1117] text-[#e6edf3]' : 'bg-[#FAFCFF] text-[#1b1f23]',
           readOnly && 'cursor-default opacity-80',
         )}
         style={{ minHeight, fontSize: sizeMap[fontSize] }}
@@ -77,6 +79,9 @@ export function CodeEditor({
   const editorRef = useRef<monacoType.editor.IStandaloneCodeEditor | null>(null);
   const [monacoReady, setMonacoReady] = useState(false);
   const [monacoFailed, setMonacoFailed] = useState(false);
+
+  const { theme, resolvedTheme } = useThemeStore();
+  const isDark = (theme === 'system' ? resolvedTheme : theme) === 'dark';
 
   // Timeout: if Monaco hasn't mounted after MONACO_LOAD_TIMEOUT_MS, fall back
   // to textarea so the user is never stuck on "Loading editor…"
@@ -147,14 +152,60 @@ export function CodeEditor({
       },
     });
 
-    monaco.editor.setTheme('kubilitics-light');
+    // ── Define Kubilitics dark theme (GitHub Dark inspired) ──
+    monaco.editor.defineTheme('kubilitics-dark', {
+      base: 'vs-dark',
+      inherit: true,
+      rules: [
+        { token: 'type.yaml', foreground: '79c0ff', fontStyle: 'bold' },
+        { token: 'tag.yaml', foreground: 'd2a8ff' },
+        { token: 'string.yaml', foreground: 'a5d6ff' },
+        { token: 'string', foreground: 'a5d6ff' },
+        { token: 'number.yaml', foreground: 'ffa657', fontStyle: 'bold' },
+        { token: 'number', foreground: 'ffa657' },
+        { token: 'keyword.yaml', foreground: 'ffa657', fontStyle: 'bold' },
+        { token: 'keyword', foreground: '79c0ff', fontStyle: 'bold' },
+        { token: 'comment.yaml', foreground: '8b949e', fontStyle: 'italic' },
+        { token: 'comment', foreground: '8b949e', fontStyle: 'italic' },
+        { token: 'operators.yaml', foreground: '8b949e' },
+        { token: 'delimiter', foreground: '8b949e' },
+      ],
+      colors: {
+        'editor.background': '#0d1117',
+        'editor.foreground': '#e6edf3',
+        'editor.lineHighlightBackground': '#161b22',
+        'editor.selectionBackground': '#3b82f650',
+        'editor.inactiveSelectionBackground': '#3b82f620',
+        'editorLineNumber.foreground': '#484f58',
+        'editorLineNumber.activeForeground': '#e6edf3',
+        'editorGutter.background': '#0d1117',
+        'editorCursor.foreground': '#58a6ff',
+        'editor.findMatchBackground': '#fbbf2450',
+        'editor.findMatchHighlightBackground': '#fbbf2425',
+        'editorBracketMatch.background': '#3b82f630',
+        'editorBracketMatch.border': '#3b82f680',
+        'editorIndentGuide.background': '#21262d',
+        'editorIndentGuide.activeBackground': '#484f58',
+        'scrollbarSlider.background': '#484f5840',
+        'scrollbarSlider.hoverBackground': '#484f5860',
+        'scrollbarSlider.activeBackground': '#6e768180',
+        'editorOverviewRuler.border': '#00000000',
+        'editorWidget.background': '#161b22',
+        'editorWidget.border': '#30363d',
+        'input.background': '#0d1117',
+        'input.border': '#30363d',
+        'focusBorder': '#58a6ff',
+      },
+    });
+
+    monaco.editor.setTheme(isDark ? 'kubilitics-dark' : 'kubilitics-light');
 
     // Focus the editor
     editor.focus();
 
     // Expose editor instance to parent
     onEditorReady?.(editor);
-  }, [onEditorReady]);
+  }, [onEditorReady, isDark]);
 
   const handleChange: OnChange = useCallback((val) => {
     if (onChange && val !== undefined) {
@@ -162,14 +213,20 @@ export function CodeEditor({
     }
   }, [onChange]);
 
+  // Switch Monaco theme when app theme changes
+  useEffect(() => {
+    import('monaco-editor').then((monaco) => {
+      monaco.editor.setTheme(isDark ? 'kubilitics-dark' : 'kubilitics-light');
+    }).catch(() => {});
+  }, [isDark]);
+
   // Monaco failed to load — use resilient textarea fallback
   if (monacoFailed) {
     return (
       <div
         className={cn(
-          'rounded-xl border border-border overflow-hidden',
-          'shadow-sm',
-          'bg-[#FAFCFF]',
+          'rounded-xl border border-border overflow-hidden shadow-sm',
+          isDark ? 'bg-[#0d1117]' : 'bg-[#FAFCFF]',
           className,
         )}
         style={{ minHeight }}
@@ -180,6 +237,7 @@ export function CodeEditor({
           readOnly={readOnly}
           minHeight={minHeight}
           fontSize={fontSize}
+          isDark={isDark}
         />
       </div>
     );
@@ -188,9 +246,8 @@ export function CodeEditor({
   return (
     <div
       className={cn(
-        'rounded-xl border border-border overflow-hidden',
-        'shadow-sm',
-        'bg-[#FAFCFF]',
+        'rounded-xl border border-border overflow-hidden shadow-sm',
+        isDark ? 'bg-[#0d1117]' : 'bg-[#FAFCFF]',
         className,
       )}
       style={{ minHeight }}
@@ -201,7 +258,7 @@ export function CodeEditor({
         value={value}
         onChange={readOnly ? undefined : handleChange}
         onMount={handleMount}
-        theme="kubilitics-light"
+        theme={isDark ? 'kubilitics-dark' : 'kubilitics-light'}
         loading={
           <div className="flex items-center justify-center h-full gap-3 text-muted-foreground">
             <div className="h-5 w-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />

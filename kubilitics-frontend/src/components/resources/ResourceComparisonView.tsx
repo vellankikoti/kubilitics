@@ -165,7 +165,7 @@ function MonacoDiffView({ original, modified, originalLabel, modifiedLabel }: {
           original={original}
           modified={modified}
           language="yaml"
-          theme={isDark ? 'vs-dark' : 'light'}
+          theme={isDark ? 'kubilitics-dark' : 'kubilitics-light'}
           height="62vh"
           options={{
             readOnly: true,
@@ -432,7 +432,7 @@ function YamlDropZone({ onYamlLoaded, customYaml, onCustomYamlChange, resourceNa
               value={customYaml}
               onChange={(val) => onCustomYamlChange(val ?? '')}
               language="yaml"
-              theme={isDark ? 'vs-dark' : 'light'}
+              theme={isDark ? 'kubilitics-dark' : 'kubilitics-light'}
               height={hasContent ? '320px' : '200px'}
               options={{
                 minimap: { enabled: false },
@@ -1246,7 +1246,7 @@ export function ResourceComparisonView({
                                 return (
                                   <Card key={res.name} className="flex flex-col overflow-hidden min-h-[400px] shadow-sm">
                                       {/* Log header with stats */}
-                                      <CardHeader className="py-2.5 px-4 border-b bg-zinc-950 flex-row items-center justify-between space-y-0">
+                                      <CardHeader className="py-2.5 px-4 border-b bg-[#0d1117] flex-row items-center justify-between space-y-0">
                                         <CardTitle className="text-[13px] font-semibold text-zinc-200 flex items-center gap-2">
                                           <ScrollText className="h-3.5 w-3.5 text-zinc-500" />
                                           {res.name}
@@ -1265,7 +1265,7 @@ export function ResourceComparisonView({
                                           <span className="text-[10px] text-zinc-600 tabular-nums">{entries.length} lines</span>
                                         </div>
                                       </CardHeader>
-                                      <CardContent className="flex-1 bg-zinc-950 text-zinc-100 p-0 overflow-auto">
+                                      <CardContent className="flex-1 bg-[#0d1117] text-zinc-100 p-0 overflow-auto">
                                           {res.logsLoading ? (
                                               <div className="p-6 flex flex-col items-center justify-center gap-2 text-zinc-500 h-full">
                                                 <Loader2 className="h-5 w-5 animate-spin" />

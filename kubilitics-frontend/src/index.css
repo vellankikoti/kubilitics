@@ -726,6 +726,11 @@
   transform: translateZ(0);
 }
 
+/* Force dark color-scheme on terminal containers so browser scrollbars match */
+.xterm, [data-terminal] {
+  color-scheme: dark;
+}
+
 /* ─── Sonner Toast Styles (global for Tauri WKWebView reliability) ──────────
    These MUST live in the global stylesheet, not in a React <style> tag,
    because Tauri's WKWebView can race: the first toast fires before

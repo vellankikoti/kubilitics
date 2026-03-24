@@ -83,18 +83,26 @@ export function PodTerminal({
         fontSize: 13,
         fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Menlo, Monaco, monospace",
         theme: {
-          background: '#0f172a',
-          foreground: '#e2e8f0',
-          cursor: '#38bdf8',
-          selectionBackground: '#334155',
-          black: '#1e293b',
-          red: '#f87171',
-          green: '#4ade80',
-          yellow: '#fbbf24',
-          blue: '#60a5fa',
-          magenta: '#c084fc',
-          cyan: '#22d3ee',
-          white: '#f1f5f9',
+          background: '#0d1117',
+          foreground: '#f0f6fc',
+          cursor: '#58a6ff',
+          selectionBackground: '#264f78',
+          black: '#0d1117',
+          red: '#ff7b72',
+          green: '#3fb950',
+          yellow: '#d29922',
+          blue: '#58a6ff',
+          magenta: '#bc8cff',
+          cyan: '#39d353',
+          white: '#f0f6fc',
+          brightBlack: '#484f58',
+          brightRed: '#ffa198',
+          brightGreen: '#56d364',
+          brightYellow: '#e3b341',
+          brightBlue: '#79c0ff',
+          brightMagenta: '#d2a8ff',
+          brightCyan: '#56d364',
+          brightWhite: '#f0f6fc',
         },
         scrollback: 5000,
         convertEol: true,
@@ -220,7 +228,7 @@ export function PodTerminal({
       className,
     )}>
       {/* Header */}
-      <div className="bg-[#0f172a] border-b border-slate-700/50 px-4 py-2 flex items-center gap-2">
+      <div className="bg-[#0d1117] border-b border-slate-700/50 px-4 py-2 flex items-center gap-2">
         <div className="flex gap-1.5">
           <div className="w-3 h-3 rounded-full bg-[#ff5f57]" />
           <div className="w-3 h-3 rounded-full bg-[#febc2e]" />
@@ -278,7 +286,7 @@ export function PodTerminal({
            padding-left prevents text from touching the container edge. */}
       <div
         ref={termRef}
-        className="bg-[#0f172a] text-slate-200 pl-2 [&_.xterm]:!bg-[#0f172a] [&_.xterm-viewport]:!bg-[#0f172a]"
+        className="bg-[#0d1117] text-slate-200 pl-2 [&_.xterm]:!bg-[#0d1117] [&_.xterm-viewport]:!bg-[#0d1117]"
         style={{
           height: isMaximized ? 'calc(100vh - 120px)' : 'min(520px, calc(100vh - 300px))',
           minHeight: '360px',

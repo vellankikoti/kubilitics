@@ -248,26 +248,26 @@ export function ClusterShellPanel({
       fontSize: 13,
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Roboto Mono', Monaco, 'Courier New', monospace",
       theme: {
-        background: 'hsl(221, 39%, 8%)',
-        foreground: 'hsl(142, 76%, 73%)',
-        cursor: 'hsl(142, 76%, 73%)',
-        selectionBackground: 'rgba(255, 255, 255, 0.15)',
-        black: '#1e1e1e',
-        red: '#f44336',
-        green: '#4caf50',
-        yellow: '#ffeb3b',
-        blue: '#2196f3',
-        magenta: '#9c27b0',
-        cyan: '#00bcd4',
-        white: '#ffffff',
-        brightBlack: '#666666',
-        brightRed: '#f44336',
-        brightGreen: '#4caf50',
-        brightYellow: '#ffeb3b',
-        brightBlue: '#2196f3',
-        brightMagenta: '#9c27b0',
-        brightCyan: '#00bcd4',
-        brightWhite: '#ffffff',
+        background: '#0d1117',
+        foreground: '#f0f6fc',
+        cursor: '#58a6ff',
+        selectionBackground: '#264f78',
+        black: '#0d1117',
+        red: '#ff7b72',
+        green: '#3fb950',
+        yellow: '#d29922',
+        blue: '#58a6ff',
+        magenta: '#bc8cff',
+        cyan: '#39d353',
+        white: '#f0f6fc',
+        brightBlack: '#484f58',
+        brightRed: '#ffa198',
+        brightGreen: '#56d364',
+        brightYellow: '#e3b341',
+        brightBlue: '#79c0ff',
+        brightMagenta: '#d2a8ff',
+        brightCyan: '#56d364',
+        brightWhite: '#f0f6fc',
       },
       allowProposedApi: true,
     });
@@ -594,7 +594,7 @@ export function ClusterShellPanel({
     <div
       data-shell-panel
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-[60] flex flex-col border-t border-border bg-[hsl(221_39%_11%)] shadow-[0_-4px_30px_rgba(0,0,0,0.4)] transition-[height] duration-200 ease-in-out',
+        'fixed bottom-0 left-0 right-0 z-[60] flex flex-col border-t border-border bg-[#0d1117] shadow-[0_-4px_30px_rgba(0,0,0,0.4)] transition-[height] duration-200 ease-in-out',
         isMaximized && 'h-[calc(100vh-64px)]'
       )}
       style={isMaximized ? {} : { height: heightPx }}
@@ -674,7 +674,7 @@ export function ClusterShellPanel({
 
       {/* Terminal area — outer div has padding, inner div is where xterm mounts (no padding)
           so FitAddon correctly measures available space without clipping the last line */}
-      <div className="relative flex-1 min-h-0 bg-[hsl(221_39%_6%)]">
+      <div className="relative flex-1 min-h-0 bg-[#0d1117]">
         {!clusterId ? (
           <div className="flex h-full items-center justify-center text-sm font-medium italic text-muted-foreground">
             Select a cluster to activate terminal.
