@@ -69,8 +69,15 @@ export function PodTerminal({
       wsRef.current = null;
     }
 
-    // Create xterm if not exists
-    if (!xtermRef.current && termRef.current) {
+    // Create xterm if not exists — defer to next frame to ensure DOM has dimensions
+    if (!xtermRef.current) {
+      if (!termRef.current) return;
+      const container = termRef.current;
+      // Ensure container has dimensions (tab may have just become visible)
+      if (container.clientHeight === 0) {
+        const timer = setTimeout(() => connect(), 100);
+        return () => clearTimeout(timer);
+      }
       const term = new Terminal({
         cursorBlink: true,
         fontSize: 13,
@@ -94,13 +101,14 @@ export function PodTerminal({
       });
       const fit = new FitAddon();
       term.loadAddon(fit);
-      term.open(termRef.current);
-      fit.fit();
+      term.open(container);
+      // Fit after a brief delay to ensure layout is stable
+      requestAnimationFrame(() => fit.fit());
       xtermRef.current = term;
       fitRef.current = fit;
     }
 
-    const term = xtermRef.current!;
+    const term = xtermRef.current;
     term.clear();
     term.writeln(`\x1b[36mConnecting to ${selectedContainer} in ${namespace}/${podName}...\x1b[0m`);
 
@@ -119,10 +127,14 @@ export function PodTerminal({
 
     ws.onopen = () => {
       setIsConnected(true);
+      // Refit terminal now that connection is open
+      fitRef.current?.fit();
       term.writeln(`\x1b[32mConnected.\x1b[0m\r\n`);
-      // Send initial resize
-      const { cols, rows } = term;
-      ws.send(JSON.stringify({ t: 'resize', r: { cols, rows } }));
+      // Send initial resize with actual terminal dimensions
+      requestAnimationFrame(() => {
+        const { cols, rows } = term;
+        ws.send(JSON.stringify({ t: 'resize', r: { cols, rows } }));
+      });
     };
 
     ws.onmessage = (evt) => {
