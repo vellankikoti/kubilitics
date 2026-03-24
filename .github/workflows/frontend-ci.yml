@@ -107,7 +107,12 @@ jobs:
         run: |
           npx serve dist -l 4173 &
           SERVER_PID=$!
-          sleep 3
+          # Wait for serve to be ready (npx may need to download the package first)
+          echo "Waiting for serve to accept connections..."
+          for i in $(seq 1 20); do
+            if curl -sf -o /dev/null http://localhost:4173/ 2>/dev/null; then break; fi
+            sleep 1
+          done
           HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:4173/)
           if [ "$HTTP_STATUS" != "200" ]; then
             echo "FAIL: Build smoke test failed with HTTP $HTTP_STATUS"
