@@ -143,10 +143,15 @@ const Toaster = ({ ...props }: ToasterProps) => {
           background: rgba(255, 255, 255, 0.14) !important;
         }
 
-        /* ── Ensure toaster portal is always visible (Tauri fix) ── */
+        /* ── Ensure toaster portal is always visible and positioned (Tauri fix) ── */
         [data-sonner-toaster] {
           z-index: 999999999 !important;
           pointer-events: auto !important;
+          position: fixed !important;
+          bottom: 24px !important;
+          right: 24px !important;
+          top: auto !important;
+          left: auto !important;
         }
       `}</style>
 

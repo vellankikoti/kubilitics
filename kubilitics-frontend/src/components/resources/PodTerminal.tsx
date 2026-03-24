@@ -266,10 +266,10 @@ export function PodTerminal({
         </div>
       </div>
 
-      {/* Terminal */}
+      {/* Terminal — always dark background + light text regardless of app theme */}
       <div
         ref={termRef}
-        className="flex-1 bg-[#0f172a]"
+        className="flex-1 bg-[#0f172a] text-slate-200 [&_.xterm]:!bg-[#0f172a] [&_.xterm-viewport]:!bg-[#0f172a]"
         style={isMaximized ? { height: 'calc(100vh - 120px)' } : { minHeight: '360px', height: 'min(520px, calc(100vh - 300px))' }}
       />
     </div>
