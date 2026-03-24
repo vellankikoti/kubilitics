@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useMemo } from "react";
 import {
-  Search, Download, Maximize, ChevronDown, FileJson, FileImage, FileType, Pen,
-  Filter, X, Layers, GitBranch, Check,
+  Search, Download, Maximize, ChevronDown, FileJson, FileImage, FileType,
+  Filter, X, Layers, GitBranch, Check, Monitor, RefreshCw, Network,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +21,6 @@ import { ViewModeSelect } from "./components/ViewModeSelect";
 import type { ViewMode, TopologyResponse } from "./types/topology";
 import {
   exportTopologyJSON,
-  exportTopologyDrawIO,
   buildExportFilename,
   type ExportContext,
 } from "./export/exportTopology";
@@ -29,6 +28,9 @@ import type { ExportFormat } from "./TopologyCanvas";
 import { exportTopologyPDF } from "./export/exportPDF";
 import type { SearchResult } from "./hooks/useTopologySearch";
 import { K8sIcon } from "./icons/K8sIcon";
+import { toast } from "sonner";
+import { useBackendConfigStore, getEffectiveBackendBaseUrl } from "@/stores/backendConfigStore";
+import { useActiveClusterId } from "@/hooks/useActiveClusterId";
 
 export interface TopologyToolbarProps {
   viewMode?: ViewMode;
@@ -47,6 +49,9 @@ export interface TopologyToolbarProps {
   onSearchChange?: (query: string) => void;
   onSearchSelect?: (nodeId: string) => void;
   onFitView?: () => void;
+  onRefresh?: () => void;
+  isFetching?: boolean;
+  onTogglePresentationMode?: () => void;
 }
 
 const SYSTEM_NAMESPACES = new Set(["kube-system", "kube-public", "kube-node-lease"]);
@@ -64,9 +69,16 @@ export function TopologyToolbar({
   onSearchChange,
   onSearchSelect,
   onFitView,
+  onRefresh,
+  isFetching,
+  onTogglePresentationMode,
   exportRef,
   getExportCtx,
 }: TopologyToolbarProps) {
+  const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
+  const effectiveBaseUrl = getEffectiveBackendBaseUrl(backendBaseUrl);
+  const clusterId = useActiveClusterId();
+  const [isExportingArch, setIsExportingArch] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -116,7 +128,7 @@ export function TopologyToolbar({
         <ViewModeSelect value={viewMode} onChange={onViewModeChange} />
 
         {/* Separator + Namespace Filter — only for namespace-aware views */}
-        {(viewMode === "namespace" || viewMode === "workload" || viewMode === "resource") && (<>
+        {viewMode === "namespace" && (<>
         <div className="h-7 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent" />
 
         {/* ── Namespace Filter ── */}
@@ -367,6 +379,29 @@ export function TopologyToolbar({
             <span className="hidden sm:inline">Fit</span>
           </button>
 
+          {/* Refresh */}
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm disabled:opacity-50"
+            onClick={onRefresh}
+            disabled={isFetching}
+            title="Refresh topology data"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">{isFetching ? "Refreshing..." : "Refresh"}</span>
+          </button>
+
+          {/* Present */}
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 bg-white dark:bg-slate-800 border border-gray-200 dark:border-gray-700 hover:border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+            onClick={onTogglePresentationMode}
+            title="Presentation mode (P)"
+          >
+            <Monitor className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Present</span>
+          </button>
+
           {/* Export */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -380,7 +415,7 @@ export function TopologyToolbar({
                 <ChevronDown className="h-3 w-3 text-gray-600 dark:text-gray-400" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52 p-1 rounded-xl shadow-xl">
+            <DropdownMenuContent align="end" className="w-56 p-1 rounded-xl shadow-xl max-h-[70vh] overflow-y-auto">
               {(() => {
                 const ctx = getExportCtx?.() ?? { viewMode, selectedNamespaces, clusterName };
                 const triggerExport = (format: ExportFormat) => {
@@ -389,6 +424,46 @@ export function TopologyToolbar({
                 };
                 return (
                   <>
+                    {/* Architecture Diagram — premium feature, shown first */}
+                    <DropdownMenuItem
+                      className="rounded-lg gap-2.5 py-2"
+                      disabled={isExportingArch}
+                      onClick={async () => {
+                        if (!clusterId) return;
+                        setIsExportingArch(true);
+                        toast.info("Generating architecture diagram with official K8s icons...", { duration: 15000 });
+                        try {
+                          const ns = selectedNamespaces?.size ? Array.from(selectedNamespaces)[0] : "";
+                          const url = `${effectiveBaseUrl}/api/v1/clusters/${encodeURIComponent(clusterId)}/topology/export?format=architecture${ns ? `&namespace=${encodeURIComponent(ns)}` : ""}`;
+                          const res = await fetch(url, { method: "POST" });
+                          if (!res.ok) {
+                            const text = await res.text();
+                            throw new Error(text || res.statusText);
+                          }
+                          const blob = await res.blob();
+                          const a = document.createElement("a");
+                          a.href = URL.createObjectURL(blob);
+                          a.download = `architecture-${clusterName || "cluster"}-${ns || "all"}.png`;
+                          a.click();
+                          URL.revokeObjectURL(a.href);
+                          toast.success("Architecture diagram exported!");
+                        } catch (err: unknown) {
+                          const msg = err instanceof Error ? err.message : "Export failed";
+                          toast.error(msg);
+                        } finally {
+                          setIsExportingArch(false);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center justify-center h-7 w-7 rounded-md bg-indigo-50">
+                        <Network className={`h-3.5 w-3.5 text-indigo-600 ${isExportingArch ? "animate-spin" : ""}`} />
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold">{isExportingArch ? "Generating..." : "Architecture Diagram"}</div>
+                        <div className="text-[10px] text-gray-600 dark:text-gray-400">Professional K8s icons (KubeDiagrams)</div>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem className="rounded-lg gap-2.5 py-2" onClick={() => triggerExport("png")}>
                       <div className="flex items-center justify-center h-7 w-7 rounded-md bg-emerald-50">
                         <FileImage className="h-3.5 w-3.5 text-emerald-600" />
@@ -424,15 +499,6 @@ export function TopologyToolbar({
                       <div>
                         <div className="text-xs font-semibold">JSON</div>
                         <div className="text-[10px] text-gray-600 dark:text-gray-400">Raw topology data</div>
-                      </div>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="rounded-lg gap-2.5 py-2" onClick={() => exportTopologyDrawIO(topology ?? null, ctx)}>
-                      <div className="flex items-center justify-center h-7 w-7 rounded-md bg-blue-50">
-                        <Pen className="h-3.5 w-3.5 text-blue-600" />
-                      </div>
-                      <div>
-                        <div className="text-xs font-semibold">Draw.io</div>
-                        <div className="text-[10px] text-gray-600 dark:text-gray-400">Editable diagram</div>
                       </div>
                     </DropdownMenuItem>
                   </>

@@ -5,7 +5,7 @@ import { ChevronLeft, Copy, Check, LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { NamespaceBadge } from '@/components/list';
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -80,7 +80,6 @@ export function ResourceHeader({
       : null;
 
   return (
-    <TooltipProvider>
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -147,7 +146,7 @@ export function ResourceHeader({
                   {status}
                 </div>
               </div>
-              <div className="flex items-center gap-3 mt-1.5 text-sm text-muted-foreground flex-wrap">
+              <div className="flex items-center gap-3 mt-1.5 text-sm text-foreground/60 flex-wrap">
                 <span className="flex items-center gap-1.5">
                   {resourceType}
                   {namespace ? (
@@ -195,6 +194,5 @@ export function ResourceHeader({
           )}
         </div>
       </motion.div>
-    </TooltipProvider>
   );
 }

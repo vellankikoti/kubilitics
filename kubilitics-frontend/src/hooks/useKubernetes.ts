@@ -837,7 +837,7 @@ export function useK8sPodLogs(
   namespace: string,
   podName: string,
   containerName?: string,
-  options?: { enabled?: boolean; tailLines?: number }
+  options?: { enabled?: boolean; tailLines?: number; follow?: boolean }
 ) {
   const { config } = useKubernetesConfigStore();
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
@@ -856,7 +856,7 @@ export function useK8sPodLogs(
   const path = `/api/v1/namespaces/${namespace}/pods/${podName}/log?${queryParams.toString()}`;
 
   return useQuery({
-    queryKey: ['k8s', 'pods', namespace, podName, 'logs', containerName, useBackend ? clusterId : null],
+    queryKey: ['k8s', 'pods', namespace, podName, 'logs', containerName, options?.tailLines, useBackend ? clusterId : null],
     queryFn: async () => {
       if (useBackend && clusterId) {
         const url = getPodLogsUrl(backendBaseUrl, clusterId, namespace, podName, {
@@ -878,9 +878,11 @@ export function useK8sPodLogs(
       !!podName &&
       (options?.enabled !== false) &&
       (useBackend ? true : config.isConnected),
-    // Removed aggressive 5s polling - rely on global defaults (refetchOnWindowFocus/reconnect)
-    // Pod logs can be refreshed manually if needed
-    refetchInterval: false,
+    // Logs are never "stale" — always fetch fresh on mount/tab switch
+    staleTime: 0,
+    refetchOnMount: 'always',
+    // Poll every 3s when follow mode is active
+    refetchInterval: options?.follow ? 3000 : false,
   });
 }
 

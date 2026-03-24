@@ -174,7 +174,11 @@ export function TopologyDetailPanel({
         )}
 
         {/* Connections */}
-        <Section title={`Connections (${connections.length})`}>
+        <Section title={(() => {
+          const up = connections.filter(e => e.target === selectedNodeId).length;
+          const down = connections.filter(e => e.source === selectedNodeId).length;
+          return `Connections (${connections.length}) — ${up} upstream · ${down} downstream`;
+        })()}>
           {connections.length === 0 ? (
             <p className="text-muted-foreground italic">No connections</p>
           ) : (
@@ -326,6 +330,9 @@ function ResourceSpecificSection({ node }: { node: TopologyNode }) {
         <Section title="Pod Details">
           <InfoRow label="Phase" value={node.status} />
           {node.statusReason && <InfoRow label="Reason" value={node.statusReason} />}
+          {node.podIP && <InfoRow label="Pod IP" value={node.podIP} />}
+          {node.nodeName && <InfoRow label="Node" value={node.nodeName} />}
+          {node.containers != null && node.containers > 0 && <InfoRow label="Containers" value={String(node.containers)} />}
         </Section>
       );
     case "Deployment":
@@ -340,7 +347,8 @@ function ResourceSpecificSection({ node }: { node: TopologyNode }) {
     case "Service":
       return (
         <Section title="Service Details">
-          <InfoRow label="Type" value={node.kind} />
+          {node.serviceType && <InfoRow label="Type" value={node.serviceType} />}
+          {node.clusterIP && <InfoRow label="Cluster IP" value={node.clusterIP} />}
         </Section>
       );
     case "Ingress":
@@ -368,6 +376,8 @@ function ResourceSpecificSection({ node }: { node: TopologyNode }) {
       return (
         <Section title="Node Details">
           <InfoRow label="Status" value={node.statusReason ?? node.status} />
+          {node.internalIP && <InfoRow label="Internal IP" value={node.internalIP} />}
+          {node.externalIP && <InfoRow label="External IP" value={node.externalIP} />}
         </Section>
       );
     default:

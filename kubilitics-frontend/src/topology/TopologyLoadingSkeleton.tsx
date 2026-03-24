@@ -16,7 +16,7 @@ export function TopologyLoadingSkeleton({
   progress,
 }: TopologyLoadingSkeletonProps) {
   const isHorizontal = viewMode === "namespace" || viewMode === "rbac";
-  const nodeCount = viewMode === "cluster" ? 4 : viewMode === "resource" ? 7 : 9;
+  const nodeCount = viewMode === "cluster" ? 4 : 9;
 
   // Category-aligned skeleton colors from designTokens
   const skeletonColors = [
@@ -80,10 +80,10 @@ export function TopologyLoadingSkeleton({
       {/* Progress text */}
       <div className="mt-8 text-center">
         <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
-          {progress != null ? `Computing layout... ${Math.round(progress)}%` : "Building topology graph..."}
+          {progress != null ? `Arranging resources... ${Math.round(progress)}%` : "Discovering resources and relationships..."}
         </div>
-        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-          Arranging {isHorizontal ? "namespace" : "cluster"} resources with ELK engine
+        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          Building your topology map
         </div>
         {progress != null && (
           <div className="mt-3 h-1.5 w-56 overflow-hidden rounded-full bg-gray-200 mx-auto" role="progressbar" aria-valuenow={Math.round(progress)} aria-valuemin={0} aria-valuemax={100}>

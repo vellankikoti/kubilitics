@@ -59,7 +59,7 @@ export interface ContainerInfo {
     requests?: { cpu?: string; memory?: string };
     limits?: { cpu?: string; memory?: string };
   };
-  currentUsage?: { cpu: number; memory: number };
+  currentUsage?: { cpu: number; memory: number; cpuRaw?: number; memoryRaw?: number };
   /** Status (from pod.status.containerStatuses) */
   startedAt?: string;
   lastState?: { reason: string; exitCode?: number; startedAt?: string; finishedAt?: string };
@@ -265,37 +265,71 @@ export function ContainersSection({ containers, className, resourceName, namespa
                     }
                   >
                     <div className="space-y-4">
+                      {/* CPU Usage */}
                       <div className="space-y-2">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center justify-between text-sm mb-1.5 cursor-help">
-                              <span className="flex items-center gap-2 text-muted-foreground"><Cpu className="h-4 w-4" /> CPU</span>
-                              <span className={cn('font-semibold tabular-nums', (container.currentUsage?.cpu ?? 0) > 80 && 'text-destructive')}>
-                                {(container.currentUsage?.cpu ?? 0).toFixed(2)}%
-                                {(container.currentUsage?.cpu ?? 0) > 80 && <AlertCircle className="inline h-3.5 w-3.5 ml-1 text-destructive" />}
-                              </span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-xs">{TOOLTIP_CONTAINER_CPU_USAGE_PCT}</TooltipContent>
-                        </Tooltip>
-                        <Progress value={container.currentUsage?.cpu ?? 0} className="h-2.5 rounded-full bg-muted/60" />
-                        <p className="text-[11px] text-muted-foreground">{(container.currentUsage?.cpu ?? 0).toFixed(2)}% of limit</p>
+                        <div className="flex items-center justify-between text-sm mb-1.5">
+                          <span className="flex items-center gap-2 text-foreground/70"><Cpu className="h-4 w-4" /> CPU</span>
+                          {(container.currentUsage?.cpu ?? -1) >= 0 ? (
+                            <span className={cn('font-semibold tabular-nums', (container.currentUsage?.cpu ?? 0) > 80 && 'text-destructive')}>
+                              {(container.currentUsage?.cpu ?? 0).toFixed(1)}%
+                              {(container.currentUsage?.cpu ?? 0) > 80 && <AlertCircle className="inline h-3.5 w-3.5 ml-1 text-destructive" />}
+                            </span>
+                          ) : (
+                            <span className="font-semibold tabular-nums text-foreground">
+                              {container.currentUsage?.cpuRaw != null && container.currentUsage.cpuRaw > 0
+                                ? `${container.currentUsage.cpuRaw.toFixed(1)}m`
+                                : '—'}
+                            </span>
+                          )}
+                        </div>
+                        {(container.currentUsage?.cpu ?? -1) >= 0 ? (
+                          <>
+                            <Progress value={container.currentUsage?.cpu ?? 0} className="h-2.5 rounded-full bg-muted/60" />
+                            <p className="text-[11px] text-foreground/50">{(container.currentUsage?.cpu ?? 0).toFixed(1)}% of limit</p>
+                          </>
+                        ) : (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <p className="text-[11px] text-amber-600 cursor-help flex items-center gap-1">
+                                <AlertCircle className="h-3 w-3" /> No CPU limit — set limits to prevent resource contention
+                              </p>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs">Without CPU limits, this container can consume unlimited CPU on the node. Add spec.containers[].resources.limits.cpu to your Pod manifest.</TooltipContent>
+                          </Tooltip>
+                        )}
                       </div>
+                      {/* Memory Usage */}
                       <div className="space-y-2">
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <div className="flex items-center justify-between text-sm mb-1.5 cursor-help">
-                              <span className="flex items-center gap-2 text-muted-foreground"><MemoryStick className="h-4 w-4" /> Memory</span>
-                              <span className={cn('font-semibold tabular-nums', (container.currentUsage?.memory ?? 0) > 80 && 'text-destructive')}>
-                                {(container.currentUsage?.memory ?? 0).toFixed(2)}%
-                                {(container.currentUsage?.memory ?? 0) > 80 && <AlertCircle className="inline h-3.5 w-3.5 ml-1 text-destructive" />}
-                              </span>
-                            </div>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-xs">{TOOLTIP_CONTAINER_MEMORY_USAGE_PCT}</TooltipContent>
-                        </Tooltip>
-                        <Progress value={container.currentUsage?.memory ?? 0} className="h-2.5 rounded-full bg-muted/60" />
-                        <p className="text-[11px] text-muted-foreground">{(container.currentUsage?.memory ?? 0).toFixed(2)}% of limit</p>
+                        <div className="flex items-center justify-between text-sm mb-1.5">
+                          <span className="flex items-center gap-2 text-foreground/70"><MemoryStick className="h-4 w-4" /> Memory</span>
+                          {(container.currentUsage?.memory ?? -1) >= 0 ? (
+                            <span className={cn('font-semibold tabular-nums', (container.currentUsage?.memory ?? 0) > 80 && 'text-destructive')}>
+                              {(container.currentUsage?.memory ?? 0).toFixed(1)}%
+                              {(container.currentUsage?.memory ?? 0) > 80 && <AlertCircle className="inline h-3.5 w-3.5 ml-1 text-destructive" />}
+                            </span>
+                          ) : (
+                            <span className="font-semibold tabular-nums text-foreground">
+                              {container.currentUsage?.memoryRaw != null && container.currentUsage.memoryRaw > 0
+                                ? `${(container.currentUsage.memoryRaw / (1024 * 1024)).toFixed(1)} Mi`
+                                : '—'}
+                            </span>
+                          )}
+                        </div>
+                        {(container.currentUsage?.memory ?? -1) >= 0 ? (
+                          <>
+                            <Progress value={container.currentUsage?.memory ?? 0} className="h-2.5 rounded-full bg-muted/60" />
+                            <p className="text-[11px] text-foreground/50">{(container.currentUsage?.memory ?? 0).toFixed(1)}% of limit</p>
+                          </>
+                        ) : (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <p className="text-[11px] text-amber-600 cursor-help flex items-center gap-1">
+                                <AlertCircle className="h-3 w-3" /> No memory limit — OOM kills can happen unexpectedly
+                              </p>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs">Without memory limits, this container may be OOM-killed by the kernel without warning. Add spec.containers[].resources.limits.memory to your Pod manifest.</TooltipContent>
+                          </Tooltip>
+                        )}
                       </div>
                       <div className="pt-2 border-t border-border/40 space-y-1.5">
                         <DetailRow label="CPU Request" value={container.resources?.requests?.cpu ?? '-'} tooltip={container.resources?.requests?.cpu ? TOOLTIP_CPU_M : undefined} />

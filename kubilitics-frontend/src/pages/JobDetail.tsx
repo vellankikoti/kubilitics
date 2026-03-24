@@ -43,7 +43,6 @@ import {
   ActionsSection,
   MetricsDashboard,
   LogViewer,
-  TerminalViewer,
   DeleteConfirmDialog,
   SectionCard,
   ResourceTopologyView,
@@ -52,6 +51,7 @@ import {
   type ContainerInfo,
   type YamlVersion,
 } from '@/components/resources';
+import { PodTerminal } from '@/components/resources/PodTerminal';
 import { useResourceDetail, useResourceEvents } from '@/hooks/useK8sResourceDetail';
 import { useDeleteK8sResource, useUpdateK8sResource, useK8sResourceList, calculateAge, type KubernetesResource } from '@/hooks/useKubernetes';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
@@ -660,7 +660,7 @@ export default function JobDetail() {
                   </Select>
                 </div>
               </div>
-              <TerminalViewer podName={terminalPod} namespace={namespace ?? undefined} containerName={selectedTerminalContainer || terminalPodContainers[0]} containers={terminalPodContainers} onContainerChange={setSelectedTerminalContainer} />
+              <PodTerminal key={`${terminalPod}-${selectedTerminalContainer || terminalPodContainers[0]}`} podName={terminalPod} namespace={namespace ?? undefined} containerName={selectedTerminalContainer || terminalPodContainers[0]} containers={terminalPodContainers} onContainerChange={setSelectedTerminalContainer} />
             </div>
           )}
         </SectionCard>

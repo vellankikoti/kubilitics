@@ -1,4 +1,5 @@
-import { useState, useRef, useEffect, useCallback, memo } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Download,
@@ -45,7 +46,7 @@ const LEVEL_PILLS: Array<{ key: string | null; label: string }> = [
   { key: 'debug', label: 'Debug' },
 ];
 
-const TAIL_OPTIONS = [100, 250, 500, 1000, 2000];
+const TAIL_OPTIONS = [50, 100, 250, 500, 1000, 2000];
 
 const EMPTY_LOGS: LogEntry[] = [];
 
@@ -201,9 +202,10 @@ export function LogViewer({
   containers = [],
   onContainerChange,
   className,
-  tailLines: initialTailLines = 500,
+  tailLines: initialTailLines = 50,
 }: LogViewerProps) {
   const { isConnected } = useConnectionStatus();
+  const queryClient = useQueryClient();
 
   const [isStreaming, setIsStreaming] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -212,25 +214,29 @@ export function LogViewer({
   const [tailLines, setTailLines] = useState(initialTailLines);
   const [showTimestamps, setShowTimestamps] = useState(true);
   const [wrapLines, setWrapLines] = useState(false);
-  const [localLogs, setLocalLogs] = useState<LogEntry[]>([]);
   const logContainerRef = useRef<HTMLDivElement>(null);
 
-  const { data: rawLogs, isLoading, error, refetch } = useK8sPodLogs(
+  const { data: rawLogs, isLoading, error, refetch, dataUpdatedAt } = useK8sPodLogs(
     namespace || '',
     podName || '',
     selectedContainer,
     {
-      enabled: isConnected && !!podName && !!namespace && isStreaming,
+      enabled: isConnected && !!podName && !!namespace,
       tailLines,
+      follow: isStreaming,
     }
   );
 
-  useEffect(() => {
-    if (rawLogs) setLocalLogs(parseRawLogs(rawLogs));
-  }, [rawLogs]);
+  // Parse logs directly from rawLogs — no intermediate state that can get stale
+  const parsedLogs = useMemo(() => {
+    if (!rawLogs) return EMPTY_LOGS;
+    return parseRawLogs(rawLogs);
+  // dataUpdatedAt ensures re-parse even when rawLogs string is identical
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawLogs, dataUpdatedAt]);
 
   const isLive = isConnected && !!podName && !!namespace;
-  const displayLogs = isLive ? localLogs : (propLogs ?? EMPTY_LOGS);
+  const displayLogs = isLive ? parsedLogs : (propLogs ?? EMPTY_LOGS);
 
   const filteredLogs = displayLogs.filter(log => {
     if (searchQuery && !log.message.toLowerCase().includes(searchQuery.toLowerCase())) return false;
@@ -268,7 +274,11 @@ export function LogViewer({
     setTimeout(() => URL.revokeObjectURL(url), 30_000);
   }, [displayLogs, podName, selectedContainer]);
 
-  const handleClear = useCallback(() => setLocalLogs([]), []);
+  const handleClear = useCallback(() => {
+    // Remove cached data entirely then refetch — guarantees fresh logs
+    queryClient.removeQueries({ queryKey: ['k8s', 'pods', namespace, podName, 'logs'] });
+    queryClient.invalidateQueries({ queryKey: ['k8s', 'pods', namespace, podName, 'logs'] });
+  }, [queryClient, namespace, podName]);
 
   const handleCopyLine = useCallback((log: LogEntry) => {
     navigator.clipboard.writeText(
@@ -357,7 +367,7 @@ export function LogViewer({
                   'h-7 w-7 flex items-center justify-center rounded-md transition-colors',
                   showTimestamps
                     ? 'bg-white/10 text-white'
-                    : 'text-white/30 hover:text-white hover:bg-white/[0.08]',
+                    : 'text-white/60 hover:text-white hover:bg-white/15',
                 )}
               >
                 <Clock className="h-3.5 w-3.5" />
@@ -377,7 +387,7 @@ export function LogViewer({
                   'h-7 w-7 flex items-center justify-center rounded-md transition-colors',
                   wrapLines
                     ? 'bg-white/10 text-white'
-                    : 'text-white/30 hover:text-white hover:bg-white/[0.08]',
+                    : 'text-white/60 hover:text-white hover:bg-white/15',
                 )}
               >
                 <AlignJustify className="h-3.5 w-3.5" />
@@ -397,7 +407,7 @@ export function LogViewer({
                   'h-7 flex items-center gap-1.5 px-2.5 rounded-md text-[11px] font-medium transition-colors',
                   isStreaming
                     ? 'bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-600/30'
-                    : 'bg-white/5 text-white/45 border border-white/10 hover:text-white hover:bg-white/[0.08]',
+                    : 'bg-white/5 text-white/60 border border-white/15 hover:text-white hover:bg-white/[0.08]',
                 )}
               >
                 {isStreaming ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
@@ -412,8 +422,8 @@ export function LogViewer({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={() => refetch()}
-                className="h-7 w-7 flex items-center justify-center rounded-md text-white/30 hover:text-white hover:bg-white/[0.08] transition-colors"
+                onClick={() => queryClient.invalidateQueries({ queryKey: ['k8s', 'pods', namespace, podName, 'logs'] })}
+                className="h-7 w-7 flex items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/15 transition-colors"
               >
                 <RefreshCw className="h-3.5 w-3.5" />
               </button>
@@ -425,7 +435,7 @@ export function LogViewer({
             <TooltipTrigger asChild>
               <button
                 onClick={handleDownload}
-                className="h-7 w-7 flex items-center justify-center rounded-md text-white/30 hover:text-white hover:bg-white/[0.08] transition-colors"
+                className="h-7 w-7 flex items-center justify-center rounded-md text-white/60 hover:text-white hover:bg-white/15 transition-colors"
               >
                 <Download className="h-3.5 w-3.5" />
               </button>
@@ -449,7 +459,7 @@ export function LogViewer({
 
       {/* ── Level filter bar ─────────────────────────────────────────────────── */}
       <div className="bg-[hsl(221_39%_11%)] border-b border-white/[0.06] px-4 py-1.5 flex items-center gap-2 flex-wrap">
-        <span className="text-[11px] text-white/25 shrink-0 font-medium tracking-wide">Filter:</span>
+        <span className="text-[11px] text-white/50 shrink-0 font-medium tracking-wide">Filter:</span>
         <div className="flex items-center gap-1.5 flex-wrap flex-1">
           {LEVEL_PILLS.map(({ key, label }) => (
             <button
@@ -469,9 +479,9 @@ export function LogViewer({
             </button>
           ))}
         </div>
-        <span className="text-[11px] text-white/25 shrink-0 tabular-nums">
+        <span className="text-[11px] text-white/60 font-medium shrink-0 tabular-nums">
           {filteredLogs.length !== displayLogs.length
-            ? `${filteredLogs.length} / ${displayLogs.length}`
+            ? `${filteredLogs.length} / ${displayLogs.length} lines`
             : `${displayLogs.length} lines`}
         </span>
       </div>
@@ -503,7 +513,7 @@ export function LogViewer({
             <p className="text-red-400/80 text-sm font-medium">Failed to fetch logs</p>
             <p className="text-white/30 text-xs max-w-sm text-center">{error.message}</p>
             <button
-              onClick={() => refetch()}
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['k8s', 'pods', namespace, podName, 'logs'] })}
               className="px-3 py-1.5 rounded-md border border-white/15 text-white/50 text-xs hover:text-white hover:border-white/30 transition-colors"
             >
               Retry
@@ -588,7 +598,7 @@ export function LogViewer({
       </div>
 
       {/* ── Footer ───────────────────────────────────────────────────────────── */}
-      <div className="bg-[hsl(221_39%_13%)] border-t border-white/[0.06] px-4 py-1.5 text-[11px] text-white/25 flex items-center justify-between">
+      <div className="bg-[hsl(221_39%_13%)] border-t border-white/[0.06] px-4 py-1.5 text-[11px] text-white/50 flex items-center justify-between">
         <span className="font-mono">
           {isLive
             ? `${namespace}/${podName} · ${selectedContainer}`

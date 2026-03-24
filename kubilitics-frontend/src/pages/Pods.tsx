@@ -40,7 +40,7 @@ import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { useClusterStore } from '@/stores/clusterStore';
 import { getPodMetrics, postShellCommand } from '@/services/backendApiClient';
-import { DeleteConfirmDialog, PortForwardDialog, UsageBar, parseCpu, parseMemory, calculatePodResourceMax, ResourceComparisonView } from '@/components/resources';
+import { DeleteConfirmDialog, PortForwardDialog, parseCpu, parseMemory, calculatePodResourceMax, ResourceComparisonView } from '@/components/resources';
 import { ResourceCommandBar, ResourceExportDropdown, ListViewSegmentedControl, NamespaceFilter } from '@/components/list';
 import { ResourceCreator, DEFAULT_YAMLS } from '@/components/editor';
 import { useQuery, useQueries } from '@tanstack/react-query';
@@ -252,7 +252,7 @@ export default function Pods() {
  setSelectedNamespaces(new Set([nsFromQuery]));
  }, [searchParams, selectedNamespaces.size]);
 
- // Calculate resource max values from pod spec (for sparklines)
+ // Calculate resource max values from pod spec (for CPU/Memory bars)
  const podResourceMaxMap = useMemo(() => {
  const m: Record<string, { cpuMax?: number; memoryMax?: number }> = {};
  if (data?.items) {
@@ -520,6 +520,29 @@ export default function Pods() {
  });
  return m;
  }, [metricsQueries, visiblePodsForMetrics]);
+
+ // Dynamic max: when pods don't have resource limits, compute max from actual usage
+ // across all visible pods so bars are proportional (not invisible against 1000m default)
+ const { dynamicCpuMax, dynamicMemoryMax } = useMemo(() => {
+   let maxCpu = 0;
+   let maxMem = 0;
+   const allMetrics = { ...metricsMap, ...sortMetricsMap };
+   for (const key of Object.keys(allMetrics)) {
+     const m = allMetrics[key];
+     if (m?.cpu) {
+       const val = parseCpu(m.cpu);
+       if (val !== null && val > maxCpu) maxCpu = val;
+     }
+     if (m?.memory) {
+       const val = parseMemory(m.memory);
+       if (val !== null && val > maxMem) maxMem = val;
+     }
+   }
+   return {
+     dynamicCpuMax: Math.max(maxCpu * 1.5, 10),
+     dynamicMemoryMax: Math.max(maxMem * 1.5, 32),
+   };
+ }, [metricsMap, sortMetricsMap]);
 
  const handleDelete = async () => {
  if (!isConnected) return;
@@ -1251,30 +1274,50 @@ export default function Pods() {
  )}
  {columnVisibility.isColumnVisible('cpu') && (
  <ResizableTableCell columnId="cpu">
- <div className="min-w-0 overflow-hidden">
- <UsageBar
- variant="sparkline"
- value={cpuVal}
- kind="cpu"
- displayFormat="compact"
- width={56}
- max={podResourceMaxMap[podKey]?.cpuMax}
- />
- </div>
+ {(() => {
+   const val = parseCpu(cpuVal);
+   const maxVal = podResourceMaxMap[podKey]?.cpuMax ?? dynamicCpuMax;
+   const ratio = val !== null && maxVal > 0 ? Math.min(val / maxVal, 1) : 0;
+   const pct = Math.round(ratio * 100);
+   const barColor = ratio < 0.4 ? '#10b981' : ratio < 0.7 ? '#f59e0b' : ratio < 0.9 ? '#f97316' : '#ef4444';
+   const display = val !== null ? (val >= 1000 ? `${(val/1000).toFixed(1)} cores` : `${val.toFixed(1)}m`) : '-';
+   const limit = podResourceMaxMap[podKey]?.cpuMax;
+   const limitDisplay = limit ? (limit >= 1000 ? `${(limit/1000).toFixed(1)} cores` : `${limit}m`) : 'no limit';
+   return (
+     <div className="flex items-center gap-2" title={`CPU: ${display} / ${limitDisplay} (${pct}% used)`}>
+       <div className="w-[52px] shrink-0">
+         <div className="h-[5px] rounded-full bg-gray-200/80 dark:bg-gray-700/60 overflow-hidden">
+           <div className="h-full rounded-full transition-all duration-500 ease-out" style={{ width: `${Math.max(pct, val !== null && val > 0 ? 4 : 0)}%`, background: barColor }} />
+         </div>
+       </div>
+       <span className="text-[11px] font-medium tabular-nums text-gray-700 dark:text-gray-300 whitespace-nowrap">{display}</span>
+     </div>
+   );
+ })()}
  </ResizableTableCell>
  )}
  {columnVisibility.isColumnVisible('memory') && (
  <ResizableTableCell columnId="memory">
- <div className="min-w-0 overflow-hidden">
- <UsageBar
- variant="sparkline"
- value={memVal}
- kind="memory"
- displayFormat="compact"
- width={56}
- max={podResourceMaxMap[podKey]?.memoryMax}
- />
- </div>
+ {(() => {
+   const val = parseMemory(memVal);
+   const maxVal = podResourceMaxMap[podKey]?.memoryMax ?? dynamicMemoryMax;
+   const ratio = val !== null && maxVal > 0 ? Math.min(val / maxVal, 1) : 0;
+   const pct = Math.round(ratio * 100);
+   const barColor = ratio < 0.4 ? '#3b82f6' : ratio < 0.7 ? '#f59e0b' : ratio < 0.9 ? '#f97316' : '#ef4444';
+   const display = val !== null ? (val >= 1024 ? `${(val/1024).toFixed(1)} Gi` : `${val.toFixed(0)} Mi`) : '-';
+   const limit = podResourceMaxMap[podKey]?.memoryMax;
+   const limitDisplay = limit ? (limit >= 1024 ? `${(limit/1024).toFixed(1)} Gi` : `${limit.toFixed(0)} Mi`) : 'no limit';
+   return (
+     <div className="flex items-center gap-2" title={`Memory: ${display} / ${limitDisplay} (${pct}% used)`}>
+       <div className="w-[52px] shrink-0">
+         <div className="h-[5px] rounded-full bg-gray-200/80 dark:bg-gray-700/60 overflow-hidden">
+           <div className="h-full rounded-full transition-all duration-500 ease-out" style={{ width: `${Math.max(pct, val !== null && val > 0 ? 4 : 0)}%`, background: barColor }} />
+         </div>
+       </div>
+       <span className="text-[11px] font-medium tabular-nums text-gray-700 dark:text-gray-300 whitespace-nowrap">{display}</span>
+     </div>
+   );
+ })()}
  </ResizableTableCell>
  )}
  {columnVisibility.isColumnVisible('age') && (

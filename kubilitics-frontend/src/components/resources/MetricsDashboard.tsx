@@ -731,7 +731,7 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
           </div>
 
           <TabsContent value="overview" className="mt-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card className="rounded-xl border border-border/50 shadow-sm overflow-hidden">
                 <CardHeader className="pb-2">
                   <div className="flex items-center gap-2">
@@ -882,10 +882,36 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Network I/O Chart */}
+              <Card className="rounded-xl border border-border/50 shadow-sm overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Network I/O</CardTitle>
+                  <CardDescription>Inbound / outbound throughput (KB/s)</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {metrics.network.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Network data collecting...</p>
+                  ) : (
+                    <div className="h-64 mt-4 -ml-4">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={metrics.network}>
+                          <CartesianGrid vertical={false} strokeDasharray="0" stroke="hsl(var(--border)/0.3)" />
+                          <XAxis dataKey="time" stroke="hsl(var(--foreground))" fontSize={10} axisLine={false} tickLine={false} interval="preserveStartEnd" tick={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 600 }} />
+                          <YAxis stroke="hsl(var(--foreground))" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 600 }} />
+                          <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                          <Bar dataKey="in" name="Inbound" fill="hsl(142, 70%, 45%)" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="out" name="Outbound" fill="hsl(200, 70%, 50%)" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
             {/* Quick Stats below overview charts */}
             {(cpuStats || memStats) && (
-              <div className="grid grid-cols-2 gap-6 mt-4">
+              <div className="grid grid-cols-3 gap-6 mt-4">
                 {cpuStats && (
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <Cpu className="h-3.5 w-3.5 text-blue-500 shrink-0" />
@@ -900,6 +926,14 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
                     <span>Min <strong className="text-foreground">{memStats.min.toFixed(3)}Mi</strong></span>
                     <span>Max <strong className="text-foreground">{memStats.max.toFixed(3)}Mi</strong></span>
                     <span>Avg <strong className="text-foreground">{memStats.avg.toFixed(3)}Mi</strong></span>
+                  </div>
+                )}
+                {metrics.network.length > 0 && (
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <Network className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                    <span>Rx <strong className="text-foreground">↓{cumulativeRxFormatted}</strong></span>
+                    <span>Tx <strong className="text-foreground">↑{cumulativeTxFormatted}</strong></span>
+                    <span>Avg <strong className="text-foreground">{(avgRateIn + avgRateOut).toFixed(1)} KB/s</strong></span>
                   </div>
                 )}
               </div>

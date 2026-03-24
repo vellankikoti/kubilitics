@@ -19,6 +19,7 @@ import { useTopologyData, MAX_VISIBLE_NODES } from "./hooks/useTopologyData";
 import { useTopologySearch } from "./hooks/useTopologySearch";
 import { useTopologyWebSocket } from "./hooks/useTopologyWebSocket";
 import { useTopologyStore } from "./store/topologyStore";
+import { PresentationOverlay } from "./components/PresentationOverlay";
 import { buildExportFilename } from "./export/exportTopology";
 import type { ExportFormat } from "./TopologyCanvas";
 import { TopologyWelcomeTips } from "./TopologyWelcomeTips";
@@ -47,6 +48,8 @@ export function TopologyPage() {
   // Store state
   const viewMode = useTopologyStore((s) => s.viewMode);
   const healthOverlay = useTopologyStore((s) => s.healthOverlay);
+  const presentationMode = useTopologyStore((s) => s.presentationMode);
+  const togglePresentationMode = useTopologyStore((s) => s.togglePresentationMode);
   const setViewModeStore = useTopologyStore((s) => s.setViewMode);
   const toggleOverlay = useTopologyStore((s) => s.toggleOverlay);
   const navigateBack = useTopologyStore((s) => s.navigateBack);
@@ -115,7 +118,7 @@ export function TopologyPage() {
   }), [viewMode, selectedNamespaces, clusterName]);
 
   // Data fetching — pass selected namespaces for filtering
-  const { topology, allNamespaces, isLoading, isError, error, refetch, truncated, truncatedTotal } = useTopologyData({
+  const { topology, allNamespaces, isLoading, isFetching, isError, error, refetch, truncated, truncatedTotal } = useTopologyData({
     clusterId,
     viewMode,
     selectedNamespaces,
@@ -191,11 +194,10 @@ export function TopologyPage() {
       }
     }, [selectedNodeId, navigateBack]),
     onViewMode: useCallback((n: number) => {
-      const modes: ViewMode[] = ["cluster", "namespace", "workload", "resource", "rbac"];
-      if (n >= 1 && n <= 5) setViewModeStore(modes[n - 1]);
+      const modes: ViewMode[] = ["namespace", "cluster", "rbac"];
+      if (n >= 1 && n <= 3) setViewModeStore(modes[n - 1]);
     }, [setViewModeStore]),
     onToggleHealthOverlay: useCallback(() => toggleOverlay("health"), [toggleOverlay]),
-    onToggleCostOverlay: useCallback(() => toggleOverlay("cost"), [toggleOverlay]),
     onScreenshot: useCallback(() => {
       const filename = buildExportFilename("png", getExportCtx());
       exportRef.current?.("png", filename);
@@ -284,14 +286,16 @@ export function TopologyPage() {
         onSelectNode={setSelectedNodeId}
         exportRef={exportRef}
         fitViewRef={fitViewRef}
+        clusterName={clusterName ?? undefined}
+        namespace={activeNamespace}
       />
     );
   };
 
   return (
-    <div className="flex h-full w-full flex-col bg-white">
-      {/* Toolbar */}
-      <TopologyToolbar
+    <div className="flex h-full w-full flex-col bg-white dark:bg-slate-950">
+      {/* Toolbar — hidden in presentation mode */}
+      {!presentationMode && <TopologyToolbar
         viewMode={viewMode}
         clusterName={clusterName ?? undefined}
         selectedNamespaces={selectedNamespaces}
@@ -306,16 +310,19 @@ export function TopologyPage() {
         onSearchChange={setSearchQuery}
         onSearchSelect={handleSearchSelect}
         onFitView={handleFitView}
-      />
+        onRefresh={() => refetch()}
+        isFetching={isFetching}
+        onTogglePresentationMode={togglePresentationMode}
+      />}
 
-      {/* Breadcrumbs — clickable for back-navigation */}
-      <TopologyBreadcrumbs
+      {/* Breadcrumbs — hidden in presentation mode */}
+      {!presentationMode && <TopologyBreadcrumbs
         viewMode={viewMode}
         namespace={activeNamespace}
         resource={viewMode === "resource" ? resource : null}
         onNavigate={handleViewModeChange}
         onClearNamespace={() => setSelectedNamespaces(new Set(["default"]))}
-      />
+      />}
 
       {/* Partial error banner */}
       {warnings.length > 0 && (
@@ -351,15 +358,28 @@ export function TopologyPage() {
         <div className="relative flex min-h-0 flex-1">
           {renderContent()}
           <HealthLegend visible={healthOverlay && !!topology} />
+
+          {/* Presentation overlay */}
+          {presentationMode && topology && (
+            <PresentationOverlay
+              clusterName={clusterName ?? undefined}
+              namespace={activeNamespace}
+              nodeCount={topology.nodes.length}
+              edgeCount={topology.edges.length}
+              onExit={togglePresentationMode}
+            />
+          )}
         </div>
 
-        {/* Detail panel */}
-        <TopologyDetailPanel
-          selectedNodeId={selectedNodeId}
-          topology={topology ?? null}
-          onNavigateToResource={handleNavigateToResource}
-          onClose={() => setSelectedNodeId(null)}
-        />
+        {/* Detail panel — hidden in presentation mode */}
+        {!presentationMode && (
+          <TopologyDetailPanel
+            selectedNodeId={selectedNodeId}
+            topology={topology ?? null}
+            onNavigateToResource={handleNavigateToResource}
+            onClose={() => setSelectedNodeId(null)}
+          />
+        )}
       </div>
 
       {/* WebSocket disconnect banner */}

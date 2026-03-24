@@ -41,9 +41,6 @@ export interface TopologyState {
 
   // Overlays
   healthOverlay: boolean;
-  costOverlay: boolean;
-  trafficOverlay: boolean;
-  securityOverlay: boolean;
 
   // Viewport
   zoom: number;
@@ -53,6 +50,10 @@ export interface TopologyState {
   isLoading: boolean;
   error: string | null;
   warnings: string[];
+
+  // Presentation
+  presentationMode: boolean;
+  focusDimming: boolean;
 
   // WebSocket
   wsConnected: boolean;
@@ -73,7 +74,9 @@ export interface TopologyState {
   setNamespaceFilter: (ns: string | null) => void;
   setKindFilter: (kinds: string[]) => void;
   setStatusFilter: (statuses: string[]) => void;
-  toggleOverlay: (name: "health" | "cost" | "traffic" | "security") => void;
+  toggleOverlay: (name: "health") => void;
+  togglePresentationMode: () => void;
+  toggleFocusDimming: () => void;
   setZoom: (zoom: number) => void;
   setPosition: (pos: { x: number; y: number }) => void;
   setLoading: (loading: boolean) => void;
@@ -135,14 +138,13 @@ export const useTopologyStore = create<TopologyState>()(
       statusFilter: [],
       searchQuery: "",
       healthOverlay: true,
-      costOverlay: false,
-      trafficOverlay: false,
-      securityOverlay: false,
       zoom: 1,
       position: { x: 0, y: 0 },
       isLoading: false,
       error: null,
       warnings: [],
+      presentationMode: false,
+      focusDimming: true,
       wsConnected: false,
       lastUpdateTime: null,
 
@@ -246,6 +248,9 @@ export const useTopologyStore = create<TopologyState>()(
           [`${name}Overlay`]: !s[`${name}Overlay` as keyof TopologyState],
         } as Partial<TopologyState>)),
 
+      togglePresentationMode: () => set((s) => ({ presentationMode: !s.presentationMode })),
+      toggleFocusDimming: () => set((s) => ({ focusDimming: !s.focusDimming })),
+
       setZoom: (zoom) => set({ zoom }),
       setPosition: (position) => set({ position }),
       setLoading: (isLoading) => set({ isLoading }),
@@ -259,9 +264,7 @@ export const useTopologyStore = create<TopologyState>()(
       partialize: (state) => ({
         viewMode: state.viewMode,
         healthOverlay: state.healthOverlay,
-        costOverlay: state.costOverlay,
-        trafficOverlay: state.trafficOverlay,
-        securityOverlay: state.securityOverlay,
+        focusDimming: state.focusDimming,
       }),
     }
   )

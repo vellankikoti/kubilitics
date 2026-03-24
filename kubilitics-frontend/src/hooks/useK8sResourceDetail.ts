@@ -18,6 +18,7 @@ export interface EventInfo {
   reason: string;
   message: string;
   time: string;
+  historical?: boolean;
 }
 
 // Convert a K8s resource object to YAML string
@@ -70,7 +71,8 @@ export function useResourceEvents(
   namespace: string | undefined,
   name: string | undefined
 ) {
-  const baseUrl = getEffectiveBackendBaseUrl();
+  const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
+  const baseUrl = getEffectiveBackendBaseUrl(storedUrl);
   const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const clusterId = currentClusterId ?? null;
@@ -79,8 +81,9 @@ export function useResourceEvents(
   const backendQuery = useQuery({
     queryKey: ['resource-events', clusterId, namespace ?? '', kind, name ?? ''],
     queryFn: () => getResourceEvents(baseUrl!, clusterId!, namespace ?? '', kind, name!, 20),
-    enabled: useBackend && !!baseUrl,
-    staleTime: 60_000,
+    enabled: useBackend,  // baseUrl='' is valid (Vite proxy in dev mode)
+    staleTime: 0,
+    refetchOnMount: 'always' as const,
   });
 
   const fieldSelector = name && kind ? `involvedObject.name=${name},involvedObject.kind=${kind}` : undefined;
@@ -97,6 +100,7 @@ export function useResourceEvents(
       reason: e.reason ?? '',
       message: e.message ?? '',
       time: e.last_timestamp ? calculateAge(e.last_timestamp) : (e.first_timestamp ? calculateAge(e.first_timestamp) : 'unknown'),
+      historical: e.historical ?? false,
     }))
     : (k8sList.data?.items ?? []).map((event: Record<string, unknown>) => ({
       type: (event.type === 'Warning' ? 'Warning' : 'Normal') as EventInfo['type'],

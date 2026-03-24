@@ -2,7 +2,7 @@
  * Hook for fetching resource-scoped topology from backend
  * Uses react-query for caching and error handling
  */
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getResourceTopology } from '@/services/backendApiClient';
 import { useActiveClusterId } from './useActiveClusterId';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
@@ -14,11 +14,14 @@ export interface UseResourceTopologyOptions {
   namespace?: string | null;
   name?: string | null;
   enabled?: boolean;
+  /** BFS traversal depth from focus resource (1-5, default 3) */
+  depth?: number;
 }
 
 export interface UseResourceTopologyResult {
   graph: TopologyGraph | undefined;
   isLoading: boolean;
+  isFetching: boolean;
   error: Error | null;
   refetch: () => void;
 }
@@ -34,7 +37,9 @@ export function useResourceTopology({
   namespace,
   name,
   enabled = true,
+  depth = 3,
 }: UseResourceTopologyOptions): UseResourceTopologyResult {
+  const queryClient = useQueryClient();
   const clusterId = useActiveClusterId();
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const effectiveBaseUrl = getEffectiveBackendBaseUrl(backendBaseUrl);
@@ -56,10 +61,11 @@ export function useResourceTopology({
   const {
     data: graph,
     isLoading,
+    isFetching,
     error,
     refetch,
   } = useQuery<TopologyGraph, Error>({
-    queryKey: ['resource-topology', clusterId, normalizedKind, normalizedNamespace, normalizedName],
+    queryKey: ['resource-topology', clusterId, normalizedKind, normalizedNamespace, normalizedName, depth],
     queryFn: async () => {
       if (!clusterId) {
         throw new Error('Cluster not selected');
@@ -77,7 +83,8 @@ export function useResourceTopology({
         clusterId,
         normalizedKind,
         normalizedNamespace,
-        normalizedName
+        normalizedName,
+        depth
       );
 
       if (!result) {
@@ -98,10 +105,15 @@ export function useResourceTopology({
     retryDelay: 1000,
   });
 
+  const queryKey = ['resource-topology', clusterId, normalizedKind, normalizedNamespace, normalizedName, depth];
+
   return {
     graph,
     isLoading,
+    isFetching,
     error: error || null,
-    refetch: () => { refetch(); },
+    refetch: () => {
+      queryClient.invalidateQueries({ queryKey });
+    },
   };
 }

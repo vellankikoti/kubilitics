@@ -62,7 +62,6 @@ import {
   DeleteConfirmDialog,
   SectionCard,
   LogViewer,
-  TerminalViewer,
   ResourceTopologyView,
   ResourceComparisonView,
   DetailPodTable,
@@ -70,6 +69,7 @@ import {
   type ContainerInfo,
   type YamlVersion,
 } from '@/components/resources';
+import { PodTerminal } from '@/components/resources/PodTerminal';
 import { ListPagination, PAGE_SIZE_OPTIONS } from '@/components/list';
 import { cn } from '@/lib/utils';
 import { Breadcrumbs, useDetailBreadcrumbs } from '@/components/layout/Breadcrumbs';
@@ -798,7 +798,7 @@ export default function StatefulSetDetail() {
                   </Select>
                 </div>
               </div>
-              <TerminalViewer podName={terminalPod} namespace={namespace ?? undefined} containerName={selectedTerminalContainer || terminalPodContainers[0]} containers={terminalPodContainers} onContainerChange={setSelectedTerminalContainer} />
+              <PodTerminal key={`${terminalPod}-${selectedTerminalContainer || terminalPodContainers[0]}`} podName={terminalPod} namespace={namespace ?? undefined} containerName={selectedTerminalContainer || terminalPodContainers[0]} containers={terminalPodContainers} onContainerChange={setSelectedTerminalContainer} />
             </div>
           )}
         </SectionCard>

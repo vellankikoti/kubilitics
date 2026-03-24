@@ -5,6 +5,25 @@ import type { LabeledEdgeData } from "../edges/LabeledEdge";
 import type { TopologyResponse, ViewMode, TopologyNode } from "../types/topology";
 import { getNodeDims } from "../constants/designTokens";
 
+// ─── Layer Constraints ─────────────────────────────────────────────────────
+// Map backend `layer` field (0-5) to ELK layer constraint properties.
+// This helps ELK place nodes in the correct tier for architecture diagrams.
+
+const LAYER_LABELS: Record<number, string> = {
+  0: "Infrastructure",
+  1: "Services",
+  2: "Workloads",
+  3: "Controllers",
+  4: "Pods",
+  5: "Nodes",
+};
+
+function getLayerConstraint(layer: number | undefined): Record<string, string> {
+  if (layer == null) return {};
+  // ELK uses integer layer IDs; lower = leftmost in LEFT-RIGHT direction
+  return { "elk.layered.layerConstraint": String(layer) };
+}
+
 /**
  * useElkLayout — Topology layout engine.
  *
@@ -33,20 +52,21 @@ import { getNodeDims } from "../constants/designTokens";
 const ELK_LAYERED_BASE: Record<string, string> = {
   "elk.algorithm": "layered",
   "elk.direction": "RIGHT",
-  "elk.spacing.nodeNode": "45",
-  "elk.layered.spacing.nodeNodeBetweenLayers": "120",
+  "elk.spacing.nodeNode": "40",
+  "elk.layered.spacing.nodeNodeBetweenLayers": "140",
+  "elk.layered.spacing.edgeNodeBetweenLayers": "30",
   "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
-  "elk.layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
+  "elk.layered.nodePlacement.strategy": "BRANDES_KOEPF",
+  "elk.layered.thoroughness": "20",
   "elk.separateConnectedComponents": "true",
-  "elk.spacing.componentComponent": "100",
+  "elk.spacing.componentComponent": "80",
 };
 
 const ELK_OPTIONS: Record<ViewMode, Record<string, string>> = {
-  cluster:   { ...ELK_LAYERED_BASE, "elk.spacing.nodeNode": "50", "elk.layered.spacing.nodeNodeBetweenLayers": "140" },
   namespace: { ...ELK_LAYERED_BASE },
-  workload:  { ...ELK_LAYERED_BASE, "elk.spacing.componentComponent": "80" },
-  resource:  { ...ELK_LAYERED_BASE, "elk.spacing.nodeNode": "60", "elk.layered.spacing.nodeNodeBetweenLayers": "140" },
-  rbac:      { ...ELK_LAYERED_BASE, "elk.spacing.nodeNode": "50", "elk.spacing.componentComponent": "80" },
+  cluster:   { ...ELK_LAYERED_BASE, "elk.spacing.nodeNode": "70", "elk.layered.spacing.nodeNodeBetweenLayers": "160" },
+  rbac:      { ...ELK_LAYERED_BASE, "elk.spacing.nodeNode": "70" },
+  resource:  { ...ELK_LAYERED_BASE },
 };
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -151,8 +171,8 @@ function categoryGridLayout(
   topology: TopologyResponse
 ): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>();
-  const nodeW = 280;
-  const nodeH = 130;
+  const nodeW = 300;
+  const nodeH = 150;
   const groupGapX = 160; // horizontal gap between category columns
   const groupGapY = 80;  // vertical gap between rows within a group
 
@@ -205,11 +225,17 @@ async function hybridLayout(
   topology: TopologyResponse,
   elkInstance: unknown,
   viewMode: ViewMode,
-  validEdges: Array<{ id: string; source: string; target: string; label: string; detail?: string }>
+  validEdges: Array<{ id: string; source: string; target: string; label: string; detail?: string; relationshipCategory?: string; healthy?: boolean }>
 ): Promise<Map<string, { x: number; y: number }>> {
   const positions = new Map<string, { x: number; y: number }>();
   const dims = getNodeDims("base");
   const elkOptions = ELK_OPTIONS[viewMode];
+
+  // Build node lookup for layer constraints
+  const nodeLayerMap = new Map<string, number>();
+  for (const n of topology.nodes) {
+    if (n.layer != null) nodeLayerMap.set(n.id, n.layer);
+  }
 
   // Find connected components
   const nodeIds = topology.nodes.map((n) => n.id);
@@ -245,6 +271,7 @@ async function hybridLayout(
         id: nid,
         width: dims.width,
         height: dims.height,
+        layoutOptions: getLayerConstraint(nodeLayerMap.get(nid)),
       })),
       edges: compEdges.map((e) => ({
         id: e.id,
@@ -275,14 +302,14 @@ async function hybridLayout(
       const cols = Math.max(2, Math.ceil(Math.sqrt(compNodeIds.length)));
       compNodeIds.forEach((nid, idx) => {
         compPositions.set(nid, {
-          x: (idx % cols) * 280,
-          y: Math.floor(idx / cols) * 140,
+          x: (idx % cols) * 300,
+          y: Math.floor(idx / cols) * 150,
         });
       });
       componentBounds.push({
         positions: compPositions,
-        width: cols * 280,
-        height: Math.ceil(compNodeIds.length / cols) * 140,
+        width: cols * 300,
+        height: Math.ceil(compNodeIds.length / cols) * 150,
       });
     }
   }
@@ -352,13 +379,13 @@ async function hybridLayout(
       const cols = Math.max(2, Math.min(targetCols, Math.ceil(Math.sqrt(nids.length * 2.5))));
       nids.forEach((nid, idx) => {
         positions.set(nid, {
-          x: isoX + (idx % cols) * 280,
-          y: isoY + Math.floor(idx / cols) * 140,
+          x: isoX + (idx % cols) * 300,
+          y: isoY + Math.floor(idx / cols) * 150,
         });
       });
       // Stack categories vertically within the same column block
       const rows = Math.ceil(nids.length / cols);
-      isoY += rows * 140 + 60;
+      isoY += rows * 150 + 60;
     }
   }
 
@@ -503,7 +530,12 @@ export function useElkLayout(
         target: e.target,
         type: "labeled",
         animated: e.animated ?? false,
-        data: { label: e.label, detail: e.detail },
+        data: {
+          label: e.label,
+          detail: e.detail,
+          relationshipCategory: e.relationshipCategory,
+          healthy: e.healthy,
+        },
       }));
 
       setPositionedNodes(positioned);
@@ -539,7 +571,12 @@ export function useElkLayout(
             source: e.source,
             target: e.target,
             type: "labeled",
-            data: { label: e.label, detail: e.detail },
+            data: {
+              label: e.label,
+              detail: e.detail,
+              relationshipCategory: e.relationshipCategory,
+              healthy: e.healthy,
+            },
           }))
       );
     } finally {

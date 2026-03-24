@@ -61,7 +61,6 @@ import {
   MetricsDashboard,
   ScaleDialog,
   LogViewer,
-  TerminalViewer,
   RolloutActionsDialog,
   DeleteConfirmDialog,
   ResourceTopologyView,
@@ -71,6 +70,7 @@ import {
   type ContainerInfo,
   type YamlVersion,
 } from '@/components/resources';
+import { PodTerminal } from '@/components/resources/PodTerminal';
 import { useResourceDetail, useResourceEvents } from '@/hooks/useK8sResourceDetail';
 import { useDeleteK8sResource, useUpdateK8sResource, usePatchK8sResource, useK8sResourceList, calculateAge, type KubernetesResource } from '@/hooks/useKubernetes';
 import { useMutationPolling } from '@/hooks/useMutationPolling';
@@ -1122,7 +1122,8 @@ export default function DeploymentDetail() {
                   </Select>
                 </div>
               </div>
-              <TerminalViewer
+              <PodTerminal
+                key={`${terminalPod}-${selectedTerminalContainer || terminalPodContainers[0]}`}
                 podName={terminalPod}
                 namespace={namespace ?? undefined}
                 containerName={selectedTerminalContainer || terminalPodContainers[0]}

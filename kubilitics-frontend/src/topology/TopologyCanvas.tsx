@@ -19,7 +19,8 @@ import { nodeTypes } from "./nodes/nodeTypes";
 import { edgeTypes } from "./edges/edgeTypes";
 import { useElkLayout } from "./hooks/useElkLayout";
 import { captureFullTopologyPNG, captureFullTopologySVG, type ExportBounds } from "./export/exportTopology";
-import { ZOOM_THRESHOLDS, CANVAS, fitViewMinZoom, minimapNodeColor } from "./constants/designTokens";
+import { ZOOM_THRESHOLDS, CANVAS, EDGE_COLORS, fitViewMinZoom, minimapNodeColor } from "./constants/designTokens";
+import { useTopologyStore } from "./store/topologyStore";
 import type { TopologyResponse, ViewMode } from "./types/topology";
 
 export type ExportFormat = "png" | "svg";
@@ -33,6 +34,10 @@ export interface TopologyCanvasProps {
   fitViewRef?: React.MutableRefObject<(() => void) | null>;
   /** Ref that parent sets to trigger an export. Call with (format, filename). */
   exportRef?: React.MutableRefObject<((format: ExportFormat, filename: string) => void) | null>;
+  /** Cluster name for export title */
+  clusterName?: string;
+  /** Namespace for export title */
+  namespace?: string;
 }
 
 /** Semantic zoom — uses centralized thresholds from designTokens */
@@ -51,6 +56,8 @@ function TopologyCanvasInner({
   onSelectNode,
   fitViewRef,
   exportRef,
+  clusterName,
+  namespace,
 }: TopologyCanvasProps) {
   const [currentZoom, setCurrentZoom] = useState(0.5);
 
@@ -96,7 +103,7 @@ function TopologyCanvasInner({
   useEffect(() => {
     if (fitViewRef) {
       fitViewRef.current = () =>
-        reactFlow.fitView({ padding: 0.06, duration: 400 });
+        reactFlow.fitView({ padding: 0.08, duration: 400, minZoom: fitViewMinZoom(nodeCount) });
     }
   }, [reactFlow, fitViewRef]);
 
@@ -199,22 +206,70 @@ function TopologyCanvasInner({
     return () => { cancelled = true; };
   }, [isExporting, reactFlow]);
 
-  // Selection/highlight styling
+  // Health chain — nodes connected to error nodes via ownership edges get a warning tint.
+  // This propagates visibility: "this Deployment is unhealthy → its RS and Pods are in the error chain"
+  const errorChainNodeIds = useMemo(() => {
+    const errorNodes = nodes.filter((n) => {
+      const status = (n.data as Record<string, unknown>)?.status;
+      return status === "error";
+    });
+    if (errorNodes.length === 0) return new Set<string>();
+    const chain = new Set<string>();
+    for (const en of errorNodes) {
+      chain.add(en.id);
+      // Walk ownership edges from error nodes
+      for (const edge of edges) {
+        const cat = (edge.data as Record<string, unknown>)?.relationshipCategory;
+        if (cat === "ownership" || !cat) {
+          if (edge.source === en.id) chain.add(edge.target);
+          if (edge.target === en.id) chain.add(edge.source);
+        }
+      }
+    }
+    return chain;
+  }, [nodes, edges]);
+
+  // Focus dimming — dims unconnected nodes when a node is selected.
+  // Uses the selectedNodeId PROP (not store) so it works in both
+  // TopologyPage (store-driven) and ResourceTopologyV2View (local state).
+  const focusDimming = useTopologyStore((s) => s.focusDimming);
+
+  const dimmedNodeIds = useMemo(() => {
+    if (!focusDimming || !selectedNodeId) return null;
+    const connectedIds = new Set<string>();
+    connectedIds.add(selectedNodeId);
+    for (const edge of edges) {
+      if (edge.source === selectedNodeId) connectedIds.add(edge.target);
+      if (edge.target === selectedNodeId) connectedIds.add(edge.source);
+    }
+    return connectedIds;
+  }, [focusDimming, selectedNodeId, edges]);
+
+  // Selection/highlight/dimming/health-chain styling
   const styledNodes = useMemo(() => {
-    if (!selectedNodeId && highlightNodeIds.length === 0) return nodes;
+    const hasDimming = dimmedNodeIds != null;
+    const hasErrorChain = errorChainNodeIds.size > 0;
+    if (!selectedNodeId && highlightNodeIds.length === 0 && !hasDimming && !hasErrorChain) return nodes;
     return nodes.map((n) => {
       const isHighlighted = highlightNodeIds.includes(n.id);
       const isSelected = n.id === selectedNodeId;
-      if (!isHighlighted && !isSelected) return n;
+      const isDimmed = hasDimming && !dimmedNodeIds.has(n.id);
+      const isInErrorChain = hasErrorChain && errorChainNodeIds.has(n.id) && !isSelected;
+      if (!isHighlighted && !isSelected && !isDimmed && !isInErrorChain) return n;
       return {
         ...n,
         className: [
           isSelected ? "ring-2 ring-blue-500 ring-offset-2 rounded-lg" : "",
           isHighlighted ? "ring-2 ring-amber-400 ring-offset-1 rounded-lg" : "",
+          isInErrorChain ? "ring-1 ring-red-400/60 rounded-lg" : "",
         ].filter(Boolean).join(" "),
+        style: {
+          ...n.style,
+          ...(isDimmed ? { opacity: 0.2, filter: "saturate(0.3)", transition: "opacity 0.15s, filter 0.15s" } : { transition: "opacity 0.15s, filter 0.15s" }),
+        },
       };
     });
-  }, [nodes, selectedNodeId, highlightNodeIds]);
+  }, [nodes, selectedNodeId, highlightNodeIds, dimmedNodeIds, errorChainNodeIds]);
 
   // Edge styling — ALWAYS show edges, just hide labels at low zoom
   const styledEdges = useMemo(() => {
@@ -266,7 +321,7 @@ function TopologyCanvasInner({
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         fitView
-        fitViewOptions={{ padding: 0.06 }}
+        fitViewOptions={{ padding: 0.08, minZoom: fitViewMinZoom(nodeCount) }}
         onlyRenderVisibleElements={!isExporting}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
@@ -276,14 +331,35 @@ function TopologyCanvasInner({
         maxZoom={4}
         minZoom={0.01}
         proOptions={{ hideAttribution: true }}
-        className="!bg-[#f8f9fb]"
+        className="!bg-[#f8f9fb] dark:!bg-slate-950"
       >
-        <Background variant={BackgroundVariant.Dots} gap={CANVAS.gridGap} size={CANVAS.gridSize} color={CANVAS.gridColor} />
+        {/* SVG marker definitions for edge arrowheads — must be in DOM for url(#id) references */}
+        <svg style={{ position: "absolute", width: 0, height: 0, overflow: "visible" }}>
+          <defs>
+            {Object.entries(EDGE_COLORS).map(([category, color]) => (
+              <g key={category}>
+                {/* Filled triangle arrowhead */}
+                <marker id={`arrow-filled-${category}`} viewBox="0 0 10 10" refX="10" refY="5" markerWidth={8} markerHeight={8} orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z" fill={color} />
+                </marker>
+                {/* Open triangle arrowhead */}
+                <marker id={`arrow-open-${category}`} viewBox="0 0 10 10" refX="10" refY="5" markerWidth={8} markerHeight={8} orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10" fill="none" stroke={color} strokeWidth={1.5} />
+                </marker>
+                {/* Diamond arrowhead */}
+                <marker id={`arrow-diamond-${category}`} viewBox="0 0 12 12" refX="12" refY="6" markerWidth={8} markerHeight={8} orient="auto-start-reverse">
+                  <path d="M 0 6 L 6 0 L 12 6 L 6 12 z" fill={color} />
+                </marker>
+              </g>
+            ))}
+          </defs>
+        </svg>
+        <Background variant={BackgroundVariant.Dots} gap={CANVAS.gridGap} size={CANVAS.gridSize} className="!text-gray-300 dark:!text-slate-800" />
         <MiniMap
           nodeColor={miniMapNodeColor}
           nodeStrokeWidth={0}
           maskColor="rgba(0, 0, 0, 0.06)"
-          className="!bg-white !border !border-gray-200 !rounded-lg !shadow-md"
+          className="!bg-white dark:!bg-slate-900 !border !border-gray-200 dark:!border-slate-700 !rounded-lg !shadow-md"
           style={{ width: 180, height: 120 }}
           pannable
           zoomable
@@ -293,7 +369,7 @@ function TopologyCanvasInner({
           showZoom
           showFitView
           showInteractive={false}
-          className="!bg-white !border !border-gray-200 !rounded-lg !shadow-md"
+          className="!bg-white dark:!bg-slate-800 !border !border-gray-200 dark:!border-slate-700 !rounded-lg !shadow-md [&>button]:dark:!bg-slate-800 [&>button]:dark:!border-slate-700 [&>button]:dark:!fill-gray-300 [&>button:hover]:dark:!bg-slate-700"
           aria-label="Zoom and fit controls"
         />
       </ReactFlow>

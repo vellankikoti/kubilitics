@@ -74,8 +74,8 @@ export function statusDotClass(status: string): string {
 export const NODE_DIMS: Record<string, { width: number; height: number }> = {
   minimal:  { width: 80,  height: 60  },
   compact:  { width: 200, height: 50  },
-  base:     { width: 260, height: 110 },
-  expanded: { width: 360, height: 180 },
+  base:     { width: 320, height: 130 },
+  expanded: { width: 380, height: 190 },
 };
 
 export function getNodeDims(nodeType: string) {
@@ -87,10 +87,28 @@ export function getNodeDims(nodeType: string) {
 
 export const CANVAS = {
   background: "#f8f9fb",
+  backgroundDark: "#0f172a",
   gridColor: "#d4d4d8",
+  gridColorDark: "#1e293b",
   gridGap: 24,
   gridSize: 1,
+  /** Ring color used around MinimalNode dots */
+  ringColor: "#ffffff",
+  ringColorDark: "#0f172a",
+  /** Minimap mask */
+  minimapMask: "rgb(248 249 251 / 0.7)",
+  minimapMaskDark: "rgb(15 23 42 / 0.7)",
 } as const;
+
+/** Get theme-aware canvas colors */
+export function getCanvasColors(isDark: boolean) {
+  return {
+    background: isDark ? CANVAS.backgroundDark : CANVAS.background,
+    gridColor: isDark ? CANVAS.gridColorDark : CANVAS.gridColor,
+    ringColor: isDark ? CANVAS.ringColorDark : CANVAS.ringColor,
+    minimapMask: isDark ? CANVAS.minimapMaskDark : CANVAS.minimapMask,
+  };
+}
 
 // ─── Semantic Zoom Thresholds ────────────────────────────────────────────────
 // Used by: TopologyCanvas.getNodeTypeForZoom
@@ -106,10 +124,11 @@ export const ZOOM_THRESHOLDS = {
 // Used by: TopologyCanvas auto-fit
 
 export function fitViewMinZoom(nodeCount: number): number {
-  if (nodeCount > 300) return 0.12;
-  if (nodeCount > 150) return 0.20;
-  if (nodeCount > 50)  return 0.25;
-  return 0.35;
+  if (nodeCount > 300) return 0.15;
+  if (nodeCount > 150) return 0.25;
+  if (nodeCount > 50)  return 0.35;
+  if (nodeCount > 20)  return 0.45;
+  return 0.55;
 }
 
 // ─── Export Constants ────────────────────────────────────────────────────────
@@ -150,26 +169,54 @@ export function getEdgeColor(relationshipCategory?: string): string {
   return EDGE_COLORS[relationshipCategory ?? ""] ?? EDGE_COLORS.containment;
 }
 
+// ─── Edge Styles (per relationship category) ────────────────────────────────
+// Used by: LabeledEdge — conveys relationship semantics visually
+
+export type MarkerType = "arrow-filled" | "arrow-open" | "arrow-diamond" | "none";
+
+export interface EdgeStyleConfig {
+  strokeWidth: number;
+  dashArray?: string;
+  markerEnd: MarkerType;
+  opacity: number;
+}
+
+export const EDGE_STYLES: Record<string, EdgeStyleConfig> = {
+  ownership:      { strokeWidth: 2.0,               markerEnd: "arrow-filled",  opacity: 0.85 },
+  networking:     { strokeWidth: 1.8,               markerEnd: "arrow-open",    opacity: 0.80 },
+  configuration:  { strokeWidth: 1.2, dashArray: "6 4", markerEnd: "arrow-diamond", opacity: 0.70 },
+  storage:        { strokeWidth: 1.5, dashArray: "4 2", markerEnd: "arrow-filled",  opacity: 0.75 },
+  rbac:           { strokeWidth: 1.0, dashArray: "2 3", markerEnd: "arrow-open",    opacity: 0.65 },
+  scheduling:     { strokeWidth: 1.0, dashArray: "8 4", markerEnd: "none",          opacity: 0.60 },
+  scaling:        { strokeWidth: 1.5,               markerEnd: "arrow-filled",  opacity: 0.75 },
+  policy:         { strokeWidth: 1.2, dashArray: "4 4", markerEnd: "arrow-open",    opacity: 0.70 },
+  containment:    { strokeWidth: 1.0, dashArray: "3 3", markerEnd: "none",          opacity: 0.50 },
+};
+
+export function getEdgeStyle(relationshipCategory?: string): EdgeStyleConfig {
+  return EDGE_STYLES[relationshipCategory ?? ""] ?? EDGE_STYLES.containment;
+}
+
 // ─── Tailwind Class Helpers ─────────────────────────────────────────────────
 // Used by: BaseNode, ExpandedNode (for Tailwind bg-* and border-* classes)
 
-/** Tailwind border class for category */
+/** Tailwind border class for category (light + dark) */
 export function categoryBorderClass(category: string): string {
   const map: Record<string, string> = {
-    compute:    "border-blue-200",
-    workload:   "border-blue-200",
-    networking: "border-purple-200",
-    config:     "border-teal-200",
-    configuration: "border-teal-200",
-    storage:    "border-orange-200",
-    security:   "border-rose-200",
-    rbac:       "border-amber-200",
-    scheduling: "border-slate-200",
-    cluster:    "border-slate-200",
-    scaling:    "border-green-200",
-    custom:     "border-indigo-200",
+    compute:    "border-blue-200 dark:border-blue-800",
+    workload:   "border-blue-200 dark:border-blue-800",
+    networking: "border-purple-200 dark:border-purple-800",
+    config:     "border-teal-200 dark:border-teal-800",
+    configuration: "border-teal-200 dark:border-teal-800",
+    storage:    "border-orange-200 dark:border-orange-800",
+    security:   "border-rose-200 dark:border-rose-800",
+    rbac:       "border-amber-200 dark:border-amber-800",
+    scheduling: "border-slate-200 dark:border-slate-700",
+    cluster:    "border-slate-200 dark:border-slate-700",
+    scaling:    "border-green-200 dark:border-green-800",
+    custom:     "border-indigo-200 dark:border-indigo-800",
   };
-  return map[category] ?? "border-gray-200";
+  return map[category] ?? "border-gray-200 dark:border-gray-700";
 }
 
 /** Tailwind bg class for category header */
@@ -197,10 +244,10 @@ export function categoryHeaderClass(category: string): string {
 export function getStatusBadge(status: string): { text: string; bg: string; textColor: string; dotClass: string } {
   const key = mapStatusKey(status);
   const map: Record<StatusKey, { text: string; bg: string; textColor: string; dotClass: string }> = {
-    healthy: { text: "Healthy", bg: "bg-emerald-50", textColor: "text-emerald-700", dotClass: "bg-emerald-500" },
-    warning: { text: "Warning", bg: "bg-amber-50", textColor: "text-amber-700", dotClass: "bg-amber-500" },
-    error:   { text: "Error",   bg: "bg-red-50",     textColor: "text-red-700",     dotClass: "bg-red-500" },
-    unknown: { text: "Unknown", bg: "bg-gray-50",    textColor: "text-gray-500",    dotClass: "bg-gray-400" },
+    healthy: { text: "Healthy", bg: "bg-emerald-50 dark:bg-emerald-950/30", textColor: "text-emerald-700 dark:text-emerald-400", dotClass: "bg-emerald-500" },
+    warning: { text: "Warning", bg: "bg-amber-50 dark:bg-amber-950/30", textColor: "text-amber-700 dark:text-amber-400", dotClass: "bg-amber-500" },
+    error:   { text: "Error",   bg: "bg-red-50 dark:bg-red-950/30",     textColor: "text-red-700 dark:text-red-400",     dotClass: "bg-red-500" },
+    unknown: { text: "Unknown", bg: "bg-gray-50 dark:bg-slate-700",    textColor: "text-gray-500 dark:text-gray-400",    dotClass: "bg-gray-400" },
   };
   return map[key];
 }
@@ -225,7 +272,7 @@ export const NODE_CARD = {
   /** Card rounding */
   rounding: "rounded-lg",
   /** Card background */
-  bg: "bg-white",
+  bg: "bg-white dark:bg-slate-800",
   /** Body padding */
   bodyPadding: "px-3 py-2.5",
   /** Header padding */
@@ -233,6 +280,18 @@ export const NODE_CARD = {
   /** Handle styles */
   handleClass: "!bg-gray-300 !border-white !border-2",
 } as const;
+
+// ─── Layer / Tier Configuration ────────────────────────────────────────────
+// Used by: useElkLayout (layer constraints), LayerLabel nodes
+
+export const LAYER_CONFIG: Record<number, { label: string; bgTint: string }> = {
+  0: { label: "Infrastructure", bgTint: "#4755690a" },
+  1: { label: "Services",       bgTint: "#7C3AED0a" },
+  2: { label: "Workloads",      bgTint: "#2563EB0a" },
+  3: { label: "Controllers",    bgTint: "#0D94880a" },
+  4: { label: "Pods",           bgTint: "#2563EB06" },
+  5: { label: "Nodes",          bgTint: "#4755690a" },
+};
 
 // ─── Accessibility Constants ────────────────────────────────────────────────
 // Used by: all interactive topology components
