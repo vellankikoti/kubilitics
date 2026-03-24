@@ -408,36 +408,36 @@ export default function StatefulSetDetail() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <SectionCard icon={Database} title="StatefulSet Information" tooltip={<p className="text-xs text-muted-foreground">Configuration and update strategy</p>}>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground mb-1">Service Name</p>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
+                    <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">SERVICE NAME</span>
                     <Button
                       variant="link"
-                      className="h-auto p-0 font-mono"
+                      className="h-auto p-0 font-mono text-sm font-semibold justify-start"
                       onClick={() => navigate(`/services/${namespace}/${statefulSet.spec?.serviceName}`)}
                     >
                       {statefulSet.spec?.serviceName || '-'}
                     </Button>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Pod Management</p>
+                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
+                    <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">POD MANAGEMENT</span>
                     <Badge variant="outline">{statefulSet.spec?.podManagementPolicy || 'OrderedReady'}</Badge>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Update Strategy</p>
+                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
+                    <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">UPDATE STRATEGY</span>
                     <Badge variant="outline">{statefulSet.spec?.updateStrategy?.type || 'RollingUpdate'}</Badge>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Partition</p>
-                    <p className="font-mono">{statefulSet.spec?.updateStrategy?.rollingUpdate?.partition ?? 0}</p>
+                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
+                    <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">PARTITION</span>
+                    <span className="text-sm font-semibold text-foreground font-mono">{statefulSet.spec?.updateStrategy?.rollingUpdate?.partition ?? 0}</span>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Revision History Limit</p>
-                    <p className="font-mono">{statefulSet.spec?.revisionHistoryLimit ?? 10}</p>
+                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
+                    <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">REVISION HISTORY LIMIT</span>
+                    <span className="text-sm font-semibold text-foreground font-mono">{statefulSet.spec?.revisionHistoryLimit ?? 10}</span>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Min Ready Seconds</p>
-                    <p className="font-mono">{statefulSet.spec?.minReadySeconds ?? 0}s</p>
+                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
+                    <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">MIN READY SECONDS</span>
+                    <span className="text-sm font-semibold text-foreground font-mono">{statefulSet.spec?.minReadySeconds ?? 0}s</span>
                   </div>
                 </div>
             </SectionCard>
