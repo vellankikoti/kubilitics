@@ -148,11 +148,22 @@ export default defineConfig(({ mode }) => ({
     target: "esnext",
     minify: "esbuild",
     sourcemap: mode !== "production",
-    // Manual chunk splitting disabled — Vite/Rollup handles code splitting
-    // automatically via dynamic import() boundaries. Manual manualChunks caused
-    // cross-chunk React import failures (useLayoutEffect, createContext undefined)
-    // due to nested dependencies (e.g. zustand inside @react-three/fiber) being
-    // placed in chunks where React wasn't initialized during module evaluation.
-    // Lazy-loaded routes still get their own chunks via dynamic import().
+    // Only split Monaco Editor into its own chunk — it's ~3.8MB and self-contained
+    // (no React internals). General manualChunks are disabled because they caused
+    // cross-chunk React import failures (useLayoutEffect, createContext undefined).
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Monaco Editor core (~3.5MB) — self-contained, no React dependency
+          if (id.includes('monaco-editor') && !id.includes('@monaco-editor/react')) {
+            return 'vendor-monaco';
+          }
+          // Monaco React wrapper (~15KB) — thin wrapper, safe to separate
+          if (id.includes('@monaco-editor/react')) {
+            return 'vendor-monaco-react';
+          }
+        },
+      },
+    },
   },
 }));
