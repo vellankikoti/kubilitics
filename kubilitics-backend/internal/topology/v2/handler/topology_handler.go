@@ -52,14 +52,14 @@ func (h *TopologyHandler) HandleGetTopology(w http.ResponseWriter, r *http.Reque
 	}
 
 	ctx := r.Context()
-	var bundle *v2.ResourceBundle
-	if h.collector != nil {
-		var err error
-		bundle, err = h.collector.Collect(ctx, clusterID, opts.Namespace)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to collect resources: "+err.Error())
-			return
-		}
+	if h.collector == nil {
+		writeError(w, http.StatusServiceUnavailable, "no resource collector configured: cannot build topology")
+		return
+	}
+	bundle, err := h.collector.Collect(ctx, clusterID, opts.Namespace)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to collect resources: "+err.Error())
+		return
 	}
 
 	resp, err := builder.BuildGraph(ctx, opts, bundle)
@@ -73,13 +73,13 @@ func (h *TopologyHandler) HandleGetTopology(w http.ResponseWriter, r *http.Reque
 	resp = filter.Filter(resp, opts)
 
 	// Apply health enrichment
-	if opts.IncludeHealth && bundle != nil {
+	if opts.IncludeHealth {
 		enricher := &v2.HealthEnricher{}
 		enricher.EnrichNodes(resp.Nodes, bundle)
 	}
 
 	// Apply metrics enrichment
-	if opts.IncludeMetrics && bundle != nil {
+	if opts.IncludeMetrics {
 		enricher := &v2.MetricsEnricher{}
 		enricher.EnrichNodes(resp.Nodes, bundle)
 	}
@@ -126,14 +126,14 @@ func (h *TopologyHandler) HandleGetResource(w http.ResponseWriter, r *http.Reque
 	}
 
 	ctx := r.Context()
-	var bundle *v2.ResourceBundle
-	if h.collector != nil {
-		var err error
-		bundle, err = h.collector.Collect(ctx, clusterID, ns)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to collect resources: "+err.Error())
-			return
-		}
+	if h.collector == nil {
+		writeError(w, http.StatusServiceUnavailable, "no resource collector configured: cannot build topology")
+		return
+	}
+	bundle, err := h.collector.Collect(ctx, clusterID, ns)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to collect resources: "+err.Error())
+		return
 	}
 
 	resp, err := builder.BuildGraph(ctx, opts, bundle)
@@ -145,12 +145,10 @@ func (h *TopologyHandler) HandleGetResource(w http.ResponseWriter, r *http.Reque
 	filter := &v2.ViewFilter{}
 	resp = filter.Filter(resp, opts)
 
-	if bundle != nil {
-		enricher := &v2.HealthEnricher{}
-		enricher.EnrichNodes(resp.Nodes, bundle)
-		metricsEnricher := &v2.MetricsEnricher{}
-		metricsEnricher.EnrichNodes(resp.Nodes, bundle)
-	}
+	enricher := &v2.HealthEnricher{}
+	enricher.EnrichNodes(resp.Nodes, bundle)
+	metricsEnricher := &v2.MetricsEnricher{}
+	metricsEnricher.EnrichNodes(resp.Nodes, bundle)
 
 	// Aggregate pods into summary nodes when a single owner has >3 pods
 	resp.Nodes, resp.Edges = builder.AggregatePods(resp.Nodes, resp.Edges)
@@ -196,15 +194,15 @@ func (h *TopologyHandler) HandleGetImpact(w http.ResponseWriter, r *http.Request
 
 	resp, cached := h.cache.Get(graphCacheKey)
 	if !cached {
+		if h.collector == nil {
+			writeError(w, http.StatusServiceUnavailable, "no resource collector configured: cannot build topology")
+			return
+		}
 		ctx := r.Context()
-		var bundle *v2.ResourceBundle
-		if h.collector != nil {
-			var err error
-			bundle, err = h.collector.Collect(ctx, clusterID, "")
-			if err != nil {
-				writeError(w, http.StatusInternalServerError, "failed to collect resources: "+err.Error())
-				return
-			}
+		bundle, err := h.collector.Collect(ctx, clusterID, "")
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to collect resources: "+err.Error())
+			return
 		}
 
 		// Build the full graph to get all edges
@@ -212,10 +210,10 @@ func (h *TopologyHandler) HandleGetImpact(w http.ResponseWriter, r *http.Request
 			ClusterID: clusterID,
 			Mode:      v2.ViewModeCluster,
 		}
-		var err error
-		resp, err = builder.BuildGraph(ctx, opts, bundle)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to build topology: "+err.Error())
+		var buildErr error
+		resp, buildErr = builder.BuildGraph(ctx, opts, bundle)
+		if buildErr != nil {
+			writeError(w, http.StatusInternalServerError, "failed to build topology: "+buildErr.Error())
 			return
 		}
 		h.cache.Set(graphCacheKey, resp, v2.DefaultCacheTTL)
@@ -245,14 +243,14 @@ func (h *TopologyHandler) HandleExport(w http.ResponseWriter, r *http.Request) {
 
 	opts := parseQueryOptions(r, clusterID)
 	ctx := r.Context()
-	var bundle *v2.ResourceBundle
-	if h.collector != nil {
-		var err error
-		bundle, err = h.collector.Collect(ctx, clusterID, opts.Namespace)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to collect resources: "+err.Error())
-			return
-		}
+	if h.collector == nil {
+		writeError(w, http.StatusServiceUnavailable, "no resource collector configured: cannot build topology")
+		return
+	}
+	bundle, err := h.collector.Collect(ctx, clusterID, opts.Namespace)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to collect resources: "+err.Error())
+		return
 	}
 
 	resp, err := builder.BuildGraph(ctx, opts, bundle)

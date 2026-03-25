@@ -17,7 +17,7 @@ var defaultRegistry = relationships.NewDefaultRegistry()
 // BuildGraph builds a TopologyResponse from a ResourceBundle using the default relationship registry.
 func BuildGraph(ctx context.Context, opts v2.Options, bundle *v2.ResourceBundle) (*v2.TopologyResponse, error) {
 	if bundle == nil {
-		return v2.MockTopologyResponse(opts.ClusterID, opts.ClusterID, opts.Mode), nil
+		return nil, fmt.Errorf("resource bundle is required to build topology graph")
 	}
 	start := time.Now()
 	nodes := NodesFromBundle(bundle)

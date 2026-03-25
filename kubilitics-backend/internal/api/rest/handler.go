@@ -807,7 +807,7 @@ func (h *Handler) GetTopology(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, topology)
 }
 
-// GetTopologyV2 handles GET /clusters/{clusterId}/topology/v2. Builds topology from cluster when client is available, otherwise returns mock.
+// GetTopologyV2 handles GET /clusters/{clusterId}/topology/v2. Builds topology from live cluster data.
 func (h *Handler) GetTopologyV2(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	clusterID := vars["clusterId"]
@@ -830,7 +830,11 @@ func (h *Handler) GetTopologyV2(w http.ResponseWriter, r *http.Request) {
 		Mode:        topologyv2.ViewMode(mode),
 		Namespace:   namespace,
 	}
-	client, _ := h.getClientFromRequest(r.Context(), r, clusterID, h.cfg)
+	client, err := h.getClientFromRequest(r.Context(), r, clusterID, h.cfg)
+	if err != nil {
+		respondError(w, http.StatusServiceUnavailable, "Cluster not connected")
+		return
+	}
 	resp, err := topologyv2builder.BuildTopology(r.Context(), opts, client)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
@@ -860,18 +864,19 @@ func (h *Handler) GetTopologyV2Traffic(w http.ResponseWriter, r *http.Request) {
 		Namespace:   namespace,
 	}
 
-	client, _ := h.getClientFromRequest(r.Context(), r, clusterID, h.cfg)
+	client, err := h.getClientFromRequest(r.Context(), r, clusterID, h.cfg)
+	if err != nil {
+		respondError(w, http.StatusServiceUnavailable, "Cluster not connected")
+		return
+	}
 	resp, err := topologyv2builder.BuildTopology(r.Context(), opts, client)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	// Collect the resource bundle for traffic inference (nil when no live cluster)
-	var bundle *topologyv2.ResourceBundle
-	if client != nil {
-		bundle, _ = topologyv2.CollectFromClient(r.Context(), client, namespace)
-	}
+	// Collect the resource bundle for traffic inference
+	bundle, _ := topologyv2.CollectFromClient(r.Context(), client, namespace)
 
 	trafficEdges := topologyv2builder.InferTraffic(resp.Nodes, resp.Edges, bundle)
 	criticalityScores := topologyv2builder.ScoreNodes(resp.Nodes, resp.Edges)
