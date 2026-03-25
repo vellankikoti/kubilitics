@@ -734,7 +734,7 @@ export function LogViewer({
 
       {/* ── Primary toolbar ───────────────────────────────────────────────── */}
       {/* ── Toolbar — single row, everything uniform h-8 ────────────────── */}
-      <div className={cn('border-b px-3 py-2 flex items-center gap-1.5', toolbar)}>
+      <div className={cn('border-b px-3 py-2 flex items-center gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]', toolbar)}>
 
         {/* Status badge */}
         {isReconnecting ? (

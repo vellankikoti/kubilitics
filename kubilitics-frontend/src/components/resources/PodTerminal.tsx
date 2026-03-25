@@ -234,8 +234,8 @@ export function PodTerminal({
 
   return (
     <div className={cn(
-      'flex flex-col rounded-xl overflow-hidden border border-slate-700/50',
-      isMaximized && 'fixed inset-4 z-50 shadow-2xl',
+      'flex flex-col rounded-xl overflow-hidden border border-slate-700/50 min-h-0',
+      isMaximized ? 'fixed inset-4 z-50 shadow-2xl' : 'flex-1',
       className,
     )}>
       {/* Header */}
@@ -297,10 +297,9 @@ export function PodTerminal({
            padding-left prevents text from touching the container edge. */}
       <div
         ref={termRef}
-        className="bg-[#0d1117] text-slate-200 pl-2 [&_.xterm]:!bg-[#0d1117] [&_.xterm-viewport]:!bg-[#0d1117]"
+        className="bg-[#0d1117] text-slate-200 pl-2 flex-1 min-h-0 [&_.xterm]:!bg-[#0d1117] [&_.xterm-viewport]:!bg-[#0d1117] [&_.xterm-viewport]:!overflow-y-auto"
         style={{
-          height: isMaximized ? 'calc(100vh - 120px)' : 'min(520px, calc(100vh - 300px))',
-          minHeight: '360px',
+          minHeight: isMaximized ? 'calc(100vh - 120px)' : '300px',
           WebkitTextSizeAdjust: '100%',
         }}
       />

@@ -604,7 +604,7 @@ function YamlDiffView({
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-4 sticky top-0 z-10 bg-background/95 backdrop-blur py-2">
+            <div className="flex flex-wrap items-center justify-between gap-4 py-2">
                 <div className="flex items-center gap-3">
                     <span className="text-xs text-muted-foreground font-medium">Differences:</span>
                     <Badge variant="outline" className="gap-1 bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30">
@@ -911,7 +911,7 @@ export function ResourceComparisonView({
                 {activeTab === 'yaml' && (
                   <div>
                     {/* ═══ Compare Mode Pill Bar ═══ */}
-                    <div className="px-6 py-2.5 border-b bg-background sticky top-0 z-10">
+                    <div className="px-6 py-2.5 border-b bg-background">
                       <CompareModePillBar value={compareMode} onChange={setCompareMode} />
                     </div>
 
