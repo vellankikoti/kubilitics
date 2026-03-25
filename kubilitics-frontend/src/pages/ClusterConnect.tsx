@@ -775,9 +775,9 @@ export default function ClusterConnect() {
                               <div className={`p-2 rounded-lg ${cluster.status === 'healthy' ? 'bg-emerald-500/10' : 'bg-muted'}`}>
                                 {getStatusIcon(cluster.status)}
                               </div>
-                              <div>
-                                <p className="font-medium text-foreground">{cluster.name}</p>
-                                <p className="text-xs text-muted-foreground font-mono tracking-wider">
+                              <div className="min-w-0 max-w-[320px]">
+                                <p className="font-medium text-foreground truncate">{cluster.name}</p>
+                                <p className="text-xs text-muted-foreground font-mono tracking-wider truncate">
                                   {cluster.server || 'LOCAL ENGINE'}
                                 </p>
                               </div>
