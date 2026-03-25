@@ -1147,6 +1147,12 @@ export default function DeploymentDetail() {
       content: <MetricsDashboard resourceType="deployment" resourceName={name} namespace={namespace} clusterId={clusterId} />,
     },
     {
+      id: 'yaml',
+      label: 'YAML',
+      icon: FileCode,
+      content: <YamlViewer yaml={yaml} resourceName={deploymentName || ''} editable onSave={handleSaveYaml} />,
+    },
+    {
       id: 'compare',
       label: 'Compare',
       icon: GitCompare,
@@ -1162,12 +1168,6 @@ export default function DeploymentDetail() {
           embedded
         />
       ),
-    },
-    {
-      id: 'yaml',
-      label: 'YAML',
-      icon: FileCode,
-      content: <YamlViewer yaml={yaml} resourceName={deploymentName || ''} editable onSave={handleSaveYaml} />,
     },
     {
       id: 'topology',

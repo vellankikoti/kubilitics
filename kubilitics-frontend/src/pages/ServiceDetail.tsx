@@ -985,20 +985,6 @@ export default function ServiceDetail() {
     },
     { id: 'yaml', label: 'YAML', content: <YamlViewer yaml={yaml} resourceName={svcName} editable onSave={handleSaveYaml} /> },
     {
-      id: 'topology',
-      label: 'Topology',
-      icon: Network,
-      content: (
-        <ResourceTopologyView
-          kind={normalizeKindForTopology('Service')}
-          namespace={namespace ?? ''}
-          name={name ?? ''}
-          sourceResourceType="Service"
-          sourceResourceName={svc?.metadata?.name ?? name ?? ''}
-        />
-      ),
-    },
-    {
       id: 'compare',
       label: 'Compare',
       icon: GitCompare,
@@ -1012,6 +998,20 @@ export default function ServiceDetail() {
           backendBaseUrl={baseUrl ?? ''}
           isConnected={isConnected}
           embedded
+        />
+      ),
+    },
+    {
+      id: 'topology',
+      label: 'Topology',
+      icon: Network,
+      content: (
+        <ResourceTopologyView
+          kind={normalizeKindForTopology('Service')}
+          namespace={namespace ?? ''}
+          name={name ?? ''}
+          sourceResourceType="Service"
+          sourceResourceName={svc?.metadata?.name ?? name ?? ''}
         />
       ),
     },

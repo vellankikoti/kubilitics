@@ -188,20 +188,6 @@ export default function DeviceClassDetail() {
     { id: 'events', label: 'Events', icon: Clock, content: <EventsSection events={events} /> },
     { id: 'yaml', label: 'YAML', icon: FileCode, content: <YamlViewer yaml={yaml} resourceName={dcName} editable onSave={handleSaveYaml} /> },
     {
-      id: 'topology',
-      label: 'Topology',
-      icon: Network,
-      content: (
-        <ResourceTopologyView
-          kind="DeviceClass"
-          namespace=""
-          name={name ?? ''}
-          sourceResourceType="DeviceClass"
-          sourceResourceName={dc?.metadata?.name ?? name ?? ''}
-        />
-      ),
-    },
-    {
       id: 'compare',
       label: 'Compare',
       icon: GitCompare,
@@ -214,6 +200,20 @@ export default function DeviceClassDetail() {
           backendBaseUrl={baseUrl ?? ''}
           isConnected={isConnected}
           embedded
+        />
+      ),
+    },
+    {
+      id: 'topology',
+      label: 'Topology',
+      icon: Network,
+      content: (
+        <ResourceTopologyView
+          kind="DeviceClass"
+          namespace=""
+          name={name ?? ''}
+          sourceResourceType="DeviceClass"
+          sourceResourceName={dc?.metadata?.name ?? name ?? ''}
         />
       ),
     },

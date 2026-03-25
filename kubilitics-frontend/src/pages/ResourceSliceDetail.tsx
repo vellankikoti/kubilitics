@@ -189,20 +189,6 @@ export default function ResourceSliceDetail() {
     { id: 'events', label: 'Events', icon: Clock, content: <EventsSection events={events} /> },
     { id: 'yaml', label: 'YAML', icon: FileCode, content: <YamlViewer yaml={yaml} resourceName={rsName} editable onSave={handleSaveYaml} /> },
     {
-      id: 'topology',
-      label: 'Topology',
-      icon: Network,
-      content: (
-        <ResourceTopologyView
-          kind="ResourceSlice"
-          namespace=""
-          name={name ?? ''}
-          sourceResourceType="ResourceSlice"
-          sourceResourceName={rs?.metadata?.name ?? name ?? ''}
-        />
-      ),
-    },
-    {
       id: 'compare',
       label: 'Compare',
       icon: GitCompare,
@@ -215,6 +201,20 @@ export default function ResourceSliceDetail() {
           backendBaseUrl={baseUrl ?? ''}
           isConnected={isConnected}
           embedded
+        />
+      ),
+    },
+    {
+      id: 'topology',
+      label: 'Topology',
+      icon: Network,
+      content: (
+        <ResourceTopologyView
+          kind="ResourceSlice"
+          namespace=""
+          name={name ?? ''}
+          sourceResourceType="ResourceSlice"
+          sourceResourceName={rs?.metadata?.name ?? name ?? ''}
         />
       ),
     },
