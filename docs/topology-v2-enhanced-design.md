@@ -1,7 +1,7 @@
-# Topology V3 Engine — Design & Implementation Plan
+# Topology V2 Enhanced Engine — Design & Implementation Plan
 
 **Date**: 2026-03-25
-**Branch**: `feat/topology-v3-engine`
+**Branch**: `feat/topology-v2-engine`
 **Goal**: World-class K8s relationship visualization — Apple-grade UX at 1000+ node scale
 
 ---
@@ -182,7 +182,7 @@ type TopologyNodeV3 struct {
 
 ## Risk Mitigation
 
-1. **All work on `feat/topology-v3-engine` branch** — main untouched
+1. **All work on `feat/topology-v2-engine` branch** — main untouched
 2. **Backend matchers are additive** — new matchers don't break existing ones
 3. **Frontend changes behind feature flags** — Dagre/Sigma toggled via config
 4. **Phase 1 is backend-only** — zero frontend risk

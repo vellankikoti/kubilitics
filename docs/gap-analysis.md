@@ -1,7 +1,7 @@
 # Kubilitics Topology -- Gap Analysis
 
 Date: 2026-03-26
-Branch: `feat/topology-v3-engine`
+Branch: `feat/topology-v2-enhanced-engine`
 Auditor: Automated code review (Claude)
 
 ---
