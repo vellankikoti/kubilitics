@@ -1296,27 +1296,65 @@ func (h *Handler) GetResourceTopology(w http.ResponseWriter, r *http.Request) {
 		}
 		ri := topologyv2builder.BuildReverseIndex(v2Resp.Edges)
 
-		// BFS from target to N hops
+		// Resource-focused traversal:
+		// Direct (depth=1): only what THIS resource depends on (outgoing edges)
+		// Extended (depth=2): expand Direct nodes' dependencies (one more level)
+		// Full (depth=3): full reachable graph from this resource (both directions)
 		connected := make(map[string]bool)
 		connected[targetID] = true
-		frontier := []string{targetID}
-		for hop := 0; hop < hops; hop++ {
-			var nextFrontier []string
-			for _, id := range frontier {
-				for _, dep := range ri.GetDependencies(id) {
-					if !connected[dep] {
-						connected[dep] = true
-						nextFrontier = append(nextFrontier, dep)
+
+		if hops >= 3 {
+			// Full mode: BFS both directions — show entire reachable graph
+			frontier := []string{targetID}
+			visited := make(map[string]bool)
+			visited[targetID] = true
+			for len(frontier) > 0 {
+				var next []string
+				for _, id := range frontier {
+					for _, dep := range ri.GetDependencies(id) {
+						if !visited[dep] {
+							visited[dep] = true
+							connected[dep] = true
+							next = append(next, dep)
+						}
+					}
+					for _, dep := range ri.GetDependents(id) {
+						if !visited[dep] {
+							visited[dep] = true
+							connected[dep] = true
+							next = append(next, dep)
+						}
 					}
 				}
-				for _, dep := range ri.GetDependents(id) {
-					if !connected[dep] {
-						connected[dep] = true
-						nextFrontier = append(nextFrontier, dep)
+				frontier = next
+			}
+		} else {
+			// Direct/Extended: only follow outgoing dependencies (focused, no siblings)
+			// Hop 1: THIS resource's direct dependencies
+			for _, dep := range ri.GetDependencies(targetID) {
+				connected[dep] = true
+			}
+			// Also include resources that directly select/target this resource
+			// (e.g., Service that selects this Pod) but NOT their other targets
+			for _, dep := range ri.GetDependents(targetID) {
+				connected[dep] = true
+			}
+
+			if hops >= 2 {
+				// Hop 2: expand each Direct node's dependencies (parents/children only)
+				directNodes := make([]string, 0)
+				for id := range connected {
+					if id != targetID {
+						directNodes = append(directNodes, id)
 					}
+				}
+				for _, id := range directNodes {
+					for _, dep := range ri.GetDependencies(id) {
+						connected[dep] = true
+					}
+					// Don't follow dependents of direct nodes — that pulls in siblings
 				}
 			}
-			frontier = nextFrontier
 		}
 
 		// Filter nodes and edges to connected set
