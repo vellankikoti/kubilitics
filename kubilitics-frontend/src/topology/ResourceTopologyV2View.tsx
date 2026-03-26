@@ -231,7 +231,6 @@ export function ResourceTopologyV2View({
               <Network className="h-4 w-4 text-blue-600" />
             </div>
             <h3 className="text-sm font-semibold text-gray-900">Resource Topology</h3>
-            <span className="text-xs text-gray-500 bg-blue-50 px-2 py-0.5 rounded-full font-medium">v2</span>
           </div>
           <Button
             variant="outline"
