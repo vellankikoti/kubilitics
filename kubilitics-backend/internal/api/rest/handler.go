@@ -1206,9 +1206,14 @@ func (h *Handler) GetResourceTopology(w http.ResponseWriter, r *http.Request) {
 		Mode:        topologyv2.ViewModeResource,
 		Resource:    kind + "/" + namespace + "/" + name,
 	}
-	// Parse hop depth from query (default 1 = direct connections only)
+	// Parse hop depth from query (default 1 = direct connections only).
+	// Accept both "depth" (frontend convention) and "hops" (backend legacy) — "depth" takes precedence.
 	hops := 1
-	if d := r.URL.Query().Get("hops"); d != "" {
+	if d := r.URL.Query().Get("depth"); d != "" {
+		if v, err := strconv.Atoi(d); err == nil && v >= 1 && v <= 5 {
+			hops = v
+		}
+	} else if d := r.URL.Query().Get("hops"); d != "" {
 		if v, err := strconv.Atoi(d); err == nil && v >= 1 && v <= 5 {
 			hops = v
 		}

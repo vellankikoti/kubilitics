@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Copy, Check, ChevronRight, X, AlertTriangle, Zap, ArrowDownLeft, ArrowUpRight, Loader2 } from "lucide-react";
+import { Copy, Check, ChevronRight, X, AlertTriangle, Zap, EyeOff, ArrowDownLeft, ArrowUpRight, Loader2 } from "lucide-react";
 import type { TopologyResponse, TopologyNode, TopologyEdge, NodeMetrics } from "./types/topology";
 import { formatBytes, formatCPU } from "./nodes/nodeUtils";
 import { K8sIcon } from "./icons/K8sIcon";
@@ -545,10 +545,13 @@ function ImpactSection({
       {blastRadius > 0 && (
         <button
           type="button"
-          className={`mt-1.5 w-full rounded-md border border-gray-200 dark:border-slate-600 px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground hover:bg-gray-50 dark:hover:bg-slate-700 ${A11Y.focusRing} ${A11Y.transition}`}
+          className={showList
+            ? "w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            : "w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+          }
           onClick={onToggleList}
         >
-          {showList ? "Hide Impact Details" : "Simulate Failure"}
+          {showList ? <><EyeOff className="h-4 w-4" /> Hide Results</> : <><Zap className="h-4 w-4" /> Simulate Failure</>}
         </button>
       )}
       {showList && impactedResources.length > 0 && (
