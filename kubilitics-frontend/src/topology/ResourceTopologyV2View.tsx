@@ -14,6 +14,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -65,7 +71,10 @@ export function ResourceTopologyV2View({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [viewMode] = useState<ViewMode>("resource");
   const [presentationMode, setPresentationMode] = useState(false);
-  const [depth, setDepth] = useState(1);
+  const [viewLevel, setViewLevel] = useState<'direct' | 'extended' | 'full'>('direct');
+  const depth = viewLevel === 'direct' ? 1 : viewLevel === 'extended' ? 2 : 3;
+  const fullDialogFitViewRef = useRef<(() => void) | null>(null);
+  const fullDialogExportRef = useRef<((format: ExportFormat, filename: string) => void) | null>(null);
 
   const backendConfigured = isBackendConfigured();
   const hasClusterId = !!clusterId;
@@ -139,6 +148,11 @@ export function ResourceTopologyV2View({
     const filename = buildExportFilename("svg", exportCtx);
     exportCanvasRef.current?.("svg", filename);
   }, [exportCtx]);
+
+  // Double-click a node: step up one view level
+  const handleNodeExpand = useCallback((_nodeId: string) => {
+    setViewLevel((prev) => (prev === 'direct' ? 'extended' : prev));
+  }, []);
 
   // --- Conditional renders (all hooks called above) ---
 
@@ -293,20 +307,25 @@ export function ResourceTopologyV2View({
 
           <Separator orientation="vertical" className="h-6" />
 
-          {/* Dependency Depth */}
+          {/* View Level */}
           <div className="flex items-center gap-2">
             <GitBranch className="h-3.5 w-3.5 text-gray-500" />
-            <span className="text-[10px] font-medium text-gray-500 whitespace-nowrap">Depth</span>
-            <input
-              type="range"
-              min={1}
-              max={3}
-              value={depth}
-              onChange={(e) => setDepth(Number(e.target.value))}
-              className="w-16 h-1 accent-blue-600"
-              title={`Dependency depth: ${depth} hops`}
-            />
-            <span className="text-[11px] font-bold text-gray-700 w-3 text-center">{depth}</span>
+            <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
+              {(['direct', 'extended', 'full'] as const).map((level) => (
+                <button
+                  key={level}
+                  type="button"
+                  onClick={() => setViewLevel(level)}
+                  className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
+                    viewLevel === level
+                      ? 'bg-white text-gray-900 shadow-sm dark:bg-slate-700 dark:text-white'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200'
+                  }`}
+                >
+                  {level === 'direct' ? 'Direct' : level === 'extended' ? 'Extended' : 'Full'}
+                </button>
+              ))}
+            </div>
           </div>
 
           <Separator orientation="vertical" className="h-6" />
@@ -334,6 +353,7 @@ export function ResourceTopologyV2View({
             highlightNodeIds={highlightNodeIds}
             viewMode={viewMode}
             onSelectNode={setSelectedNodeId}
+            onNodeExpand={handleNodeExpand}
             exportRef={exportCanvasRef}
             fitViewRef={fitViewRef}
             clusterName={activeClusterName ?? undefined}
@@ -370,6 +390,59 @@ export function ResourceTopologyV2View({
           />
         )}
       </div>
+
+      {/* Full Topology Dialog */}
+      {viewLevel === 'full' && (
+        <Dialog open onOpenChange={() => setViewLevel('extended')}>
+          <DialogContent className="max-w-[95vw] h-[90vh] p-0" hideCloseButton>
+            <DialogHeader className="px-4 pt-4 pb-2 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <DialogTitle className="flex items-center gap-2 text-sm">
+                  <Layers className="h-4 w-4 text-blue-600" />
+                  Full Topology — {name} ({kind})
+                </DialogTitle>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => fullDialogFitViewRef.current?.()}
+                    className="h-7 px-2 text-xs"
+                  >
+                    <Maximize className="h-3.5 w-3.5 mr-1" />
+                    Fit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setViewLevel('extended')}
+                    className="h-7 px-2 text-xs"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </div>
+            </DialogHeader>
+            <div className="h-[calc(90vh-4rem)] relative">
+              <TopologyCanvas
+                topology={topology}
+                selectedNodeId={selectedNodeId}
+                highlightNodeIds={highlightNodeIds}
+                viewMode={viewMode}
+                onSelectNode={setSelectedNodeId}
+                fitViewRef={fullDialogFitViewRef}
+                exportRef={fullDialogExportRef}
+                clusterName={activeClusterName ?? undefined}
+                namespace={namespace ?? undefined}
+              />
+              <div className="absolute bottom-4 right-4 z-50 bg-gray-100 border border-gray-200 rounded-md px-2.5 py-1">
+                <span className="text-xs font-medium text-gray-700">
+                  {topology.nodes.length} Resources &middot; {topology.edges.length} Connections
+                </span>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
