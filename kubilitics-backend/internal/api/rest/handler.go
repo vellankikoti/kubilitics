@@ -95,12 +95,19 @@ var expandableCategories = map[string]bool{
 // hubKinds are shared infrastructure nodes that fan out to many unrelated
 // resources. They are included as leaf nodes but never expanded through.
 var hubKinds = map[string]bool{
-	"Namespace":     true,
-	"Node":          true,
-	"LimitRange":    true,
-	"ResourceQuota": true,
-	"PriorityClass": true,
-	"RuntimeClass":  true,
+	"Namespace":                        true,
+	"Node":                             true,
+	"LimitRange":                       true,
+	"ResourceQuota":                    true,
+	"PriorityClass":                    true,
+	"RuntimeClass":                     true,
+	"IngressClass":                     true,
+	"StorageClass":                     true,
+	"MutatingWebhookConfiguration":     true,
+	"ValidatingWebhookConfiguration":   true,
+	"NetworkPolicy":                    true,
+	"ServiceAccount":                   true,
+	"Ingress":                          true,
 }
 
 // Handler manages HTTP request handlers
@@ -1337,16 +1344,26 @@ func (h *Handler) GetResourceTopology(w http.ResponseWriter, r *http.Request) {
 			return expandableCategories[category]
 		}
 
-		// Hub kinds — additional safety net. Even if a hub node is reached
-		// via an expandable edge, we never expand THROUGH it because hubs
-		// connect to too many unrelated resources.
+		// Hub detection — two layers:
+		// 1. Static: hubKinds (Namespace, Node, etc.) — always hubs
+		// 2. Dynamic: any node with >10 total connections is a hub
+		//    (catches ServiceAccount/default, ConfigMap/kube-root-ca.crt, etc.)
 		nodeKind := func(id string) string {
 			if idx := strings.IndexByte(id, '/'); idx > 0 {
 				return id[:idx]
 			}
 			return id
 		}
-		isHub := func(id string) bool { return hubKinds[nodeKind(id)] }
+		// Dynamic hub: a node with many connections is likely shared infra.
+		// Static hubKinds catch known types. Dynamic check catches shared
+		// ConfigMaps (kube-root-ca.crt), Secrets, etc.
+		// Threshold: >8 dependents = too many things depend on this resource.
+		isHub := func(id string) bool {
+			if hubKinds[nodeKind(id)] {
+				return true
+			}
+			return len(ri.GetDependents(id)) > 5
+		}
 
 		// Resource-focused traversal:
 		// Direct   (depth=1): target + immediate meaningful connections (hubs as leaves)
@@ -1357,26 +1374,40 @@ func (h *Handler) GetResourceTopology(w http.ResponseWriter, r *http.Request) {
 
 		if hops >= 3 {
 			// ── Full mode ────────────────────────────────────────────
-			// Unrestricted BFS — traverse ALL edge types, ALL directions.
-			// No hub filtering, no edge-type filtering.
+			// Same edge-type filtering as Extended, but UNLIMITED depth.
+			// Follows ownership/networking/storage chains as deep as
+			// they go. Hub nodes included as leaves, never expanded.
+			// This gives the COMPLETE dependency chain of THIS resource
+			// without cross-service leakage.
+			//
+			// Key difference from Extended: Extended = 2 hops, Full = unlimited.
+			// Both use the same expand rules (expandable edges + non-hub check).
 			frontier := []string{targetID}
 			visited := make(map[string]bool)
 			visited[targetID] = true
 			for len(frontier) > 0 {
 				var next []string
 				for _, id := range frontier {
-					for _, dep := range ri.GetDependencies(id) {
-						if !visited[dep] {
-							visited[dep] = true
-							connected[dep] = true
-							next = append(next, dep)
+					for _, en := range ri.GetDependenciesEdgeAware(id) {
+						if visited[en.ID] {
+							continue
+						}
+						visited[en.ID] = true
+						// Include ALL neighbors as nodes (even via non-expandable edges)
+						connected[en.ID] = true
+						// But only EXPAND through meaningful edges on non-hub nodes
+						if isExpandableEdge(en.Category) && !isHub(en.ID) {
+							next = append(next, en.ID)
 						}
 					}
-					for _, dep := range ri.GetDependents(id) {
-						if !visited[dep] {
-							visited[dep] = true
-							connected[dep] = true
-							next = append(next, dep)
+					for _, en := range ri.GetDependentsEdgeAware(id) {
+						if visited[en.ID] {
+							continue
+						}
+						visited[en.ID] = true
+						connected[en.ID] = true
+						if isExpandableEdge(en.Category) && !isHub(en.ID) {
+							next = append(next, en.ID)
 						}
 					}
 				}
@@ -1489,8 +1520,9 @@ func (h *Handler) GetResourceTopology(w http.ResponseWriter, r *http.Request) {
 		result.Metadata.TotalNodes = len(v2Resp.Nodes)
 		result.Metadata.FocusResource = targetID
 
-		// Resource topology safety: if BFS returned too many nodes, redo with fewer hops
-		if len(filteredNodes) > 50 && hops > 1 {
+		// Resource topology safety: if BFS returned too many nodes in Direct/Extended,
+		// redo with fewer hops. Full mode (hops>=3) is exempt — user explicitly wants everything.
+		if len(filteredNodes) > 50 && hops > 1 && hops < 3 {
 			// Too many nodes — redo BFS with hops=1 (hubs included as leaves)
 			connected = make(map[string]bool)
 			connected[targetID] = true
