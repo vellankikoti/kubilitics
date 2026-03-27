@@ -68,29 +68,17 @@ export function ResourceTopologyV2View({
   const [viewMode] = useState<ViewMode>("resource");
   const [presentationMode, setPresentationMode] = useState(false);
   const [viewLevel, setViewLevel] = useState<'direct' | 'extended' | 'full'>('direct');
-  const prevViewLevelRef = useRef<'direct' | 'extended'>('direct');
+  const [expandedFullScreen, setExpandedFullScreen] = useState(false);
 
-  // Track previous mode so closing Full returns to it
-  const openFull = useCallback(() => {
-    if (viewLevel !== 'full') prevViewLevelRef.current = viewLevel as 'direct' | 'extended';
-    setViewLevel('full');
-  }, [viewLevel]);
-  const closeFull = useCallback(() => {
-    setViewLevel(prevViewLevelRef.current);
-  }, []);
-
-  // ESC key closes Full topology overlay
+  // ESC key closes full-screen expand
   useEffect(() => {
-    if (viewLevel !== 'full') return;
+    if (!expandedFullScreen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeFull();
+      if (e.key === 'Escape') setExpandedFullScreen(false);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [viewLevel, closeFull]);
-
-  const fullDialogFitViewRef = useRef<(() => void) | null>(null);
-  const fullDialogExportRef = useRef<((format: ExportFormat, filename: string) => void) | null>(null);
+  }, [expandedFullScreen]);
 
   const backendConfigured = isBackendConfigured();
   const hasClusterId = !!clusterId;
@@ -104,25 +92,14 @@ export function ResourceTopologyV2View({
 
   const canFetch = backendConfigured && hasClusterId && hasKind && hasName && topologySupported;
 
-  // Main view: Direct or Extended
+  // Single fetch — depth changes based on viewLevel
+  const depth = viewLevel === 'direct' ? 1 : viewLevel === 'extended' ? 2 : 3;
   const { graph, isLoading, isFetching, error, refetch } = useResourceTopology({
     kind,
     namespace,
     name,
     enabled: canFetch,
-    depth: viewLevel === 'extended' ? 2 : 1,
-  });
-
-  // Full overlay: separate fetch with depth=3, only when Full mode is active
-  const {
-    graph: fullGraph,
-    isLoading: fullIsLoading,
-  } = useResourceTopology({
-    kind,
-    namespace,
-    name,
-    enabled: canFetch && viewLevel === 'full',
-    depth: 3,
+    depth,
   });
 
   // Transform engine graph to v2 format
@@ -131,7 +108,6 @@ export function ResourceTopologyV2View({
     const response = transformGraph(graph, clusterId ?? undefined);
     response.metadata.mode = "resource";
     if (namespace) response.metadata.namespace = namespace;
-    // Set focusResource for ELK layout anchoring
     const focusId = response.nodes.find(
       (n) => n.kind === kind && n.name === name && (!namespace || n.namespace === namespace)
     )?.id;
@@ -139,21 +115,6 @@ export function ResourceTopologyV2View({
     return response;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [graph, namespace, kind, name]);
-
-  // Full mode topology — separate from main view
-  const fullTopology = useMemo<TopologyResponse | null>(() => {
-    if (!fullGraph) return null;
-    const response = transformGraph(fullGraph, clusterId ?? undefined);
-    response.metadata.mode = "resource";
-    if (namespace) response.metadata.namespace = namespace;
-    // Set focusResource for ELK layout anchoring
-    const focusId = response.nodes.find(
-      (n) => n.kind === kind && n.name === name && (!namespace || n.namespace === namespace)
-    )?.id;
-    if (focusId) response.metadata.focusResource = focusId;
-    return response;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fullGraph, namespace, kind, name]);
 
   // Highlight the focused resource node
   const highlightNodeIds = useMemo(() => {
@@ -361,6 +322,18 @@ export function ResourceTopologyV2View({
             Center
           </Button>
 
+          {/* Expand to full screen */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setExpandedFullScreen(true)}
+            className="h-8 px-3 text-xs text-gray-600 hover:text-gray-900"
+            title="Expand to full screen"
+          >
+            <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+            Expand
+          </Button>
+
           {/* Refresh */}
           <Button
             variant="ghost"
@@ -383,7 +356,7 @@ export function ResourceTopologyV2View({
                 <button
                   key={level}
                   type="button"
-                  onClick={() => level === 'full' ? openFull() : setViewLevel(level)}
+                  onClick={() => setViewLevel(level)}
                   className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
                     viewLevel === level
                       ? 'bg-white text-gray-900 shadow-sm dark:bg-slate-700 dark:text-white'
@@ -460,18 +433,15 @@ export function ResourceTopologyV2View({
         )}
       </div>
 
-      {/* Full Topology — portal to body so it escapes any parent overflow/stacking.
-           Sits below the app header (h-20 = 5rem), covers sidebar + content. */}
-      {viewLevel === 'full' && createPortal(
+      {/* Full-screen expand — triggered by Expand button, works for any mode */}
+      {expandedFullScreen && createPortal(
         <div className="fixed inset-0 pt-20 z-[200] flex flex-col bg-white dark:bg-slate-950">
-          {/* Header bar */}
           <div className="flex items-center justify-between px-5 py-2.5 border-b border-gray-200 bg-white dark:bg-slate-900 shrink-0">
             <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
               <Layers className="h-4 w-4 text-blue-600" />
-              Full Topology — {name} ({kind})
+              {name} ({kind}) — {viewLevel === 'direct' ? 'Direct' : viewLevel === 'extended' ? 'Extended' : 'Full'}
             </div>
             <div className="flex items-center gap-2">
-              {/* Export */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1">
@@ -479,74 +449,44 @@ export function ResourceTopologyV2View({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="z-[300]">
-                  <DropdownMenuItem onClick={() => {
-                    const filename = buildExportFilename("png", exportCtx);
-                    fullDialogExportRef.current?.("png", filename);
-                  }}>
+                  <DropdownMenuItem onClick={handleExportPNG}>
                     <FileImage className="h-3.5 w-3.5 mr-2" /> PNG
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => {
-                    const filename = buildExportFilename("svg", exportCtx);
-                    fullDialogExportRef.current?.("svg", filename);
-                  }}>
+                  <DropdownMenuItem onClick={handleExportSVG}>
                     <FileImage className="h-3.5 w-3.5 mr-2" /> SVG
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => {
-                    if (fullTopology) {
-                      exportTopologyJSON(fullTopology, exportCtx);
-                      toast.success("JSON exported");
-                    }
-                  }}>
+                  <DropdownMenuItem onClick={handleExportJSON}>
                     <FileJson className="h-3.5 w-3.5 mr-2" /> JSON
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => fullDialogFitViewRef.current?.()}
-                className="h-7 px-2 text-xs"
-              >
-                <Maximize className="h-3.5 w-3.5 mr-1" />
-                Fit
+              <Button variant="ghost" size="sm" onClick={handleFitView} className="h-7 px-2 text-xs">
+                <Maximize className="h-3.5 w-3.5 mr-1" /> Fit
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={closeFull}
-                className="h-7 px-2 text-xs"
-              >
+              <Button variant="ghost" size="sm" onClick={() => setExpandedFullScreen(false)} className="h-7 px-2 text-xs">
                 <X className="h-3.5 w-3.5" />
               </Button>
             </div>
           </div>
-          {/* Canvas fills remaining space */}
           <div className="flex-1 relative min-h-0">
-            {fullIsLoading || !fullTopology ? (
-              <div className="flex flex-col items-center justify-center h-full">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
-                <p className="text-sm text-muted-foreground">Loading full topology...</p>
+            <TopologyCanvas
+              topology={topology}
+              selectedNodeId={selectedNodeId}
+              highlightNodeIds={highlightNodeIds}
+              viewMode={viewMode}
+              onSelectNode={setSelectedNodeId}
+              fitViewRef={fitViewRef}
+              exportRef={exportCanvasRef}
+              centerOnNodeRef={centerOnNodeRef}
+              clusterName={activeClusterName ?? undefined}
+              namespace={namespace ?? undefined}
+            />
+            {topology && (
+              <div className="absolute bottom-4 right-4 z-50 bg-gray-100 border border-gray-200 rounded-md px-2.5 py-1">
+                <span className="text-xs font-medium text-gray-700">
+                  {topology.nodes.length} Resources &middot; {topology.edges.length} Connections
+                </span>
               </div>
-            ) : (
-              <>
-                <TopologyCanvas
-                  topology={fullTopology}
-                  selectedNodeId={selectedNodeId}
-                  highlightNodeIds={highlightNodeIds}
-                  viewMode={viewMode}
-                  onSelectNode={setSelectedNodeId}
-                  fitViewRef={fullDialogFitViewRef}
-                  exportRef={fullDialogExportRef}
-                  centerOnNodeRef={centerOnNodeRef}
-                  clusterName={activeClusterName ?? undefined}
-                  namespace={namespace ?? undefined}
-                />
-                <div className="absolute bottom-4 right-4 z-50 bg-gray-100 border border-gray-200 rounded-md px-2.5 py-1">
-                  <span className="text-xs font-medium text-gray-700">
-                    {fullTopology.nodes.length} Resources &middot; {fullTopology.edges.length} Connections
-                  </span>
-                </div>
-              </>
             )}
           </div>
         </div>,
