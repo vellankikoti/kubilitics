@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Folder, Clock, Download, Trash2, Box, Globe, Settings, Layers, Package, Database, Shield, Activity, Loader2, Network, GitCompare, ChevronRight, BarChart2, Boxes, HardDrive, ArrowUpRight, Zap } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Folder, Clock, Download, Trash2, Box, Globe, Settings, Layers, Package, Database, Shield, Activity, Loader2, Network, GitCompare, ChevronRight, BarChart2, Boxes, HardDrive, ArrowUpRight, Zap, Gauge } from 'lucide-react';
+
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -244,17 +244,11 @@ export default function NamespaceDetail() {
             <p className="text-muted-foreground">No resource quotas in this namespace.</p>
           ) : (
             resourceQuotas.map((rq: KubernetesResource) => (
-              <Card key={rq.metadata?.uid}>
-                <CardHeader>
-                  <CardTitle className="text-base">Resource Quota: {rq.metadata?.name}</CardTitle>
-                  <CardDescription>Resource usage limits for this namespace</CardDescription>
-                </CardHeader>
-                <CardContent>
+              <SectionCard key={rq.metadata?.uid} icon={Gauge} title={`Resource Quota: ${rq.metadata?.name}`} tooltip="Resource usage limits for this namespace">
                   <pre className="text-xs font-mono bg-muted/50 p-4 rounded-lg overflow-auto">
                     {JSON.stringify((rq as unknown as Record<string, unknown>).status ?? (rq as unknown as Record<string, unknown>).spec ?? {}, null, 2)}
                   </pre>
-                </CardContent>
-              </Card>
+              </SectionCard>
             ))
           )}
         </div>

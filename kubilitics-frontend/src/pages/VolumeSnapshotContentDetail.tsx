@@ -5,10 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
-import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 import {
   ResourceDetailLayout,
-  MetadataSection,
+  DetailRow,
+  LabelList,
+  AnnotationList,
   SectionCard,
   YamlViewer,
   EventsSection,
@@ -54,7 +55,6 @@ export default function VolumeSnapshotContentDetail() {
   const clusterId = useActiveClusterId();
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const baseUrl = getEffectiveBackendBaseUrl(backendBaseUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
@@ -168,20 +168,15 @@ export default function VolumeSnapshotContentDetail() {
       icon: Info,
       content: (
         <div className="space-y-6">
-          <MetadataSection
-            metadata={vsc?.metadata ?? { name: vscName }}
-            showMetadataGrid
-            createdLabel={age}
-          />
           <SectionCard icon={Layers} title="Volume Snapshot Content" tooltip={<p className="text-xs text-muted-foreground">Actual snapshot data binding</p>}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-              <div><p className="text-muted-foreground mb-1">Status</p><Badge variant={readyToUse ? 'default' : (errorMsg ? 'destructive' : 'secondary')}>{readyToUse ? 'Ready' : (errorMsg ? 'Failed' : 'Pending')}</Badge></div>
-              <div><p className="text-muted-foreground mb-1">Source</p><p>{sourceLabel}</p></div>
-              <div><p className="text-muted-foreground mb-1">Driver</p><p className="font-mono text-xs">{driver}</p></div>
-              <div><p className="text-muted-foreground mb-1">Snapshot Class</p>{snapshotClass !== '—' ? <Link to={`/volumesnapshotclasses/${snapshotClass}`} className="text-primary hover:underline font-mono text-xs">{snapshotClass}</Link> : <span>—</span>}</div>
-              <div><p className="text-muted-foreground mb-1">Restore Size</p><p className="font-mono">{restoreSize}</p></div>
-              <div><p className="text-muted-foreground mb-1">Deletion Policy</p><Badge variant="outline">{deletionPolicy}</Badge></div>
-              <div><p className="text-muted-foreground mb-1">Age</p><p>{age}</p></div>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+              <DetailRow label="Status" value={<Badge variant={readyToUse ? 'default' : (errorMsg ? 'destructive' : 'secondary')}>{readyToUse ? 'Ready' : (errorMsg ? 'Failed' : 'Pending')}</Badge>} />
+              <DetailRow label="Source" value={sourceLabel} />
+              <DetailRow label="Driver" value={<span className="font-mono text-xs">{driver}</span>} />
+              <DetailRow label="Snapshot Class" value={snapshotClass !== '—' ? <Link to={`/volumesnapshotclasses/${snapshotClass}`} className="text-primary hover:underline font-mono text-xs">{snapshotClass}</Link> : <span>—</span>} />
+              <DetailRow label="Restore Size" value={<span className="font-mono">{restoreSize}</span>} />
+              <DetailRow label="Deletion Policy" value={<Badge variant="outline">{deletionPolicy}</Badge>} />
+              <DetailRow label="Age" value={age} />
             </div>
             {errorMsg && (
               <div className="mt-4 p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
@@ -200,7 +195,8 @@ export default function VolumeSnapshotContentDetail() {
               </Link>
             </SectionCard>
           )}
-          <ResourceOverviewMetadata metadata={vsc?.metadata} skipMetadataGrid />
+          <LabelList labels={vsc?.metadata?.labels ?? {}} />
+          <AnnotationList annotations={vsc?.metadata?.annotations ?? {}} />
         </div>
       ),
     },

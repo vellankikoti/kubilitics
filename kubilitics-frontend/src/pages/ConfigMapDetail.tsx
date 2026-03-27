@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   ResourceDetailLayout,
   SectionCard,
+  DetailRow,
   LabelList,
   AnnotationList,
   YamlViewer,
@@ -312,12 +313,12 @@ export default function ConfigMapDetail() {
             title="ConfigMap information"
             tooltip={<p className="text-xs text-muted-foreground">Identity and metadata for this ConfigMap</p>}
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-              <div><p className="text-muted-foreground mb-1">Name</p><p className="font-mono">{cmName}</p></div>
-              <div><p className="text-muted-foreground mb-1">Namespace</p><p className="font-mono">{cmNamespace}</p></div>
-              <div><p className="text-muted-foreground mb-1">Age</p><p>{age}</p></div>
-              <div><p className="text-muted-foreground mb-1">Data keys</p><p className="font-mono">{dataKeysCount}</p></div>
-              <div><p className="text-muted-foreground mb-1">Immutable</p><Badge variant="outline">{cm.immutable ? 'Yes' : 'No'}</Badge></div>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+              <DetailRow label="Name" value={cmName} />
+              <DetailRow label="Namespace" value={cmNamespace} />
+              <DetailRow label="Age" value={age} />
+              <DetailRow label="Data Keys" value={String(dataKeysCount)} />
+              <DetailRow label="Immutable" value={<Badge variant="outline">{cm.immutable ? 'Yes' : 'No'}</Badge>} />
             </div>
           </SectionCard>
           <SectionCard

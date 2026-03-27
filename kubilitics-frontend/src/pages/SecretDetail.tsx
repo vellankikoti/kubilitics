@@ -251,13 +251,13 @@ export default function SecretDetail() {
             title="Secret information"
             tooltip={<p className="text-xs text-muted-foreground">Identity and metadata for this Secret</p>}
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-              <div><p className="text-muted-foreground mb-1">Name</p><p className="font-mono">{sName}</p></div>
-              <div><p className="text-muted-foreground mb-1">Namespace</p><p className="font-mono">{sNamespace}</p></div>
-              <div><p className="text-muted-foreground mb-1">Type</p><Badge variant="secondary">{secretType}</Badge></div>
-              <div><p className="text-muted-foreground mb-1">Age</p><p>{age}</p></div>
-              <div><p className="text-muted-foreground mb-1">Data keys</p><p className="font-mono">{Object.keys(data).length}</p></div>
-              <div><p className="text-muted-foreground mb-1">Immutable</p><Badge variant="outline">{s.immutable ? 'Yes' : 'No'}</Badge></div>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+              <DetailRow label="Name" value={sName} />
+              <DetailRow label="Namespace" value={sNamespace} />
+              <DetailRow label="Type" value={<Badge variant="secondary">{secretType}</Badge>} />
+              <DetailRow label="Age" value={age} />
+              <DetailRow label="Data Keys" value={String(Object.keys(data).length)} />
+              <DetailRow label="Immutable" value={<Badge variant="outline">{s.immutable ? 'Yes' : 'No'}</Badge>} />
             </div>
           </SectionCard>
           <SectionCard

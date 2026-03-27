@@ -62,6 +62,7 @@ import {
   RolloutActionsDialog,
   DeleteConfirmDialog,
   SectionCard,
+  DetailRow,
   LogViewer,
   ResourceTopologyView,
   ResourceComparisonView,
@@ -411,36 +412,23 @@ export default function StatefulSetDetail() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <SectionCard icon={Database} title="StatefulSet Information" tooltip={<p className="text-xs text-muted-foreground">Configuration and update strategy</p>}>
                 <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
-                    <span className="text-xs font-semibold text-foreground/50 uppercase tracking-wider">SERVICE NAME</span>
-                    <Button
-                      variant="link"
-                      className="h-auto p-0 font-mono text-sm font-semibold justify-start"
-                      onClick={() => navigate(`/services/${namespace}/${statefulSet.spec?.serviceName}`)}
-                    >
-                      {statefulSet.spec?.serviceName || '-'}
-                    </Button>
-                  </div>
-                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
-                    <span className="text-xs font-semibold text-foreground/50 uppercase tracking-wider">POD MANAGEMENT</span>
-                    <Badge variant="outline">{statefulSet.spec?.podManagementPolicy || 'OrderedReady'}</Badge>
-                  </div>
-                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
-                    <span className="text-xs font-semibold text-foreground/50 uppercase tracking-wider">UPDATE STRATEGY</span>
-                    <Badge variant="outline">{statefulSet.spec?.updateStrategy?.type || 'RollingUpdate'}</Badge>
-                  </div>
-                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
-                    <span className="text-xs font-semibold text-foreground/50 uppercase tracking-wider">PARTITION</span>
-                    <span className="text-sm font-semibold text-foreground font-mono">{statefulSet.spec?.updateStrategy?.rollingUpdate?.partition ?? 0}</span>
-                  </div>
-                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
-                    <span className="text-xs font-semibold text-foreground/50 uppercase tracking-wider">REVISION HISTORY LIMIT</span>
-                    <span className="text-sm font-semibold text-foreground font-mono">{statefulSet.spec?.revisionHistoryLimit ?? 10}</span>
-                  </div>
-                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
-                    <span className="text-xs font-semibold text-foreground/50 uppercase tracking-wider">MIN READY SECONDS</span>
-                    <span className="text-sm font-semibold text-foreground font-mono">{statefulSet.spec?.minReadySeconds ?? 0}s</span>
-                  </div>
+                  <DetailRow
+                    label="Service Name"
+                    value={
+                      <Button
+                        variant="link"
+                        className="h-auto p-0 font-mono text-sm font-semibold justify-start"
+                        onClick={() => navigate(`/services/${namespace}/${statefulSet.spec?.serviceName}`)}
+                      >
+                        {statefulSet.spec?.serviceName || '-'}
+                      </Button>
+                    }
+                  />
+                  <DetailRow label="Pod Management" value={<Badge variant="outline">{statefulSet.spec?.podManagementPolicy || 'OrderedReady'}</Badge>} />
+                  <DetailRow label="Update Strategy" value={<Badge variant="outline">{statefulSet.spec?.updateStrategy?.type || 'RollingUpdate'}</Badge>} />
+                  <DetailRow label="Partition" value={String(statefulSet.spec?.updateStrategy?.rollingUpdate?.partition ?? 0)} />
+                  <DetailRow label="Revision History Limit" value={String(statefulSet.spec?.revisionHistoryLimit ?? 10)} />
+                  <DetailRow label="Min Ready Seconds" value={`${statefulSet.spec?.minReadySeconds ?? 0}s`} />
                 </div>
             </SectionCard>
 

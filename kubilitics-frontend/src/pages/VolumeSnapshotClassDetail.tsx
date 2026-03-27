@@ -5,10 +5,11 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
-import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 import {
   ResourceDetailLayout,
-  MetadataSection,
+  DetailRow,
+  LabelList,
+  AnnotationList,
   SectionCard,
   YamlViewer,
   EventsSection,
@@ -43,7 +44,6 @@ export default function VolumeSnapshotClassDetail() {
   const clusterId = useActiveClusterId();
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const baseUrl = getEffectiveBackendBaseUrl(backendBaseUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
@@ -142,17 +142,12 @@ export default function VolumeSnapshotClassDetail() {
       icon: Info,
       content: (
         <div className="space-y-6">
-          <MetadataSection
-            metadata={vsc?.metadata ?? { name: vscName }}
-            showMetadataGrid
-            createdLabel={age}
-          />
           <SectionCard icon={Layers} title="Volume Snapshot Class" tooltip={<p className="text-xs text-muted-foreground">CSI snapshot parameters</p>}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-              <div><p className="text-muted-foreground mb-1">Driver</p><p className="font-mono text-xs">{driver}</p></div>
-              <div><p className="text-muted-foreground mb-1">Deletion Policy</p><Badge variant="outline">{deletionPolicy}</Badge></div>
-              <div><p className="text-muted-foreground mb-1">Default Class</p><Badge variant={isDefault ? 'default' : 'secondary'}>{isDefault ? 'Yes' : 'No'}</Badge></div>
-              <div><p className="text-muted-foreground mb-1">Age</p><p>{age}</p></div>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+              <DetailRow label="Driver" value={<span className="font-mono text-xs">{driver}</span>} />
+              <DetailRow label="Deletion Policy" value={<Badge variant="outline">{deletionPolicy}</Badge>} />
+              <DetailRow label="Default Class" value={<Badge variant={isDefault ? 'default' : 'secondary'}>{isDefault ? 'Yes' : 'No'}</Badge>} />
+              <DetailRow label="Age" value={age} />
             </div>
           </SectionCard>
           <SectionCard icon={Layers} title="Usage" tooltip={<p className="text-xs text-muted-foreground">VolumeSnapshots using this class</p>}>
@@ -161,7 +156,8 @@ export default function VolumeSnapshotClassDetail() {
               View <Link to="/volumesnapshots" className="text-primary hover:underline">Volume Snapshots</Link> and filter by snapshot class to see usage.
             </p>
           </SectionCard>
-          <ResourceOverviewMetadata metadata={vsc?.metadata} skipMetadataGrid />
+          <LabelList labels={vsc?.metadata?.labels ?? {}} />
+          <AnnotationList annotations={vsc?.metadata?.annotations ?? {}} />
         </div>
       ),
     },

@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Gauge, Clock, Download, Trash2, Box, Network, AlertTriangle, GitCompare, Database, Zap } from 'lucide-react';
+import { Gauge, Clock, Download, Trash2, Box, Network, AlertTriangle, GitCompare, Database, Zap, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   ResourceDetailLayout,
   SectionCard,
+  DetailRow,
   YamlViewer,
   EventsSection,
   ActionsSection,
@@ -183,6 +184,16 @@ export default function ResourceQuotaDetail() {
       label: 'Overview',
       content: (
         <div className="grid grid-cols-1 gap-6">
+          <SectionCard icon={Info} title="Quota Information" tooltip="Resource quota metadata and scope">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+              <DetailRow label="Name" value={quotaName} />
+              <DetailRow label="Namespace" value={quotaNamespace} />
+              <DetailRow label="Resources Tracked" value={String(resourcesTracked)} />
+              <DetailRow label="Scope Selector" value={hasScopeSelector ? 'Yes' : 'No'} />
+              <DetailRow label="Overall Usage" value={overallPct != null ? <Badge variant={overallPct >= 100 ? 'destructive' : overallPct >= 80 ? 'secondary' : 'default'}>{overallPct}%</Badge> : '—'} />
+              <DetailRow label="Age" value={age} />
+            </div>
+          </SectionCard>
           <SectionCard icon={Database} title="Resource Usage" className="lg:col-span-2">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {Object.entries(hard).map(([key, hardVal]) => {

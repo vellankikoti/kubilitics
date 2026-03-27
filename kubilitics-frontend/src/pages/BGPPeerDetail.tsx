@@ -5,14 +5,15 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
-import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 import {
   ResourceDetailLayout,
   ResourceComparisonView,
   EventsSection,
   ActionsSection,
   DeleteConfirmDialog,
-  MetadataSection,
+  DetailRow,
+  LabelList,
+  AnnotationList,
   SectionCard,
   YamlViewer,
   type ResourceStatus,
@@ -146,23 +147,19 @@ export default function BGPPeerDetail() {
       icon: Info,
       content: (
         <div className="space-y-6">
-          <MetadataSection
-            metadata={peer?.metadata ?? { name: peerName, namespace: namespace ?? '' }}
-            showMetadataGrid
-            createdLabel={age}
-          />
           <SectionCard icon={Network} title="BGP Peer Spec" tooltip={<p className="text-xs text-muted-foreground">MetalLB BGP session config</p>}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-              <div><p className="text-muted-foreground mb-1">Peer Address</p><p className="font-mono text-xs">{peer?.spec?.peerAddress ?? '—'}</p></div>
-              <div><p className="text-muted-foreground mb-1">Peer ASN</p><p>{peer?.spec?.peerASN ?? '—'}</p></div>
-              <div><p className="text-muted-foreground mb-1">My ASN</p><p>{peer?.spec?.myASN ?? '—'}</p></div>
-              <div><p className="text-muted-foreground mb-1">Hold Time</p><p>{peer?.spec?.holdTime ?? '—'}</p></div>
-              <div><p className="text-muted-foreground mb-1">Keepalive Time</p><p>{peer?.spec?.keepaliveTime ?? '—'}</p></div>
-              <div><p className="text-muted-foreground mb-1">Router ID</p><p className="font-mono text-xs">{peer?.spec?.routerID ?? '—'}</p></div>
-              <div><p className="text-muted-foreground mb-1">Age</p><p>{age}</p></div>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+              <DetailRow label="Peer Address" value={<span className="font-mono text-xs">{peer?.spec?.peerAddress ?? '—'}</span>} />
+              <DetailRow label="Peer ASN" value={peer?.spec?.peerASN ?? '—'} />
+              <DetailRow label="My ASN" value={peer?.spec?.myASN ?? '—'} />
+              <DetailRow label="Hold Time" value={peer?.spec?.holdTime ?? '—'} />
+              <DetailRow label="Keepalive Time" value={peer?.spec?.keepaliveTime ?? '—'} />
+              <DetailRow label="Router ID" value={<span className="font-mono text-xs">{peer?.spec?.routerID ?? '—'}</span>} />
+              <DetailRow label="Age" value={age} />
             </div>
           </SectionCard>
-          <ResourceOverviewMetadata metadata={peer?.metadata} skipMetadataGrid />
+          <LabelList labels={peer?.metadata?.labels ?? {}} />
+          <AnnotationList annotations={peer?.metadata?.annotations ?? {}} />
         </div>
       ),
     },

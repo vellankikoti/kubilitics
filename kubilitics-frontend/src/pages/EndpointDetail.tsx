@@ -1,7 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Network, Clock, Server, Download, Globe, Trash2, Activity, GitCompare, Info, Zap } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -118,15 +117,13 @@ export default function EndpointDetail() {
   if (!ep?.metadata?.name || error) {
     return (
       <div className="space-y-4 p-6">
-        <Card>
-          <CardContent className="pt-6">
+        <div className="rounded-lg border bg-card p-6">
             <p className="text-muted-foreground">{error ? 'Failed to load resource.' : 'Endpoints not found.'}</p>
             {error && <p className="text-sm text-destructive mt-2">{String(error)}</p>}
             <Button variant="outline" className="mt-4" onClick={() => navigate('/endpoints')}>
               Back to Endpoints
             </Button>
-          </CardContent>
-        </Card>
+        </div>
       </div>
     );
   }

@@ -5,14 +5,15 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
-import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 import {
   ResourceDetailLayout,
   ResourceComparisonView,
   EventsSection,
   ActionsSection,
   DeleteConfirmDialog,
-  MetadataSection,
+  DetailRow,
+  LabelList,
+  AnnotationList,
   SectionCard,
   YamlViewer,
   type ResourceStatus,
@@ -146,23 +147,19 @@ export default function IPAddressPoolDetail() {
       icon: Info,
       content: (
         <div className="space-y-6">
-          <MetadataSection
-            metadata={pool?.metadata ?? { name: poolName, namespace: namespace ?? '' }}
-            showMetadataGrid
-            createdLabel={age}
-          />
           <SectionCard icon={Network} title="IP Address Pool" tooltip={<p className="text-xs text-muted-foreground">MetalLB IP ranges</p>}>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-              <div><p className="text-muted-foreground mb-1">Addresses</p><div className="font-mono text-xs space-y-1">{addrs.length ? addrs.map((a, i) => <div key={i}>{a}</div>) : '—'}</div></div>
-              <div><p className="text-muted-foreground mb-1">Auto Assign</p><p>{pool?.spec?.autoAssign !== false ? 'Yes' : 'No'}</p></div>
-              <div><p className="text-muted-foreground mb-1">Assigned IPv4</p><p>{a4}</p></div>
-              <div><p className="text-muted-foreground mb-1">Assigned IPv6</p><p>{a6}</p></div>
-              <div><p className="text-muted-foreground mb-1">Available IPv4</p><p>{v4}</p></div>
-              <div><p className="text-muted-foreground mb-1">Available IPv6</p><p>{v6}</p></div>
-              <div><p className="text-muted-foreground mb-1">Age</p><p>{age}</p></div>
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+              <DetailRow label="Addresses" value={<div className="font-mono text-xs space-y-1">{addrs.length ? addrs.map((a, i) => <div key={i}>{a}</div>) : '—'}</div>} />
+              <DetailRow label="Auto Assign" value={pool?.spec?.autoAssign !== false ? 'Yes' : 'No'} />
+              <DetailRow label="Assigned IPv4" value={a4} />
+              <DetailRow label="Assigned IPv6" value={a6} />
+              <DetailRow label="Available IPv4" value={v4} />
+              <DetailRow label="Available IPv6" value={v6} />
+              <DetailRow label="Age" value={age} />
             </div>
           </SectionCard>
-          <ResourceOverviewMetadata metadata={pool?.metadata} skipMetadataGrid />
+          <LabelList labels={pool?.metadata?.labels ?? {}} />
+          <AnnotationList annotations={pool?.metadata?.annotations ?? {}} />
         </div>
       ),
     },

@@ -7,8 +7,9 @@ import { toast } from '@/components/ui/sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
 import {
   ResourceDetailLayout,
-  MetadataSection,
+  DetailRow,
   LabelList,
+  AnnotationList,
   SectionCard,
   YamlViewer,
   ResourceComparisonView,
@@ -145,12 +146,16 @@ export default function PodTemplateDetail() {
       icon: Info,
       content: (
         <div className="space-y-6">
-          <MetadataSection
-            metadata={pt?.metadata ?? { name: ptName, namespace: ptNamespace }}
-            showMetadataGrid
-            createdLabel={age}
-          />
+          <SectionCard icon={Info} title="Overview">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+              <DetailRow label="Name" value={ptName} />
+              <DetailRow label="Namespace" value={ptNamespace} />
+              <DetailRow label="Age" value={age} />
+              <DetailRow label="Containers" value={containers.length > 0 ? String(containers.length) : '0'} />
+            </div>
+          </SectionCard>
           <LabelList labels={labels} title="Template Labels" />
+          <AnnotationList annotations={pt?.metadata?.annotations ?? {}} />
           {containers.length > 0 && (
             <SectionCard icon={Layers} title="Containers" tooltip={<p className="text-xs text-muted-foreground">Containers in the pod template spec</p>}>
               <div className="space-y-2">

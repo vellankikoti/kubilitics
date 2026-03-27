@@ -24,7 +24,7 @@ import {
   Settings,
   Zap,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,6 +43,7 @@ import {
   MetricsDashboard,
   DeleteConfirmDialog,
   SectionCard,
+  DetailRow,
   LogViewer,
   ResourceTopologyView,
   ResourceComparisonView,
@@ -498,97 +499,48 @@ export default function CronJobDetail() {
       content: (
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">CronJob Configuration</CardTitle>
-                <CardDescription>Schedule and execution settings</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground mb-1">Schedule</p>
-                    <Badge variant="outline" className="font-mono">{cronJob.spec?.schedule || '-'}</Badge>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Status</p>
-                    <Badge variant={isSuspended ? 'secondary' : 'default'}>
-                      {isSuspended ? 'Suspended' : 'Active'}
-                    </Badge>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Concurrency Policy</p>
-                    <p className="font-medium">{cronJob.spec?.concurrencyPolicy || 'Allow'}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Starting Deadline</p>
-                    <p className="font-mono">{cronJob.spec?.startingDeadlineSeconds || '-'}s</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Successful History</p>
-                    <p className="font-mono">{cronJob.spec?.successfulJobsHistoryLimit || 3}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Failed History</p>
-                    <p className="font-mono">{cronJob.spec?.failedJobsHistoryLimit || 1}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <SectionCard icon={Workflow} title="CronJob Configuration" tooltip={<p className="text-xs text-muted-foreground">Schedule and execution settings</p>}>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                <DetailRow label="Schedule" value={<Badge variant="outline" className="font-mono">{cronJob.spec?.schedule || '-'}</Badge>} />
+                <DetailRow label="Status" value={<Badge variant={isSuspended ? 'secondary' : 'default'}>{isSuspended ? 'Suspended' : 'Active'}</Badge>} />
+                <DetailRow label="Concurrency Policy" value={cronJob.spec?.concurrencyPolicy || 'Allow'} />
+                <DetailRow label="Starting Deadline" value={`${cronJob.spec?.startingDeadlineSeconds || '-'}s`} />
+                <DetailRow label="Successful History" value={String(cronJob.spec?.successfulJobsHistoryLimit || 3)} />
+                <DetailRow label="Failed History" value={String(cronJob.spec?.failedJobsHistoryLimit || 1)} />
+              </div>
+            </SectionCard>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Job Template</CardTitle>
-                <CardDescription>Template for spawned jobs</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground mb-1">Backoff Limit</p>
-                    <p className="font-mono">{cronJob.spec?.jobTemplate?.spec?.backoffLimit || 6}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Active Deadline</p>
-                    <p className="font-mono">{cronJob.spec?.jobTemplate?.spec?.activeDeadlineSeconds || '-'}s</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Restart Policy</p>
-                    <p className="font-medium">{cronJob.spec?.jobTemplate?.spec?.template?.spec?.restartPolicy || 'Never'}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Containers</p>
-                    <p className="font-mono">{containers.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <SectionCard icon={Layers} title="Job Template" tooltip={<p className="text-xs text-muted-foreground">Template for spawned jobs</p>}>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                <DetailRow label="Backoff Limit" value={String(cronJob.spec?.jobTemplate?.spec?.backoffLimit || 6)} />
+                <DetailRow label="Active Deadline" value={`${cronJob.spec?.jobTemplate?.spec?.activeDeadlineSeconds || '-'}s`} />
+                <DetailRow label="Restart Policy" value={cronJob.spec?.jobTemplate?.spec?.template?.spec?.restartPolicy || 'Never'} />
+                <DetailRow label="Containers" value={String(containers.length)} />
+              </div>
+            </SectionCard>
           </div>
 
           {cronJob.status?.active && cronJob.status.active.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Active Jobs</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {cronJob.status.active.map((job, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                      <div className="flex items-center gap-3">
-                        <Play className="h-4 w-4 text-[hsl(var(--warning))]" />
-                        <Button
-                          variant="link"
-                          className="h-auto p-0 press-effect"
-                          onClick={() => navigate(`/jobs/${job.namespace}/${job.name}`)}
-                          aria-label={`View job ${job.name}`}
-                        >
-                          {job.name}
-                        </Button>
-                      </div>
-                      <Badge>Running</Badge>
+            <SectionCard icon={Play} title="Active Jobs">
+              <div className="space-y-2">
+                {cronJob.status.active.map((job, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                    <div className="flex items-center gap-3">
+                      <Play className="h-4 w-4 text-[hsl(var(--warning))]" />
+                      <Button
+                        variant="link"
+                        className="h-auto p-0 press-effect"
+                        onClick={() => navigate(`/jobs/${job.namespace}/${job.name}`)}
+                        aria-label={`View job ${job.name}`}
+                      >
+                        {job.name}
+                      </Button>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    <Badge>Running</Badge>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
           )}
 
           <LabelList labels={cronJob.metadata?.labels || {}} />

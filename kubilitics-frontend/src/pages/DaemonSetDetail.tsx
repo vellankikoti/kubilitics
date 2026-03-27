@@ -52,6 +52,7 @@ import {
   RolloutActionsDialog,
   DeleteConfirmDialog,
   SectionCard,
+  DetailRow,
   LogViewer,
   ResourceTopologyView,
   ResourceComparisonView,
@@ -351,22 +352,10 @@ export default function DaemonSetDetail() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <SectionCard icon={Server} title="DaemonSet Information" tooltip={<p className="text-xs text-muted-foreground">Configuration and update strategy</p>}>
                 <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
-                    <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">UPDATE STRATEGY</span>
-                    <Badge variant="outline">{daemonSet.spec?.updateStrategy?.type || 'RollingUpdate'}</Badge>
-                  </div>
-                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
-                    <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">MAX UNAVAILABLE</span>
-                    <span className="text-sm font-semibold text-foreground font-mono">{daemonSet.spec?.updateStrategy?.rollingUpdate?.maxUnavailable || '1'}</span>
-                  </div>
-                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
-                    <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">MISSCHEDULED</span>
-                    <span className="text-sm font-semibold text-foreground font-mono">{daemonSet.status?.numberMisscheduled || 0}</span>
-                  </div>
-                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
-                    <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">UPDATED</span>
-                    <span className="text-sm font-semibold text-foreground font-mono">{updated}/{desired}</span>
-                  </div>
+                  <DetailRow label="Update Strategy" value={<Badge variant="outline">{daemonSet.spec?.updateStrategy?.type || 'RollingUpdate'}</Badge>} />
+                  <DetailRow label="Max Unavailable" value={String(daemonSet.spec?.updateStrategy?.rollingUpdate?.maxUnavailable || '1')} />
+                  <DetailRow label="Misscheduled" value={String(daemonSet.status?.numberMisscheduled || 0)} />
+                  <DetailRow label="Updated" value={`${updated}/${desired}`} />
                 </div>
             </SectionCard>
 

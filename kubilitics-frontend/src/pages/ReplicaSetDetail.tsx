@@ -54,6 +54,7 @@ import {
   DeleteConfirmDialog,
   LogViewer,
   SectionCard,
+  DetailRow,
   ResourceTopologyView,
   ResourceComparisonView,
   type ResourceStatus,
@@ -338,25 +339,22 @@ export default function ReplicaSetDetail() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <SectionCard icon={Layers} title="ReplicaSet Information" tooltip={<p className="text-xs text-muted-foreground">Configuration and ownership details</p>}>
               <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-                <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
-                  <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">Desired Replicas</span>
-                  <span className="text-sm font-semibold text-foreground font-mono">{desired}</span>
-                </div>
-                <div className="flex flex-col gap-0.5 py-2 border-b border-border/30">
-                  <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">Current Replicas</span>
-                  <span className="text-sm font-semibold text-foreground font-mono">{replicaSet.status?.replicas || 0}</span>
-                </div>
+                <DetailRow label="Desired Replicas" value={String(desired)} />
+                <DetailRow label="Current Replicas" value={String(replicaSet.status?.replicas || 0)} />
                 {ownerRef && (
-                  <div className="flex flex-col gap-0.5 py-2 border-b border-border/30 col-span-2">
-                    <span className="text-[11px] font-semibold text-foreground/50 uppercase tracking-wider">Owner</span>
-                    <Button
-                      variant="link"
-                      className="h-auto p-0 font-semibold text-sm justify-start"
-                      onClick={() => navigate(`/deployments/${namespace}/${ownerRef.name}`)}
-                    >
-                      {ownerRef.kind}: {ownerRef.name}
-                    </Button>
-                  </div>
+                  <DetailRow
+                    label="Owner"
+                    className="col-span-2"
+                    value={
+                      <Button
+                        variant="link"
+                        className="h-auto p-0 font-semibold text-sm justify-start"
+                        onClick={() => navigate(`/deployments/${namespace}/${ownerRef.name}`)}
+                      >
+                        {ownerRef.kind}: {ownerRef.name}
+                      </Button>
+                    }
+                  />
                 )}
               </div>
             </SectionCard>

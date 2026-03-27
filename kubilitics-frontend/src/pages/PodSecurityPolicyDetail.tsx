@@ -10,6 +10,8 @@ import {
   ResourceDetailLayout,
   SectionCard,
   DetailRow,
+  LabelList,
+  AnnotationList,
   YamlViewer,
   EventsSection,
   ActionsSection,
@@ -158,6 +160,8 @@ export default function PodSecurityPolicyDetail() {
               ))}
             </div>
           </SectionCard>
+          <LabelList labels={{}} />
+          <AnnotationList annotations={{}} />
         </div>
       ),
     },

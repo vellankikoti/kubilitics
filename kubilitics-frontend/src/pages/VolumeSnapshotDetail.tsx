@@ -1,17 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Camera, Trash2, Loader2, FileText, Link2, GitCompare, Clock, Download } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Camera, Trash2, FileText, Link2, GitCompare, Clock, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import {
   ResourceDetailLayout,
-  MetadataSection,
-  SectionCard,
-  YamlViewer,
+  DetailRow,
   LabelList,
   AnnotationList,
+  SectionCard,
+  YamlViewer,
   EventsSection,
   DeleteConfirmDialog,
   ResourceComparisonView,
@@ -51,7 +50,6 @@ export default function VolumeSnapshotDetail() {
   const clusterId = useActiveClusterId();
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const baseUrl = getEffectiveBackendBaseUrl(backendBaseUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { resource: vs, isLoading, yaml, isConnected, refetch } = useResourceDetail<VolumeSnapshotResource>(
@@ -114,14 +112,12 @@ export default function VolumeSnapshotDetail() {
     return (
       <div className="space-y-4 p-6">
         <Breadcrumbs segments={breadcrumbSegments} className="mb-2" />
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-muted-foreground">VolumeSnapshot not found.</p>
-            <Button variant="outline" className="mt-4" onClick={() => navigate('/volumesnapshots')}>
-              Back to Volume Snapshots
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="rounded-xl border bg-card p-6">
+          <p className="text-muted-foreground">VolumeSnapshot not found.</p>
+          <Button variant="outline" className="mt-4" onClick={() => navigate('/volumesnapshots')}>
+            Back to Volume Snapshots
+          </Button>
+        </div>
       </div>
     );
   }
@@ -172,21 +168,21 @@ spec:
       icon: FileText,
       content: (
         <div className="space-y-6">
-          <MetadataSection metadata={vs?.metadata ?? { name }} showMetadataGrid createdLabel={vs?.metadata?.creationTimestamp ? `Created ${new Date(vs.metadata.creationTimestamp).toLocaleString()}` : '—'} />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <SectionCard icon={Camera} title="Source PVC">
-              <Button variant="link" className="h-auto p-0 font-normal" onClick={() => navigate(`/persistentvolumeclaims/${namespace}/${sourcePVC}`)}>
-                {sourcePVC}
-                <Link2 className="h-3 w-3 ml-1 inline" />
-              </Button>
-            </SectionCard>
-            <SectionCard icon={FileText} title="Snapshot Class">
-              <span className="font-mono text-sm">{snapshotClass}</span>
-            </SectionCard>
-            <SectionCard icon={Camera} title="Bound Content">
-              <span className="font-mono text-sm">{boundContent}</span>
-            </SectionCard>
-          </div>
+          <SectionCard icon={Camera} title="Snapshot Details">
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+              <DetailRow label="Status" value={<Badge variant={readyToUse ? 'default' : (errorMsg ? 'destructive' : 'secondary')}>{readyToUse ? 'Ready' : (errorMsg ? 'Failed' : 'Pending')}</Badge>} />
+              <DetailRow label="Source PVC" value={
+                <Button variant="link" className="h-auto p-0 font-normal" onClick={() => navigate(`/persistentvolumeclaims/${namespace}/${sourcePVC}`)}>
+                  {sourcePVC}
+                  <Link2 className="h-3 w-3 ml-1 inline" />
+                </Button>
+              } />
+              <DetailRow label="Snapshot Class" value={<span className="font-mono text-sm">{snapshotClass}</span>} />
+              <DetailRow label="Bound Content" value={<span className="font-mono text-sm">{boundContent}</span>} />
+              <DetailRow label="Restore Size" value={<span className="font-mono">{restoreSize}</span>} />
+              <DetailRow label="Created" value={vs?.metadata?.creationTimestamp ? new Date(vs.metadata.creationTimestamp).toLocaleString() : '—'} />
+            </div>
+          </SectionCard>
           {errorMsg && (
             <SectionCard icon={Camera} title="Error">
               <p className="text-destructive text-sm">{errorMsg}</p>
@@ -198,6 +194,8 @@ spec:
               {restoreInstructions}
             </SectionCard>
           )}
+          <LabelList labels={vs?.metadata?.labels ?? {}} />
+          <AnnotationList annotations={vs?.metadata?.annotations ?? {}} />
         </div>
       ),
     },

@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { HardDrive, Clock, Download, Trash2, Database, Server, Info, Network, Edit, FileCode, GitCompare, Zap } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/sonner';
@@ -112,14 +112,12 @@ export default function PersistentVolumeDetail() {
     return (
       <div className="space-y-4 p-6">
         <Breadcrumbs segments={breadcrumbSegments} className="mb-2" />
-        <Card>
-          <CardContent className="pt-6">
+        <div className="rounded-lg border bg-card p-6">
             <p className="text-muted-foreground">PersistentVolume not found.</p>
             <Button variant="outline" className="mt-4" onClick={() => navigate('/persistentvolumes')}>
               Back to Persistent Volumes
             </Button>
-          </CardContent>
-        </Card>
+        </div>
       </div>
     );
   }

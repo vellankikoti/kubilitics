@@ -9,6 +9,7 @@ import { downloadResourceJson } from '@/lib/exportUtils';
 import {
   ResourceDetailLayout,
   SectionCard,
+  DetailRow,
   YamlViewer,
   ResourceComparisonView,
   EventsSection,
@@ -144,17 +145,11 @@ export default function VerticalPodAutoscalerDetail() {
       content: (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SectionCard icon={Target} title="Target Reference">
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-muted-foreground text-sm mb-1">Reference</p>
-                {targetName !== '–' ? (
+              <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                <DetailRow label="Reference" value={targetName !== '–' ? (
                   <Button variant="link" className="p-0 h-auto font-mono text-primary" onClick={() => navigate(targetLink())}>{targetKind}/{targetName}</Button>
-                ) : (
-                  <p className="font-mono">–</p>
-                )}
-              </div>
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-muted-foreground text-sm mb-1">Update Mode</p>
-                <Badge variant={updateMode === 'Auto' ? 'default' : 'secondary'}>{updateMode}</Badge>
+                ) : '–'} />
+                <DetailRow label="Update Mode" value={<Badge variant={updateMode === 'Auto' ? 'default' : 'secondary'}>{updateMode}</Badge>} />
               </div>
           </SectionCard>
           <SectionCard icon={TrendingUp} title="Recommendations">

@@ -46,6 +46,7 @@ import {
   LogViewer,
   DeleteConfirmDialog,
   SectionCard,
+  DetailRow,
   ResourceTopologyView,
   ResourceComparisonView,
   type ResourceStatus,
@@ -349,31 +350,13 @@ export default function JobDetail() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <SectionCard icon={Settings} title="Job Configuration" tooltip={<p className="text-xs text-muted-foreground">Execution settings and limits</p>}>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground mb-1">Completions</p>
-                    <p className="font-mono text-lg">{completions}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Parallelism</p>
-                    <p className="font-mono text-lg">{job.spec?.parallelism || 1}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Backoff Limit</p>
-                    <p className="font-mono">{job.spec?.backoffLimit || 6}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Active Deadline</p>
-                    <p className="font-mono">{job.spec?.activeDeadlineSeconds || '-'}s</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">TTL After Finished</p>
-                    <p className="font-mono">{job.spec?.ttlSecondsAfterFinished || '-'}s</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Restart Policy</p>
-                    <Badge variant="outline">{job.spec?.template?.spec?.restartPolicy || 'Never'}</Badge>
-                  </div>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                  <DetailRow label="Completions" value={String(completions)} />
+                  <DetailRow label="Parallelism" value={String(job.spec?.parallelism || 1)} />
+                  <DetailRow label="Backoff Limit" value={String(job.spec?.backoffLimit || 6)} />
+                  <DetailRow label="Active Deadline" value={`${job.spec?.activeDeadlineSeconds || '-'}s`} />
+                  <DetailRow label="TTL After Finished" value={`${job.spec?.ttlSecondsAfterFinished || '-'}s`} />
+                  <DetailRow label="Restart Policy" value={<Badge variant="outline">{job.spec?.template?.spec?.restartPolicy || 'Never'}</Badge>} />
                 </div>
             </SectionCard>
 
