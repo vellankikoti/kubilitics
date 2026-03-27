@@ -111,37 +111,26 @@ function TopologyCanvasInner({
     setEdges(elkEdges);
   }, [elkNodes, elkEdges, setNodes, setEdges]);
 
-  // Auto-fit after layout — first fit all, then center on focus node if one exists
+  // Create a stable fingerprint of the current layout to detect data changes
+  const layoutFingerprint = useMemo(() =>
+    elkNodes.map(n => n.id).sort().join(','),
+    [elkNodes]
+  );
+
+  // Auto-fit after layout — triggers on layout completion AND data changes
   useEffect(() => {
     if (!isLayouting && elkNodes.length > 0) {
       const t = setTimeout(() => {
-        // First fit everything so the graph is visible
         reactFlow.fitView({
-          padding: 0.06,
-          duration: 350,
+          padding: 0.08,
+          duration: 300,
           maxZoom: 1.0,
           minZoom: fitViewMinZoom(nodeCount),
         });
-        // Then center on the focus/highlighted node if present
-        if (highlightNodeIds.length > 0) {
-          const focusId = highlightNodeIds[0];
-          setTimeout(() => {
-            const node = reactFlow.getNode(focusId);
-            if (node) {
-              const w = node.measured?.width ?? node.width ?? 260;
-              const h = node.measured?.height ?? node.height ?? 110;
-              reactFlow.setCenter(
-                node.position.x + w / 2,
-                node.position.y + h / 2,
-                { zoom: Math.max(0.5, reactFlow.getViewport().zoom), duration: 400 }
-              );
-            }
-          }, 400);
-        }
-      }, 100);
+      }, 150);
       return () => clearTimeout(t);
     }
-  }, [isLayouting, elkNodes.length, reactFlow, nodeCount, highlightNodeIds]);
+  }, [isLayouting, layoutFingerprint, reactFlow, nodeCount]);
 
   // Expose fitView to parent toolbar "Fit" button
   useEffect(() => {
