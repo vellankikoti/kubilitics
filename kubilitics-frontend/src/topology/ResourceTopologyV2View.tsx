@@ -5,7 +5,7 @@
  * Uses the same useResourceTopology hook, transforms data via shared transformGraph,
  * and renders with the v2 React Flow canvas + detail panel.
  */
-import { useState, useMemo, useCallback, useRef } from "react";
+import { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
@@ -68,6 +68,27 @@ export function ResourceTopologyV2View({
   const [viewMode] = useState<ViewMode>("resource");
   const [presentationMode, setPresentationMode] = useState(false);
   const [viewLevel, setViewLevel] = useState<'direct' | 'extended' | 'full'>('direct');
+  const prevViewLevelRef = useRef<'direct' | 'extended'>('direct');
+
+  // Track previous mode so closing Full returns to it
+  const openFull = useCallback(() => {
+    if (viewLevel !== 'full') prevViewLevelRef.current = viewLevel as 'direct' | 'extended';
+    setViewLevel('full');
+  }, [viewLevel]);
+  const closeFull = useCallback(() => {
+    setViewLevel(prevViewLevelRef.current);
+  }, []);
+
+  // ESC key closes Full topology overlay
+  useEffect(() => {
+    if (viewLevel !== 'full') return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeFull();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [viewLevel, closeFull]);
+
   const fullDialogFitViewRef = useRef<(() => void) | null>(null);
   const fullDialogExportRef = useRef<((format: ExportFormat, filename: string) => void) | null>(null);
 
@@ -362,7 +383,7 @@ export function ResourceTopologyV2View({
                 <button
                   key={level}
                   type="button"
-                  onClick={() => setViewLevel(level)}
+                  onClick={() => level === 'full' ? openFull() : setViewLevel(level)}
                   className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all ${
                     viewLevel === level
                       ? 'bg-white text-gray-900 shadow-sm dark:bg-slate-700 dark:text-white'
@@ -450,6 +471,36 @@ export function ResourceTopologyV2View({
               Full Topology — {name} ({kind})
             </div>
             <div className="flex items-center gap-2">
+              {/* Export */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1">
+                    <FileImage className="h-3.5 w-3.5" /> Export <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="z-[300]">
+                  <DropdownMenuItem onClick={() => {
+                    const filename = buildExportFilename("png", exportCtx);
+                    fullDialogExportRef.current?.("png", filename);
+                  }}>
+                    <FileImage className="h-3.5 w-3.5 mr-2" /> PNG
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    const filename = buildExportFilename("svg", exportCtx);
+                    fullDialogExportRef.current?.("svg", filename);
+                  }}>
+                    <FileImage className="h-3.5 w-3.5 mr-2" /> SVG
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    if (fullTopology) {
+                      exportTopologyJSON(fullTopology, exportCtx);
+                      toast.success("JSON exported");
+                    }
+                  }}>
+                    <FileJson className="h-3.5 w-3.5 mr-2" /> JSON
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button
                 variant="ghost"
                 size="sm"
@@ -462,7 +513,7 @@ export function ResourceTopologyV2View({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setViewLevel('extended')}
+                onClick={closeFull}
                 className="h-7 px-2 text-xs"
               >
                 <X className="h-3.5 w-3.5" />

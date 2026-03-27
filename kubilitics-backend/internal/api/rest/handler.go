@@ -95,12 +95,19 @@ var expandableCategories = map[string]bool{
 // hubKinds are shared infrastructure nodes that fan out to many unrelated
 // resources. They are included as leaf nodes but never expanded through.
 var hubKinds = map[string]bool{
-	"Namespace":     true,
-	"Node":          true,
-	"LimitRange":    true,
-	"ResourceQuota": true,
-	"PriorityClass": true,
-	"RuntimeClass":  true,
+	"Namespace":                        true,
+	"Node":                             true,
+	"LimitRange":                       true,
+	"ResourceQuota":                    true,
+	"PriorityClass":                    true,
+	"RuntimeClass":                     true,
+	"IngressClass":                     true,
+	"StorageClass":                     true,
+	"MutatingWebhookConfiguration":     true,
+	"ValidatingWebhookConfiguration":   true,
+	"NetworkPolicy":                    true,
+	"ServiceAccount":                   true,
+	"Ingress":                          true,
 }
 
 // Handler manages HTTP request handlers
@@ -290,6 +297,7 @@ func SetupRoutes(router *mux.Router, h *Handler) {
 	router.Handle("/clusters/{clusterId}/topology/v2", h.wrapWithRBAC(h.GetTopologyV2, auth.RoleViewer)).Methods("GET")
 	router.Handle("/clusters/{clusterId}/topology/v2/traffic", h.wrapWithRBAC(h.GetTopologyV2Traffic, auth.RoleViewer)).Methods("GET")
 	router.Handle("/clusters/{clusterId}/topology/v2/impact/{kind}/{namespace}/{name}", h.wrapWithRBAC(h.GetTopologyV2Impact, auth.RoleViewer)).Methods("GET")
+	router.Handle("/clusters/{clusterId}/topology/v2/criticality", h.wrapWithRBAC(h.GetCriticality, auth.RoleViewer)).Methods("GET")
 	router.Handle("/clusters/{clusterId}/topology/resource/{kind}/{namespace}/{name}", h.wrapWithRBAC(h.GetResourceTopology, auth.RoleViewer)).Methods("GET")
 	router.Handle("/clusters/{clusterId}/topology/export", h.wrapWithRBAC(h.ExportTopology, auth.RoleOperator)).Methods("POST")
 	router.Handle("/clusters/{clusterId}/topology/export/drawio", h.wrapWithRBAC(h.GetTopologyExportDrawio, auth.RoleViewer)).Methods("GET")
@@ -1307,6 +1315,9 @@ func (h *Handler) GetResourceTopology(w http.ResponseWriter, r *http.Request) {
 	} else {
 		v2Resp, buildErr = topologyv2builder.BuildTopology(ctx, v2Opts, client)
 		if buildErr == nil && v2Resp != nil && len(v2Resp.Nodes) > 0 {
+			// Score all nodes on the FULL graph before caching.
+			// Scores are computed once and carried through BFS filtering via node.Extra.
+			attachCriticalityScores(v2Resp)
 			topologyCacheSet(resCacheKey, v2Resp)
 		}
 	}
@@ -1333,16 +1344,52 @@ func (h *Handler) GetResourceTopology(w http.ResponseWriter, r *http.Request) {
 			return expandableCategories[category]
 		}
 
-		// Hub kinds — additional safety net. Even if a hub node is reached
-		// via an expandable edge, we never expand THROUGH it because hubs
-		// connect to too many unrelated resources.
+		// Hub detection — two layers:
+		// 1. Static: hubKinds (Namespace, Node, etc.) — always hubs
+		// 2. Dynamic: any node with >10 total connections is a hub
+		//    (catches ServiceAccount/default, ConfigMap/kube-root-ca.crt, etc.)
 		nodeKind := func(id string) string {
 			if idx := strings.IndexByte(id, '/'); idx > 0 {
 				return id[:idx]
 			}
 			return id
 		}
-		isHub := func(id string) bool { return hubKinds[nodeKind(id)] }
+		// Kinds that are NEVER dynamic hubs — they're meant to have many connections.
+		// A Service routing to 10 pods is important, not noise.
+		neverHubKinds := map[string]bool{
+			"Deployment":  true,
+			"StatefulSet": true,
+			"DaemonSet":   true,
+			"ReplicaSet":  true,
+			"CronJob":     true,
+			"Job":         true,
+			"Pod":         true,
+			"Service":     true,
+			"Endpoints":   true,
+			"EndpointSlice": true,
+			"PersistentVolumeClaim": true,
+			"PersistentVolume": true,
+			"HorizontalPodAutoscaler": true,
+			"PodDisruptionBudget": true,
+			"Role":        true,
+			"ClusterRole": true,
+			"RoleBinding": true,
+			"ClusterRoleBinding": true,
+		}
+		// Dynamic hub: only applies to config/infra kinds (ConfigMap, Secret, etc.)
+		// that are passively shared by many resources. Workload/networking kinds
+		// are never hubs — they're meant to have many connections.
+		isHub := func(id string) bool {
+			k := nodeKind(id)
+			if hubKinds[k] {
+				return true
+			}
+			if neverHubKinds[k] {
+				return false
+			}
+			// For config/infra kinds: >5 dependents = likely shared (e.g., kube-root-ca.crt)
+			return len(ri.GetDependents(id)) > 5
+		}
 
 		// Resource-focused traversal:
 		// Direct   (depth=1): target + immediate meaningful connections (hubs as leaves)
@@ -1353,26 +1400,40 @@ func (h *Handler) GetResourceTopology(w http.ResponseWriter, r *http.Request) {
 
 		if hops >= 3 {
 			// ── Full mode ────────────────────────────────────────────
-			// Unrestricted BFS — traverse ALL edge types, ALL directions.
-			// No hub filtering, no edge-type filtering.
+			// Same edge-type filtering as Extended, but UNLIMITED depth.
+			// Follows ownership/networking/storage chains as deep as
+			// they go. Hub nodes included as leaves, never expanded.
+			// This gives the COMPLETE dependency chain of THIS resource
+			// without cross-service leakage.
+			//
+			// Key difference from Extended: Extended = 2 hops, Full = unlimited.
+			// Both use the same expand rules (expandable edges + non-hub check).
 			frontier := []string{targetID}
 			visited := make(map[string]bool)
 			visited[targetID] = true
 			for len(frontier) > 0 {
 				var next []string
 				for _, id := range frontier {
-					for _, dep := range ri.GetDependencies(id) {
-						if !visited[dep] {
-							visited[dep] = true
-							connected[dep] = true
-							next = append(next, dep)
+					for _, en := range ri.GetDependenciesEdgeAware(id) {
+						if visited[en.ID] {
+							continue
+						}
+						visited[en.ID] = true
+						// Include ALL neighbors as nodes (even via non-expandable edges)
+						connected[en.ID] = true
+						// But only EXPAND through meaningful edges on non-hub nodes
+						if isExpandableEdge(en.Category) && !isHub(en.ID) {
+							next = append(next, en.ID)
 						}
 					}
-					for _, dep := range ri.GetDependents(id) {
-						if !visited[dep] {
-							visited[dep] = true
-							connected[dep] = true
-							next = append(next, dep)
+					for _, en := range ri.GetDependentsEdgeAware(id) {
+						if visited[en.ID] {
+							continue
+						}
+						visited[en.ID] = true
+						connected[en.ID] = true
+						if isExpandableEdge(en.Category) && !isHub(en.ID) {
+							next = append(next, en.ID)
 						}
 					}
 				}
@@ -1485,8 +1546,9 @@ func (h *Handler) GetResourceTopology(w http.ResponseWriter, r *http.Request) {
 		result.Metadata.TotalNodes = len(v2Resp.Nodes)
 		result.Metadata.FocusResource = targetID
 
-		// Resource topology safety: if BFS returned too many nodes, redo with fewer hops
-		if len(filteredNodes) > 50 && hops > 1 {
+		// Resource topology safety: if BFS returned too many nodes in Direct/Extended,
+		// redo with fewer hops. Full mode (hops>=3) is exempt — user explicitly wants everything.
+		if len(filteredNodes) > 50 && hops > 1 && hops < 3 {
 			// Too many nodes — redo BFS with hops=1 (hubs included as leaves)
 			connected = make(map[string]bool)
 			connected[targetID] = true
@@ -1547,6 +1609,150 @@ func (h *Handler) GetResourceTopology(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, graph)
+}
+
+// attachCriticalityScores runs ScoreNodes on the full topology and writes
+// the results into each node's Extra["criticality"] map. This must be
+// called ONCE on the full graph before caching so that scores survive
+// BFS filtering (Extra is carried through).
+func attachCriticalityScores(resp *topologyv2.TopologyResponse) {
+	scores := topologyv2builder.ScoreNodes(resp.Nodes, resp.Edges)
+	scoreMap := make(map[string]topologyv2builder.CriticalityScore, len(scores))
+	for _, s := range scores {
+		scoreMap[s.NodeID] = s
+	}
+	var matched int
+	for i := range resp.Nodes {
+		if score, ok := scoreMap[resp.Nodes[i].ID]; ok {
+			if resp.Nodes[i].Extra == nil {
+				resp.Nodes[i].Extra = make(map[string]interface{})
+			}
+			resp.Nodes[i].Extra["criticality"] = map[string]interface{}{
+				"score":           score.Score,
+				"level":           score.Level,
+				"pageRank":        score.PageRank,
+				"fanIn":           score.FanIn,
+				"fanOut":          score.FanOut,
+				"blastRadius":     score.BlastRadius,
+				"dependencyDepth": score.DependencyDepth,
+				"isSPOF":          score.IsSPOF,
+				"confidence":      score.Confidence,
+			}
+			matched++
+		}
+	}
+	_ = matched // scored all nodes
+}
+
+// criticalitySummary is the lightweight response type for the /criticality endpoint.
+type criticalitySummary struct {
+	NodeID      string  `json:"nodeId"`
+	Kind        string  `json:"kind"`
+	Namespace   string  `json:"namespace"`
+	Name        string  `json:"name"`
+	Level       string  `json:"level"`
+	BlastRadius int     `json:"blastRadius"`
+	IsSPOF      bool    `json:"isSPOF"`
+	Score       float64 `json:"score"`
+}
+
+// GetCriticality handles GET /clusters/{clusterId}/topology/v2/criticality.
+// Returns a flat JSON array of criticality scores for every resource in the topology.
+// Optional query param: namespace (filter results to a single namespace).
+func (h *Handler) GetCriticality(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	clusterID := vars["clusterId"]
+	if !validate.ClusterID(clusterID) {
+		respondError(w, http.StatusBadRequest, "Invalid clusterId")
+		return
+	}
+
+	nsFilter := strings.TrimSpace(r.URL.Query().Get("namespace"))
+
+	client, err := h.getClientFromRequest(r.Context(), r, clusterID, h.cfg)
+	if err != nil {
+		requestID := logger.FromContext(r.Context())
+		respondErrorWithCode(w, http.StatusNotFound, ErrCodeNotFound, err.Error(), requestID)
+		return
+	}
+
+	timeoutSec := 30
+	if h.cfg != nil && h.cfg.TopologyTimeoutSec > 0 {
+		timeoutSec = h.cfg.TopologyTimeoutSec
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), time.Duration(timeoutSec)*time.Second)
+	defer cancel()
+
+	// Use the same cache as resource topology (full cluster-mode build)
+	cacheKey := topologyCacheKey(clusterID, "resource", "", 0)
+
+	var resp *topologyv2.TopologyResponse
+	if cached, ok := topologyCacheGet(cacheKey); ok {
+		resp = cached
+	} else {
+		clusterName := clusterID
+		if c, err := h.clusterService.GetCluster(ctx, clusterID); err == nil && c != nil && c.Name != "" {
+			clusterName = c.Name
+		}
+		opts := topologyv2.Options{
+			ClusterID:   clusterID,
+			ClusterName: clusterName,
+			Mode:        topologyv2.ViewModeCluster,
+		}
+		built, buildErr := topologyv2builder.BuildTopology(ctx, opts, client)
+		if buildErr != nil {
+			if errors.Is(buildErr, context.DeadlineExceeded) {
+				respondError(w, http.StatusServiceUnavailable, "Topology build timed out")
+				return
+			}
+			respondError(w, http.StatusInternalServerError, buildErr.Error())
+			return
+		}
+		if built != nil && len(built.Nodes) > 0 {
+			attachCriticalityScores(built)
+			topologyCacheSet(cacheKey, built)
+		}
+		resp = built
+	}
+
+	if resp == nil || len(resp.Nodes) == 0 {
+		respondJSON(w, http.StatusOK, []criticalitySummary{})
+		return
+	}
+
+	// Score from cached Extra (already attached by attachCriticalityScores)
+	// If Extra["criticality"] is missing (old cache entry), recompute
+	if _, hasCrit := resp.Nodes[0].Extra["criticality"]; !hasCrit {
+		attachCriticalityScores(resp)
+	}
+
+	results := make([]criticalitySummary, 0, len(resp.Nodes))
+	for _, n := range resp.Nodes {
+		if nsFilter != "" && n.Namespace != nsFilter {
+			continue
+		}
+		crit, ok := n.Extra["criticality"].(map[string]interface{})
+		if !ok {
+			continue
+		}
+		score, _ := crit["score"].(float64)
+		level, _ := crit["level"].(string)
+		blastRadius, _ := crit["blastRadius"].(int)
+		isSPOF, _ := crit["isSPOF"].(bool)
+
+		results = append(results, criticalitySummary{
+			NodeID:      n.ID,
+			Kind:        n.Kind,
+			Namespace:   n.Namespace,
+			Name:        n.Name,
+			Level:       level,
+			BlastRadius: blastRadius,
+			IsSPOF:      isSPOF,
+			Score:       score,
+		})
+	}
+
+	respondJSON(w, http.StatusOK, results)
 }
 
 // ExportTopology handles POST /clusters/{clusterId}/topology/export (BE-FUNC-001).
