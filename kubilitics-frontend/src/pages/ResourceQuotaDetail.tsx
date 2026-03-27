@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Gauge, Clock, Download, Trash2, Box, Network, AlertTriangle, GitCompare, Database } from 'lucide-react';
+import { Gauge, Clock, Download, Trash2, Box, Network, AlertTriangle, GitCompare, Database, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,6 +23,7 @@ import {
 } from '@/components/resources';
 import { useResourceDetail, useResourceEvents } from '@/hooks/useK8sResourceDetail';
 import { useDeleteK8sResource, useUpdateK8sResource, type KubernetesResource } from '@/hooks/useKubernetes';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
@@ -306,6 +307,18 @@ export default function ResourceQuotaDetail() {
           name={name ?? ''}
           sourceResourceType="ResourceQuota"
           sourceResourceName={resource?.metadata?.name ?? name ?? ''}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('ResourceQuota')}
+          namespace={namespace || resource?.metadata?.namespace || ''}
+          name={name || resource?.metadata?.name || ''}
         />
       ),
     },

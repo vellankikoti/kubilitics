@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { UserCircle, Clock, Download, Trash2, KeyRound, Shield, Network, GitCompare, Info, Key, Image, Server } from 'lucide-react';
+import { UserCircle, Clock, Download, Trash2, KeyRound, Shield, Network, GitCompare, Info, Key, Image, Server, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ import {
 } from '@/components/resources';
 import { useResourceDetail, useResourceEvents } from '@/hooks/useK8sResourceDetail';
 import { useDeleteK8sResource, type KubernetesResource } from '@/hooks/useKubernetes';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
@@ -217,6 +218,18 @@ export default function ServiceAccountDetail() {
           name={name ?? ''}
           sourceResourceType="ServiceAccount"
           sourceResourceName={resource?.metadata?.name ?? name ?? ''}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('ServiceAccount')}
+          namespace={namespace || resource?.metadata?.namespace || ''}
+          name={name || resource?.metadata?.name || ''}
         />
       ),
     },

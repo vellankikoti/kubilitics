@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Scale, Clock, Download, Trash2, TrendingUp, TrendingDown, Server, Cpu, Network, GitCompare, Target, Activity } from 'lucide-react';
+import { Scale, Clock, Download, Trash2, TrendingUp, TrendingDown, Server, Cpu, Network, GitCompare, Target, Activity, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,6 +23,7 @@ import {
 } from '@/components/resources';
 import { useResourceDetail, useResourceEvents, type EventInfo } from '@/hooks/useK8sResourceDetail';
 import { useDeleteK8sResource, type KubernetesResource } from '@/hooks/useKubernetes';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 import { normalizeKindForTopology, getDetailPath } from '@/utils/resourceKindMapper';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
@@ -341,6 +342,18 @@ export default function HorizontalPodAutoscalerDetail() {
           name={name ?? ''}
           sourceResourceType="HorizontalPodAutoscaler"
           sourceResourceName={resource?.metadata?.name ?? name ?? ''}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('HorizontalPodAutoscaler')}
+          namespace={namespace || resource?.metadata?.namespace || ''}
+          name={name || resource?.metadata?.name || ''}
         />
       ),
     },

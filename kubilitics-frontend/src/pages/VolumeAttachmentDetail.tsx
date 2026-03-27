@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Database, Clock, Server, Download, Trash2, HardDrive, Info, Network, Loader2, Edit, FileCode, GitCompare } from 'lucide-react';
+import { Database, Clock, Server, Download, Trash2, HardDrive, Info, Network, Loader2, Edit, FileCode, GitCompare, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,6 +22,7 @@ import {
 import { useResourceDetail, useResourceEvents } from '@/hooks/useK8sResourceDetail';
 import { useDeleteK8sResource, useUpdateK8sResource, type KubernetesResource } from '@/hooks/useKubernetes';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 import { Breadcrumbs, useDetailBreadcrumbs } from '@/components/layout/Breadcrumbs';
 import { useClusterStore } from '@/stores/clusterStore';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
@@ -218,6 +219,18 @@ export default function VolumeAttachmentDetail() {
           name={name ?? ''}
           sourceResourceType="VolumeAttachment"
           sourceResourceName={va?.metadata?.name ?? name ?? ''}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('VolumeAttachment')}
+          namespace={''}
+          name={name || va?.metadata?.name || ''}
         />
       ),
     },

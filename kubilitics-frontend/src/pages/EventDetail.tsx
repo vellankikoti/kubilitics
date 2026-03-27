@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Bell, Clock, Download, AlertTriangle, CheckCircle2, ExternalLink, Network } from 'lucide-react';
+import { Bell, Clock, Download, AlertTriangle, CheckCircle2, ExternalLink, Network, Zap } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,6 +18,7 @@ import {
 import { useResourceDetail, useResourceEvents } from '@/hooks/useK8sResourceDetail';
 import type { KubernetesResource } from '@/hooks/useKubernetes';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { toast } from '@/components/ui/sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
@@ -213,6 +214,18 @@ export default function EventDetail() {
           name={name ?? ''}
           sourceResourceType="Event"
           sourceResourceName={ev?.metadata?.name ?? name ?? ''}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('Event')}
+          namespace={namespace || ev?.metadata?.namespace || ''}
+          name={name || ev?.metadata?.name || ''}
         />
       ),
     },

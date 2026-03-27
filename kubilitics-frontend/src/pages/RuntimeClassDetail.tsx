@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
-import { FolderCog, Clock, Cpu, Download, Trash2, Settings, Package, Box, Network, Loader2, GitCompare, Info, Target } from 'lucide-react';
+import { FolderCog, Clock, Cpu, Download, Trash2, Settings, Package, Box, Network, Loader2, GitCompare, Info, Target, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { NamespaceBadge } from '@/components/list';
 import { Button } from '@/components/ui/button';
@@ -296,6 +297,18 @@ export default function RuntimeClassDetail() {
           name={name ?? ''}
           sourceResourceType="RuntimeClass"
           sourceResourceName={rc.name}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('RuntimeClass')}
+          namespace={''}
+          name={name || rc.name || ''}
         />
       ),
     },

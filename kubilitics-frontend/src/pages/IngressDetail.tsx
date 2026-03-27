@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { Globe, Clock, Download, Trash2, Lock, ExternalLink, Activity, Shield, Route, Server, Network, GitCompare } from 'lucide-react';
+import { Globe, Clock, Download, Trash2, Lock, ExternalLink, Activity, Shield, Route, Server, Network, GitCompare, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ import {
 } from '@/components/resources';
 import { useResourceDetail, useResourceEvents } from '@/hooks/useK8sResourceDetail';
 import { useDeleteK8sResource, useUpdateK8sResource, calculateAge, type KubernetesResource } from '@/hooks/useKubernetes';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { useQuery } from '@tanstack/react-query';
@@ -525,6 +526,18 @@ export default function IngressDetail() {
           name={name ?? ''}
           sourceResourceType="Ingress"
           sourceResourceName={ing?.metadata?.name ?? name ?? ''}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('Ingress')}
+          namespace={namespace || ing?.metadata?.namespace || ''}
+          name={name || ing?.metadata?.name || ''}
         />
       ),
     },

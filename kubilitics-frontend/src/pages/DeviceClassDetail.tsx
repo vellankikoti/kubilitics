@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Cpu, Clock, Download, Trash2, Info, FileCode, GitCompare, Network } from 'lucide-react';
+import { Cpu, Clock, Download, Trash2, Info, FileCode, GitCompare, Network, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
 import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
+import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
 import {
   ResourceDetailLayout,
   ResourceComparisonView,
@@ -214,6 +216,18 @@ export default function DeviceClassDetail() {
           name={name ?? ''}
           sourceResourceType="DeviceClass"
           sourceResourceName={dc?.metadata?.name ?? name ?? ''}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('DeviceClass')}
+          namespace={''}
+          name={name || dc?.metadata?.name || ''}
         />
       ),
     },

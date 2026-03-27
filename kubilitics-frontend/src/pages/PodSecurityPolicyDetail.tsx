@@ -1,11 +1,12 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Shield, Clock, Lock, Download, Trash2, AlertTriangle, Network, GitCompare } from 'lucide-react';
+import { Shield, Clock, Lock, Download, Trash2, AlertTriangle, Network, GitCompare, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 import {
   ResourceDetailLayout,
   YamlViewer,
@@ -202,6 +203,18 @@ export default function PodSecurityPolicyDetail() {
           name={name ?? ''}
           sourceResourceType="PodSecurityPolicy"
           sourceResourceName={psp.name ?? name ?? ''}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('PodSecurityPolicy')}
+          namespace={''}
+          name={name || psp.name || ''}
         />
       ),
     },

@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueries } from '@tanstack/react-query';
-import { Server, Clock, Download, Trash2, Cpu, HardDrive, Box, Shield, Pause, Play, AlertTriangle, Loader2, Info, BarChart2, Activity, MapPin, Tag, FileJson, FileSpreadsheet, Image, Network, GitCompare, RefreshCw } from 'lucide-react';
+import { Server, Clock, Download, Trash2, Cpu, HardDrive, Box, Shield, Pause, Play, AlertTriangle, Loader2, Info, BarChart2, Activity, MapPin, Tag, FileJson, FileSpreadsheet, Image, Network, GitCompare, RefreshCw, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { NamespaceBadge } from '@/components/list';
 import { Progress } from '@/components/ui/progress';
@@ -28,6 +28,7 @@ import {
 import { DetailPodTable } from '@/components/resources/DetailPodTable';
 import { useResourceDetail, useK8sEvents } from '@/hooks/useK8sResourceDetail';
 import { useDeleteK8sResource, useUpdateK8sResource, useK8sResourceList, calculateAge, type KubernetesResource } from '@/hooks/useKubernetes';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useMutationPolling } from '@/hooks/useMutationPolling';
@@ -637,6 +638,18 @@ export default function NodeDetail() {
           name={name ?? ''}
           sourceResourceType="Node"
           sourceResourceName={n?.metadata?.name ?? name ?? ''}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('Node')}
+          namespace={''}
+          name={name || n?.metadata?.name || ''}
         />
       ),
     },

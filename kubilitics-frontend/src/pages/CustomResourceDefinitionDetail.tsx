@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FileCode, Clock, Layers, Download, Trash2, Package, GitCompare, Network, Info, Activity } from 'lucide-react';
+import { FileCode, Clock, Layers, Download, Trash2, Package, GitCompare, Network, Info, Activity, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { useActiveClusterId } from '@/hooks/useActiveClusterId';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 import { toast } from '@/components/ui/sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
 
@@ -218,6 +219,18 @@ export default function CustomResourceDefinitionDetail() {
           name={name ?? ''}
           sourceResourceType="CustomResourceDefinition"
           sourceResourceName={crdName}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('CustomResourceDefinition')}
+          namespace={''}
+          name={name || crd?.metadata?.name || ''}
         />
       ),
     },

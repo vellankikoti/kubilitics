@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Activity, Clock, User, Download, Trash2, Timer, Network, GitCompare } from 'lucide-react';
+import { Activity, Clock, User, Download, Trash2, Timer, Network, GitCompare, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import {
 import { useResourceDetail, useResourceEvents } from '@/hooks/useK8sResourceDetail';
 import { useDeleteK8sResource, type KubernetesResource } from '@/hooks/useKubernetes';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { useActiveClusterId } from '@/hooks/useActiveClusterId';
@@ -205,6 +206,18 @@ export default function LeaseDetail() {
           name={name ?? ''}
           sourceResourceType="Lease"
           sourceResourceName={lease?.metadata?.name ?? name ?? ''}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('Lease')}
+          namespace={namespace || lease?.metadata?.namespace || ''}
+          name={name || lease?.metadata?.name || ''}
         />
       ),
     },

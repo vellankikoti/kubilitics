@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Database, Clock, Download, Trash2, HardDrive, Server, Expand, Info, Network, Loader2, Edit, FileCode, GitCompare } from 'lucide-react';
+import { Database, Clock, Download, Trash2, HardDrive, Server, Expand, Info, Network, Loader2, Edit, FileCode, GitCompare, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -22,6 +22,7 @@ import {
 } from '@/components/resources';
 import { useResourceDetail, useResourceEvents } from '@/hooks/useK8sResourceDetail';
 import { useDeleteK8sResource, useUpdateK8sResource, type KubernetesResource } from '@/hooks/useKubernetes';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
 import { Breadcrumbs, useDetailBreadcrumbs } from '@/components/layout/Breadcrumbs';
 import { useClusterStore } from '@/stores/clusterStore';
@@ -213,6 +214,18 @@ export default function PersistentVolumeClaimDetail() {
           name={name ?? ''}
           sourceResourceType="PersistentVolumeClaim"
           sourceResourceName={pvc?.metadata?.name ?? name ?? ''}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('PersistentVolumeClaim')}
+          namespace={namespace || pvc?.metadata?.namespace || ''}
+          name={name || pvc?.metadata?.name || ''}
         />
       ),
     },

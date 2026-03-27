@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Link2, Clock, Download, Trash2, Edit, ShieldCheck, UserCircle, Globe, Network, GitCompare, Users } from 'lucide-react';
+import { Link2, Clock, Download, Trash2, Edit, ShieldCheck, UserCircle, Globe, Network, GitCompare, Users, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ import {
 } from '@/components/resources';
 import { useResourceDetail, useResourceEvents } from '@/hooks/useK8sResourceDetail';
 import { useDeleteK8sResource, type KubernetesResource } from '@/hooks/useKubernetes';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
@@ -221,6 +222,18 @@ export default function ClusterRoleBindingDetail() {
           name={name ?? ''}
           sourceResourceType="ClusterRoleBinding"
           sourceResourceName={resource?.metadata?.name ?? name ?? ''}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('ClusterRoleBinding')}
+          namespace={''}
+          name={name || resource?.metadata?.name || ''}
         />
       ),
     },

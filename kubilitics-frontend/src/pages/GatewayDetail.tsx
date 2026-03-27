@@ -14,7 +14,7 @@ import { motion } from 'framer-motion';
 import {
   ArrowLeft, ChevronRight, Copy, ExternalLink, Loader2, MoreHorizontal,
   Network, RefreshCw, Route, Shield, Globe, ArrowRightLeft, Layers,
-  CheckCircle2, XCircle, Clock, AlertTriangle, Server, Box,
+  CheckCircle2, XCircle, Clock, AlertTriangle, Server, Box, Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -32,6 +32,8 @@ import { useClusterStore } from '@/stores/clusterStore';
 import { calculateAge, type KubernetesResource } from '@/hooks/useKubernetes';
 import { listResources } from '@/services/backendApiClient';
 import { toast } from '@/components/ui/sonner';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
+import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -341,6 +343,9 @@ export default function GatewayDetail() {
           <TabsTrigger value="topology" className="flex items-center gap-1.5">
             <Layers className="h-3.5 w-3.5" /> Topology
           </TabsTrigger>
+          <TabsTrigger value="blast-radius" className="flex items-center gap-1.5">
+            <Zap className="h-3.5 w-3.5" /> Blast Radius
+          </TabsTrigger>
           <TabsTrigger value="yaml" className="flex items-center gap-1.5">
             YAML
           </TabsTrigger>
@@ -610,6 +615,15 @@ export default function GatewayDetail() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Blast Radius Tab */}
+        <TabsContent value="blast-radius" className="mt-4">
+          <BlastRadiusTab
+            kind={normalizeKindForTopology('Gateway')}
+            namespace={ns || gateway?.metadata?.namespace || ''}
+            name={name || gateway?.metadata?.name || ''}
+          />
         </TabsContent>
 
         {/* YAML Tab */}

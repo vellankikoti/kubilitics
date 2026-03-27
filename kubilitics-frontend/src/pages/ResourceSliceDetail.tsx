@@ -1,11 +1,13 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Cpu, Clock, Download, Trash2, Info, FileCode, GitCompare, Layers, Network } from 'lucide-react';
+import { Cpu, Clock, Download, Trash2, Info, FileCode, GitCompare, Layers, Network, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/components/ui/sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
 import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
+import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
 import {
   ResourceDetailLayout,
   ResourceComparisonView,
@@ -215,6 +217,18 @@ export default function ResourceSliceDetail() {
           name={name ?? ''}
           sourceResourceType="ResourceSlice"
           sourceResourceName={rs?.metadata?.name ?? name ?? ''}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('ResourceSlice')}
+          namespace={''}
+          name={name || rs?.metadata?.name || ''}
         />
       ),
     },

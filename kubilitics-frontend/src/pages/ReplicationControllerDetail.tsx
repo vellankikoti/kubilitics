@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Layers, Clock, Server, Download, Trash2, Scale, AlertTriangle, Package, Network, GitCompare, Target } from 'lucide-react';
+import { Layers, Clock, Server, Download, Trash2, Scale, AlertTriangle, Package, Network, GitCompare, Target, Zap } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -27,6 +27,7 @@ import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { useActiveClusterId } from '@/hooks/useActiveClusterId';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 
 interface RCResource extends KubernetesResource {
   spec?: {
@@ -283,6 +284,18 @@ export default function ReplicationControllerDetail() {
           name={name ?? ''}
           sourceResourceType="ReplicationController"
           sourceResourceName={rcName}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('ReplicationController')}
+          namespace={namespace || rc?.metadata?.namespace || ''}
+          name={name || rc?.metadata?.name || ''}
         />
       ),
     },

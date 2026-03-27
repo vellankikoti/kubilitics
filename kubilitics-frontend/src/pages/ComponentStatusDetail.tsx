@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Activity, Clock, CheckCircle, AlertTriangle, Download, Trash2, Network, Server, GitCompare, Info } from 'lucide-react';
+import { Activity, Clock, CheckCircle, AlertTriangle, Download, Trash2, Network, Server, GitCompare, Info, Zap } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,7 @@ import { toast } from '@/components/ui/sonner';
 import { downloadResourceJson } from '@/lib/exportUtils';
 import { ResourceOverviewMetadata } from '@/components/resources/ResourceOverviewMetadata';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 import {
   ResourceDetailLayout,
   SectionCard,
@@ -198,6 +199,18 @@ export default function ComponentStatusDetail() {
           name={name ?? ''}
           sourceResourceType="ComponentStatus"
           sourceResourceName={csName ?? name ?? ''}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('ComponentStatus')}
+          namespace={''}
+          name={name || cs?.metadata?.name || ''}
         />
       ),
     },

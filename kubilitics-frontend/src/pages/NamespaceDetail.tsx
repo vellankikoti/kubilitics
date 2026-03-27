@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Folder, Clock, Download, Trash2, Box, Globe, Settings, Layers, Package, Database, Shield, Activity, Loader2, Network, GitCompare, ChevronRight, BarChart2, Boxes, HardDrive, ArrowUpRight } from 'lucide-react';
+import { Folder, Clock, Download, Trash2, Box, Globe, Settings, Layers, Package, Database, Shield, Activity, Loader2, Network, GitCompare, ChevronRight, BarChart2, Boxes, HardDrive, ArrowUpRight, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -23,6 +23,7 @@ import {
 } from '@/components/resources';
 import { useResourceDetail, useResourceEvents } from '@/hooks/useK8sResourceDetail';
 import { useDeleteK8sResource, useUpdateK8sResource, useK8sResourceList, type KubernetesResource } from '@/hooks/useKubernetes';
+import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useActiveClusterId } from '@/hooks/useActiveClusterId';
@@ -305,6 +306,18 @@ export default function NamespaceDetail() {
           name={name ?? ''}
           sourceResourceType="Namespace"
           sourceResourceName={ns?.metadata?.name ?? name ?? ''}
+        />
+      ),
+    },
+    {
+      id: 'blast-radius',
+      label: 'Blast Radius',
+      icon: Zap,
+      content: (
+        <BlastRadiusTab
+          kind={normalizeKindForTopology('Namespace')}
+          namespace={''}
+          name={name || ns?.metadata?.name || ''}
         />
       ),
     },
