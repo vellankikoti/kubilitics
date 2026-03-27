@@ -157,7 +157,9 @@ export default function APIServiceDetail() {
               </div>
             )}
           </SectionCard>
-          <LabelList labels={api?.metadata?.labels ?? {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={api?.metadata?.labels ?? {}} />
+          </div>
           <AnnotationList annotations={api?.metadata?.annotations ?? {}} />
         </div>
       ),

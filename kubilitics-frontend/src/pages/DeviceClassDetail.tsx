@@ -176,7 +176,9 @@ export default function DeviceClassDetail() {
               </div>
             ) : null}
           </SectionCard>
-          <LabelList labels={dc?.metadata?.labels ?? {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={dc?.metadata?.labels ?? {}} />
+          </div>
           <AnnotationList annotations={dc?.metadata?.annotations ?? {}} />
         </div>
       ),

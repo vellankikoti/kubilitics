@@ -270,7 +270,9 @@ export default function NetworkPolicyDetail() {
                 ))}
             </SectionCard>
           )}
-          <LabelList labels={np.metadata?.labels ?? {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={np.metadata?.labels ?? {}} />
+          </div>
           <AnnotationList annotations={np.metadata?.annotations ?? {}} />
         </div>
       ),

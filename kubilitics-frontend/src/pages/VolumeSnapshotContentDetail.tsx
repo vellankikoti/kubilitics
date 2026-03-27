@@ -195,7 +195,9 @@ export default function VolumeSnapshotContentDetail() {
               </Link>
             </SectionCard>
           )}
-          <LabelList labels={vsc?.metadata?.labels ?? {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={vsc?.metadata?.labels ?? {}} />
+          </div>
           <AnnotationList annotations={vsc?.metadata?.annotations ?? {}} />
         </div>
       ),

@@ -182,7 +182,9 @@ export default function ValidatingWebhookDetail() {
               </SectionCard>
             ))
           )}
-          <LabelList labels={wh?.metadata?.labels ?? {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={wh?.metadata?.labels ?? {}} />
+          </div>
           <AnnotationList annotations={wh?.metadata?.annotations ?? {}} />
         </div>
       ),

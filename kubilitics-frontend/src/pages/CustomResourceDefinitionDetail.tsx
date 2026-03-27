@@ -173,7 +173,9 @@ export default function CustomResourceDefinitionDetail() {
                 {conditions.length === 0 && <p className="text-sm text-muted-foreground">No conditions</p>}
               </div>
           </SectionCard>
-          <LabelList labels={crd?.metadata?.labels ?? {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={crd?.metadata?.labels ?? {}} />
+          </div>
           <AnnotationList annotations={crd?.metadata?.annotations ?? {}} />
         </div>
       ),

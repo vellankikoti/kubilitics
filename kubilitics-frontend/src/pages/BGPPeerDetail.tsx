@@ -158,7 +158,9 @@ export default function BGPPeerDetail() {
               <DetailRow label="Age" value={age} />
             </div>
           </SectionCard>
-          <LabelList labels={peer?.metadata?.labels ?? {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={peer?.metadata?.labels ?? {}} />
+          </div>
           <AnnotationList annotations={peer?.metadata?.annotations ?? {}} />
         </div>
       ),

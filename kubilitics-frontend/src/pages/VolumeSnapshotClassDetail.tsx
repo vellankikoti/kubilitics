@@ -156,7 +156,9 @@ export default function VolumeSnapshotClassDetail() {
               View <Link to="/volumesnapshots" className="text-primary hover:underline">Volume Snapshots</Link> and filter by snapshot class to see usage.
             </p>
           </SectionCard>
-          <LabelList labels={vsc?.metadata?.labels ?? {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={vsc?.metadata?.labels ?? {}} />
+          </div>
           <AnnotationList annotations={vsc?.metadata?.annotations ?? {}} />
         </div>
       ),

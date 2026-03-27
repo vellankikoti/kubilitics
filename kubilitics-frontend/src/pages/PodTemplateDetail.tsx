@@ -154,7 +154,9 @@ export default function PodTemplateDetail() {
               <DetailRow label="Containers" value={containers.length > 0 ? String(containers.length) : '0'} />
             </div>
           </SectionCard>
-          <LabelList labels={labels} title="Template Labels" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={labels} title="Template Labels" />
+          </div>
           <AnnotationList annotations={pt?.metadata?.annotations ?? {}} />
           {containers.length > 0 && (
             <SectionCard icon={Layers} title="Containers" tooltip={<p className="text-xs text-muted-foreground">Containers in the pod template spec</p>}>

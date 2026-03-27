@@ -197,7 +197,9 @@ export default function VolumeAttachmentDetail() {
               </div>
             </SectionCard>
           )}
-          <LabelList labels={va?.metadata?.labels ?? {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={va?.metadata?.labels ?? {}} />
+          </div>
           <AnnotationList annotations={va?.metadata?.annotations ?? {}} />
         </div>
       ),

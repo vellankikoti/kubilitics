@@ -158,7 +158,9 @@ export default function ClusterRoleBindingDetail() {
               )}
             </div>
           </SectionCard>
-          <LabelList labels={labels} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={labels} />
+          </div>
           <AnnotationList annotations={annotations} />
         </div>
       ),

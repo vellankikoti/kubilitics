@@ -543,7 +543,9 @@ export default function CronJobDetail() {
             </SectionCard>
           )}
 
-          <LabelList labels={cronJob.metadata?.labels || {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={cronJob.metadata?.labels || {}} />
+          </div>
           <AnnotationList annotations={cronJob.metadata?.annotations || {}} />
         </div>
       ),

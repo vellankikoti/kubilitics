@@ -159,7 +159,9 @@ export default function ComponentStatusDetail() {
                 </div>
               )}
           </SectionCard>
-          <LabelList labels={cs?.metadata?.labels ?? {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={cs?.metadata?.labels ?? {}} />
+          </div>
           <AnnotationList annotations={cs?.metadata?.annotations ?? {}} />
         </div>
       ),

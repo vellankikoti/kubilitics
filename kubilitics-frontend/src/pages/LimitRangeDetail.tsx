@@ -176,7 +176,9 @@ export default function LimitRangeDetail() {
             </SectionCard>
           ))}
           {limits.length === 0 && <p className="text-muted-foreground text-sm">No limits defined.</p>}
-          <LabelList labels={labels} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={labels} />
+          </div>
           <AnnotationList annotations={annotations} />
         </div>
       ),

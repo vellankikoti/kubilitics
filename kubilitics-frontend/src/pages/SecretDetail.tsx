@@ -272,7 +272,9 @@ export default function SecretDetail() {
               {Object.keys(data).length === 0 && <p className="text-muted-foreground text-sm">No keys</p>}
             </div>
           </SectionCard>
-          <LabelList labels={labels} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={labels} />
+          </div>
           <AnnotationList annotations={s?.metadata?.annotations || {}} />
         </div>
       ),

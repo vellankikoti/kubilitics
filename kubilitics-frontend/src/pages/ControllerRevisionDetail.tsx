@@ -169,7 +169,9 @@ export default function ControllerRevisionDetail() {
               </Link>
             </SectionCard>
           )}
-          <LabelList labels={cr?.metadata?.labels ?? {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={cr?.metadata?.labels ?? {}} />
+          </div>
           <AnnotationList annotations={cr?.metadata?.annotations ?? {}} />
         </div>
       ),

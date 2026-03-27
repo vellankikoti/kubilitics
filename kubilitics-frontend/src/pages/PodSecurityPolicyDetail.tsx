@@ -160,7 +160,9 @@ export default function PodSecurityPolicyDetail() {
               ))}
             </div>
           </SectionCard>
-          <LabelList labels={{}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={{}} />
+          </div>
           <AnnotationList annotations={{}} />
         </div>
       ),

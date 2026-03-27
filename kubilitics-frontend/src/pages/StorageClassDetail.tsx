@@ -172,7 +172,9 @@ export default function StorageClassDetail() {
               </div>
             </SectionCard>
           )}
-          <LabelList labels={sc?.metadata?.labels ?? {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={sc?.metadata?.labels ?? {}} />
+          </div>
           <AnnotationList annotations={sc?.metadata?.annotations ?? {}} />
         </div>
       ),

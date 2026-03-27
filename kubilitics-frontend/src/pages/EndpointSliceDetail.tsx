@@ -183,7 +183,9 @@ export default function EndpointSliceDetail() {
               </div>
             </SectionCard>
           </div>
-          <LabelList labels={labels} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={labels} />
+          </div>
           <AnnotationList annotations={es?.metadata?.annotations || {}} />
         </div>
       ),

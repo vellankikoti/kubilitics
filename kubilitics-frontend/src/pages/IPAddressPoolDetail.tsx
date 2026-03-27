@@ -158,7 +158,9 @@ export default function IPAddressPoolDetail() {
               <DetailRow label="Age" value={age} />
             </div>
           </SectionCard>
-          <LabelList labels={pool?.metadata?.labels ?? {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={pool?.metadata?.labels ?? {}} />
+          </div>
           <AnnotationList annotations={pool?.metadata?.annotations ?? {}} />
         </div>
       ),

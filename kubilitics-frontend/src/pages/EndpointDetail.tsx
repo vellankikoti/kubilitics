@@ -177,7 +177,9 @@ export default function EndpointDetail() {
               </div>
             </SectionCard>
           ))}
-          <LabelList labels={ep.metadata?.labels ?? {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={ep.metadata?.labels ?? {}} />
+          </div>
           <AnnotationList annotations={ep.metadata?.annotations ?? {}} />
         </div>
       ),

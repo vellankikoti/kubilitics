@@ -328,7 +328,9 @@ export default function IngressDetail() {
                 ))}
             </SectionCard>
           )}
-          <LabelList labels={ing.metadata?.labels ?? {}} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LabelList labels={ing.metadata?.labels ?? {}} />
+          </div>
           <AnnotationList annotations={annotations} />
         </div>
       ),
