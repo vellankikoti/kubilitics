@@ -1,9 +1,9 @@
 import { type LucideIcon } from 'lucide-react';
-import { CheckCircle2, AlertTriangle, XCircle, Circle } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, Circle, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /** Semantic status variants for consistent pill styling across list pages. */
-export type StatusPillVariant = 'success' | 'warning' | 'error' | 'neutral';
+export type StatusPillVariant = 'success' | 'warning' | 'error' | 'neutral' | 'info';
 
 const variantStyles: Record<StatusPillVariant, {
   bg: string;
@@ -34,6 +34,12 @@ const variantStyles: Record<StatusPillVariant, {
     color: 'text-slate-600 dark:text-slate-400',
     border: 'border border-slate-200/50 dark:border-slate-700/30',
     defaultIcon: Circle,
+  },
+  info: {
+    bg: 'bg-blue-50 dark:bg-blue-950/30',
+    color: 'text-blue-700 dark:text-blue-400',
+    border: 'border border-blue-200/50 dark:border-blue-800/30',
+    defaultIcon: Info,
   },
 };
 

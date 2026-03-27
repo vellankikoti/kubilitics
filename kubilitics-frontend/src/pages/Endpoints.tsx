@@ -40,7 +40,7 @@ import { useK8sResourceList, useDeleteK8sResource, calculateAge, type Kubernetes
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { toast } from '@/components/ui/sonner';
 import { ResourceCreator, DEFAULT_YAMLS } from '@/components/editor';
-import { ResourceExportDropdown, ResourceCommandBar, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, ListPagination, PAGE_SIZE_OPTIONS, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, NamespaceBadge, ResourceListTableToolbar } from '@/components/list';
+import { ResourceExportDropdown, ResourceCommandBar, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, ListPagination, PAGE_SIZE_OPTIONS, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, NamespaceBadge, ResourceListTableToolbar, StatusPill } from '@/components/list';
 import { DeleteConfirmDialog } from '@/components/resources';
 import { ResizableTableProvider, ResizableTableHead, ResizableTableCell, type ResizableColumnConfig } from '@/components/ui/resizable-table';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
@@ -68,6 +68,7 @@ interface Endpoint {
 const ENDPOINTS_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
  { id: 'namespace', defaultWidth: 180, minWidth: 120 },
+ { id: 'status', defaultWidth: 120, minWidth: 80 },
  { id: 'readyCount', defaultWidth: 100, minWidth: 70 },
  { id: 'notReadyCount', defaultWidth: 100, minWidth: 70 },
  { id: 'totalAddresses', defaultWidth: 100, minWidth: 70 },
@@ -78,6 +79,7 @@ const ENDPOINTS_TABLE_COLUMNS: ResizableColumnConfig[] = [
 
 const ENDPOINTS_COLUMNS_FOR_VISIBILITY = [
  { id: 'namespace', label: 'Namespace' },
+ { id: 'status', label: 'Status' },
  { id: 'readyCount', label: 'Ready Addresses' },
  { id: 'notReadyCount', label: 'Not Ready Addresses' },
  { id: 'totalAddresses', label: 'Total' },
@@ -161,6 +163,7 @@ export default function Endpoints() {
  const endpointsTableConfig: ColumnConfig<Endpoint>[] = useMemo(() => [
  { columnId: 'name', getValue: (e) => e.name, sortable: true, filterable: false },
  { columnId: 'namespace', getValue: (e) => e.namespace, sortable: true, filterable: true },
+ { columnId: 'status', getValue: (e) => e.readyCount > 0 ? 'Ready' : e.notReadyCount > 0 ? 'Not Ready' : 'Empty', sortable: true, filterable: true },
  { columnId: 'healthStatus', getValue: (e) => e.notReadyCount === 0 && e.readyCount > 0 ? 'Healthy' : e.notReadyCount > 0 && e.readyCount > 0 ? 'Degraded' : 'Empty', sortable: true, filterable: true },
  { columnId: 'readyCount', getValue: (e) => e.readyCount, sortable: true, filterable: false },
  { columnId: 'notReadyCount', getValue: (e) => e.notReadyCount, sortable: true, filterable: false },
@@ -397,6 +400,9 @@ subsets: []
  <ResizableTableHead columnId="namespace">
  <TableColumnHeaderWithFilterAndSort columnId="namespace" label="Namespace" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} />
  </ResizableTableHead>
+ <ResizableTableHead columnId="status">
+ <TableColumnHeaderWithFilterAndSort columnId="status" label="Status" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} />
+ </ResizableTableHead>
  <ResizableTableHead columnId="readyCount">
  <TableColumnHeaderWithFilterAndSort columnId="readyCount" label="Ready Addresses" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} />
  </ResizableTableHead>
@@ -418,6 +424,7 @@ subsets: []
  <ResizableTableCell columnId="namespace" className="p-1.5">
  <TableFilterCell columnId="namespace" label="Namespace" distinctValues={distinctValuesByColumn.namespace ?? []} selectedFilterValues={columnFilters.namespace ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.namespace} />
  </ResizableTableCell>
+ <ResizableTableCell columnId="status" className="p-1.5" />
  <ResizableTableCell columnId="readyCount" className="p-1.5" />
  <ResizableTableCell columnId="notReadyCount" className="p-1.5" />
  <ResizableTableCell columnId="totalAddresses" className="p-1.5" />
@@ -430,16 +437,16 @@ subsets: []
  </TableHeader>
  <TableBody>
  {isLoading && isConnected && !isError ? (
- <ListPageLoadingShell columnCount={11} resourceName="endpoints" isLoading={isLoading} onRetry={() => refetch()} />
+ <ListPageLoadingShell columnCount={12} resourceName="endpoints" isLoading={isLoading} onRetry={() => refetch()} />
  ) : isError ? (
  <TableRow>
- <TableCell colSpan={11} className="h-40 text-center">
+ <TableCell colSpan={12} className="h-40 text-center">
  <TableErrorState onRetry={() => refetch()} />
  </TableCell>
  </TableRow>
  ) : itemsOnPage.length === 0 ? (
  <TableRow>
- <TableCell colSpan={11} className="h-40 text-center">
+ <TableCell colSpan={12} className="h-40 text-center">
  <TableEmptyState
  icon={<Network className="h-8 w-8" />}
  title="No endpoints found"
@@ -466,6 +473,9 @@ subsets: []
  <Link to={`/endpoints/${ep.namespace}/${ep.name}`} className="font-medium text-primary hover:underline truncate block">{ep.name}</Link>
  </ResizableTableCell>
  <ResizableTableCell columnId="namespace"><NamespaceBadge namespace={ep.namespace} /></ResizableTableCell>
+ <ResizableTableCell columnId="status">
+ <StatusPill variant={ep.readyCount > 0 ? 'success' : ep.notReadyCount > 0 ? 'error' : 'default'} label={ep.readyCount > 0 ? 'Ready' : ep.notReadyCount > 0 ? 'Not Ready' : 'Empty'} />
+ </ResizableTableCell>
  <ResizableTableCell columnId="readyCount">
  <span className={cn('font-mono', ep.readyCount > 0 ? 'text-emerald-600' : 'text-muted-foreground')}>{ep.readyCount}</span>
  </ResizableTableCell>

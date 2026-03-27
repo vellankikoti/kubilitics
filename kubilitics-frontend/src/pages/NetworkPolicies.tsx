@@ -42,7 +42,7 @@ import { useK8sResourceList, useDeleteK8sResource, calculateAge, type Kubernetes
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { DeleteConfirmDialog } from '@/components/resources';
 import { NetworkPolicyWizard } from '@/components/wizards';
-import { ResourceExportDropdown, ResourceCommandBar, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, ListPagination, PAGE_SIZE_OPTIONS, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, NamespaceBadge, ResourceListTableToolbar } from '@/components/list';
+import { ResourceExportDropdown, ResourceCommandBar, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, ListPagination, PAGE_SIZE_OPTIONS, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, NamespaceBadge, ResourceListTableToolbar, StatusPill } from '@/components/list';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { toast } from '@/components/ui/sonner';
@@ -73,6 +73,7 @@ interface NetworkPolicy {
 const NETWORKPOLICIES_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
  { id: 'namespace', defaultWidth: 180, minWidth: 120 },
+ { id: 'status', defaultWidth: 120, minWidth: 80 },
  { id: 'podSelector', defaultWidth: 220, minWidth: 120 },
  { id: 'affectedPods', defaultWidth: 100, minWidth: 70 },
  { id: 'policyTypes', defaultWidth: 160, minWidth: 100 },
@@ -85,6 +86,7 @@ const NETWORKPOLICIES_TABLE_COLUMNS: ResizableColumnConfig[] = [
 
 const NETWORKPOLICIES_COLUMNS_FOR_VISIBILITY = [
  { id: 'namespace', label: 'Namespace' },
+ { id: 'status', label: 'Status' },
  { id: 'podSelector', label: 'Pod Selector' },
  { id: 'affectedPods', label: 'Affected Pods' },
  { id: 'policyTypes', label: 'Policy Types' },
@@ -206,6 +208,7 @@ export default function NetworkPolicies() {
  const networkPoliciesTableConfig: ColumnConfig<NetworkPolicy>[] = useMemo(() => [
  { columnId: 'name', getValue: (np) => np.name, sortable: true, filterable: false },
  { columnId: 'namespace', getValue: (np) => np.namespace, sortable: true, filterable: true },
+ { columnId: 'status', getValue: () => 'Active', sortable: false, filterable: false },
  { columnId: 'podSelector', getValue: (np) => np.podSelector, sortable: true, filterable: false },
  { columnId: 'affectedPods', getValue: (np) => np.affectedPods, sortable: true, filterable: false },
  { columnId: 'policyTypes', getValue: policyTypeValue, sortable: true, filterable: true },
@@ -471,6 +474,9 @@ spec:
  <ResizableTableHead columnId="namespace">
  <TableColumnHeaderWithFilterAndSort columnId="namespace" label="Namespace" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} />
  </ResizableTableHead>
+ <ResizableTableHead columnId="status">
+ <TableColumnHeaderWithFilterAndSort columnId="status" label="Status" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} />
+ </ResizableTableHead>
  <ResizableTableHead columnId="podSelector">
  <TableColumnHeaderWithFilterAndSort columnId="podSelector" label="Pod Selector" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} />
  </ResizableTableHead>
@@ -496,6 +502,7 @@ spec:
  <ResizableTableCell columnId="namespace" className="p-1.5">
  <TableFilterCell columnId="namespace" label="Namespace" distinctValues={distinctValuesByColumn.namespace ?? []} selectedFilterValues={columnFilters.namespace ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.namespace} />
  </ResizableTableCell>
+ <ResizableTableCell columnId="status" className="p-1.5" />
  <ResizableTableCell columnId="podSelector" className="p-1.5" />
  <ResizableTableCell columnId="affectedPods" className="p-1.5" />
  <ResizableTableCell columnId="policyTypes" className="p-1.5">
@@ -512,16 +519,16 @@ spec:
  </TableHeader>
  <TableBody>
  {isLoading && isConnected && !isError ? (
- <ListPageLoadingShell columnCount={13} resourceName="network policies" isLoading={isLoading} onRetry={() => refetch()} />
+ <ListPageLoadingShell columnCount={14} resourceName="network policies" isLoading={isLoading} onRetry={() => refetch()} />
  ) : isError ? (
  <TableRow>
- <TableCell colSpan={13} className="h-40 text-center">
+ <TableCell colSpan={14} className="h-40 text-center">
  <TableErrorState onRetry={() => refetch()} />
  </TableCell>
  </TableRow>
  ) : itemsOnPage.length === 0 ? (
  <TableRow>
- <TableCell colSpan={13} className="h-40 text-center">
+ <TableCell colSpan={14} className="h-40 text-center">
  <TableEmptyState
  icon={<Shield className="h-8 w-8" />}
  title="No NetworkPolicies found"
@@ -544,6 +551,9 @@ spec:
  <TableCell><Checkbox checked={isSelected} onCheckedChange={() => toggleSelection(np)} aria-label={`Select ${np.name}`} /></TableCell>
  <ResizableTableCell columnId="name"><Link to={`/networkpolicies/${np.namespace}/${np.name}`} className="font-medium text-primary hover:underline truncate block">{np.name}</Link></ResizableTableCell>
  <ResizableTableCell columnId="namespace"><NamespaceBadge namespace={np.namespace} /></ResizableTableCell>
+ <ResizableTableCell columnId="status">
+ <StatusPill variant="success" label="Active" />
+ </ResizableTableCell>
  <ResizableTableCell columnId="podSelector"><span className="font-mono text-sm truncate block" title={np.podSelector}>{np.podSelector}</span></ResizableTableCell>
  <ResizableTableCell columnId="affectedPods"><span className="font-mono">{np.affectedPods > 0 ? np.affectedPods : '—'}</span></ResizableTableCell>
  <ResizableTableCell columnId="policyTypes">

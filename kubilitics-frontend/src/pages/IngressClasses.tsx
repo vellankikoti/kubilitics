@@ -45,7 +45,7 @@ import { useK8sResourceList, useDeleteK8sResource, calculateAge } from '@/hooks/
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { DeleteConfirmDialog } from '@/components/resources';
 import { IngressClassWizard } from '@/components/wizards';
-import { ResourceExportDropdown, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, resourceTableRowClassName, ResourceCommandBar, ClusterScopedScope, ListPagination, PAGE_SIZE_OPTIONS, ListViewSegmentedControl, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, ResourceListTableToolbar } from '@/components/list';
+import { ResourceExportDropdown, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, resourceTableRowClassName, ResourceCommandBar, ClusterScopedScope, ListPagination, PAGE_SIZE_OPTIONS, ListViewSegmentedControl, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, ResourceListTableToolbar, StatusPill } from '@/components/list';
 import { IngressIcon } from '@/components/icons/KubernetesIcons';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -63,6 +63,7 @@ interface IngressClass {
 
 const INGRESSCLASSES_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
+ { id: 'status', defaultWidth: 100, minWidth: 80 },
  { id: 'controller', defaultWidth: 260, minWidth: 150 },
  { id: 'default', defaultWidth: 100, minWidth: 70 },
  { id: 'ingresses', defaultWidth: 100, minWidth: 70 },
@@ -71,6 +72,7 @@ const INGRESSCLASSES_TABLE_COLUMNS: ResizableColumnConfig[] = [
 ];
 
 const INGRESSCLASSES_COLUMNS_FOR_VISIBILITY = [
+ { id: 'status', label: 'Status' },
  { id: 'controller', label: 'Controller' },
  { id: 'default', label: 'Default' },
  { id: 'ingresses', label: 'Ingresses' },
@@ -425,6 +427,9 @@ spec:
  <ResizableTableHead columnId="name">
  <TableColumnHeaderWithFilterAndSort columnId="name" label="Name" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} />
  </ResizableTableHead>
+ <ResizableTableHead columnId="status">
+ <TableColumnHeaderWithFilterAndSort columnId="status" label="Status" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} />
+ </ResizableTableHead>
  <ResizableTableHead columnId="controller">
  <TableColumnHeaderWithFilterAndSort columnId="controller" label="Controller" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} />
  </ResizableTableHead>
@@ -440,6 +445,7 @@ spec:
  <TableRow className="bg-muted/30 hover:bg-muted/30 border-b-2 border-border">
  <TableCell className="w-12 p-1.5" />
  <ResizableTableCell columnId="name" className="p-1.5" />
+ <ResizableTableCell columnId="status" className="p-1.5" />
  <ResizableTableCell columnId="controller" className="p-1.5">
  <TableFilterCell columnId="controller" label="Controller" distinctValues={distinctValuesByColumn.controller ?? []} selectedFilterValues={columnFilters.controller ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.controller} />
  </ResizableTableCell>
@@ -490,6 +496,7 @@ spec:
  <ResizableTableCell columnId="name">
  <Link to={`/ingressclasses/${ic.name}`} className="font-medium text-primary hover:underline flex items-center gap-2 truncate"><Route className="h-4 w-4 text-muted-foreground flex-shrink-0" /><span className="truncate">{ic.name}</span></Link>
  </ResizableTableCell>
+ <ResizableTableCell columnId="status"><StatusPill variant={ic.isDefault ? 'info' : 'success'} label={ic.isDefault ? 'Default' : 'Active'} /></ResizableTableCell>
  <ResizableTableCell columnId="controller"><span className="font-mono text-sm truncate block">{ic.controller}</span></ResizableTableCell>
  <ResizableTableCell columnId="default">{ic.isDefault ? <Badge variant="default" className="text-xs">Yes</Badge> : <span className="text-muted-foreground">No</span>}</ResizableTableCell>
  <ResizableTableCell columnId="ingresses" className="font-mono text-sm">{ic.ingressesCount}</ResizableTableCell>
@@ -531,6 +538,7 @@ spec:
  <tr key={ic.name} className={cn(resourceTableRowClassName, idx % 2 === 1 && 'bg-muted/5', isSelected && 'bg-primary/5')}>
  <TableCell><Checkbox checked={isSelected} onCheckedChange={() => toggleSelection(ic)} aria-label={`Select ${ic.name}`} /></TableCell>
  <ResizableTableCell columnId="name"><Link to={`/ingressclasses/${ic.name}`} className="font-medium text-primary hover:underline flex items-center gap-2 truncate"><Route className="h-4 w-4 text-muted-foreground flex-shrink-0" /><span className="truncate">{ic.name}</span></Link></ResizableTableCell>
+ <ResizableTableCell columnId="status"><StatusPill variant={ic.isDefault ? 'info' : 'success'} label={ic.isDefault ? 'Default' : 'Active'} /></ResizableTableCell>
  <ResizableTableCell columnId="controller"><span className="font-mono text-sm truncate block">{ic.controller}</span></ResizableTableCell>
  <ResizableTableCell columnId="default">{ic.isDefault ? <Badge variant="default" className="text-xs">Yes</Badge> : <span className="text-muted-foreground">No</span>}</ResizableTableCell>
  <ResizableTableCell columnId="ingresses" className="font-mono text-sm">{ic.ingressesCount}</ResizableTableCell>

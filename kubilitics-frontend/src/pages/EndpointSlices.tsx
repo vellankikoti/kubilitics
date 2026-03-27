@@ -40,7 +40,7 @@ import { useK8sResourceList, useDeleteK8sResource, calculateAge, type Kubernetes
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { toast } from '@/components/ui/sonner';
 import { ResourceCreator, DEFAULT_YAMLS } from '@/components/editor';
-import { ResourceExportDropdown, ResourceCommandBar, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, ListPagination, PAGE_SIZE_OPTIONS, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, NamespaceBadge, ResourceListTableToolbar } from '@/components/list';
+import { ResourceExportDropdown, ResourceCommandBar, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, ListPagination, PAGE_SIZE_OPTIONS, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, NamespaceBadge, ResourceListTableToolbar, StatusPill } from '@/components/list';
 import { DeleteConfirmDialog } from '@/components/resources';
 import { ResizableTableProvider, ResizableTableHead, ResizableTableCell, type ResizableColumnConfig } from '@/components/ui/resizable-table';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
@@ -70,6 +70,7 @@ interface EndpointSlice {
 const ENDPOINTSLICES_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
  { id: 'namespace', defaultWidth: 180, minWidth: 120 },
+ { id: 'status', defaultWidth: 120, minWidth: 80 },
  { id: 'addressType', defaultWidth: 160, minWidth: 100 },
  { id: 'endpoints', defaultWidth: 100, minWidth: 70 },
  { id: 'serviceName', defaultWidth: 160, minWidth: 100 },
@@ -78,6 +79,7 @@ const ENDPOINTSLICES_TABLE_COLUMNS: ResizableColumnConfig[] = [
 
 const ENDPOINTSLICES_COLUMNS_FOR_VISIBILITY = [
  { id: 'namespace', label: 'Namespace' },
+ { id: 'status', label: 'Status' },
  { id: 'addressType', label: 'Address Type' },
  { id: 'endpoints', label: 'Endpoints' },
  { id: 'serviceName', label: 'Service' },
@@ -146,6 +148,7 @@ export default function EndpointSlices() {
  const endpointSlicesTableConfig: ColumnConfig<EndpointSlice>[] = useMemo(() => [
  { columnId: 'name', getValue: (es) => es.name, sortable: true, filterable: false },
  { columnId: 'namespace', getValue: (es) => es.namespace, sortable: true, filterable: true },
+ { columnId: 'status', getValue: (es) => es.ready > 0 ? 'Ready' : es.terminating > 0 ? 'Not Ready' : 'Empty', sortable: true, filterable: true },
  { columnId: 'addressType', getValue: (es) => es.addressType, sortable: true, filterable: true },
  { columnId: 'endpoints', getValue: (es) => es.endpoints, sortable: true, filterable: false },
  { columnId: 'age', getValue: (es) => es.age, sortable: true, filterable: false },
@@ -384,6 +387,9 @@ ports: []
  <ResizableTableHead columnId="namespace">
  <TableColumnHeaderWithFilterAndSort columnId="namespace" label="Namespace" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} />
  </ResizableTableHead>
+ <ResizableTableHead columnId="status">
+ <TableColumnHeaderWithFilterAndSort columnId="status" label="Status" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} />
+ </ResizableTableHead>
  <ResizableTableHead columnId="addressType">
  <TableColumnHeaderWithFilterAndSort columnId="addressType" label="Address Type" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} />
  </ResizableTableHead>
@@ -407,6 +413,7 @@ ports: []
  <ResizableTableCell columnId="namespace" className="p-1.5">
  <TableFilterCell columnId="namespace" label="Namespace" distinctValues={distinctValuesByColumn.namespace ?? []} selectedFilterValues={columnFilters.namespace ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.namespace} />
  </ResizableTableCell>
+ <ResizableTableCell columnId="status" className="p-1.5" />
  <ResizableTableCell columnId="addressType" className="p-1.5">
  <TableFilterCell columnId="addressType" label="Address Type" distinctValues={distinctValuesByColumn.addressType ?? []} selectedFilterValues={columnFilters.addressType ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.addressType} />
  </ResizableTableCell>
@@ -423,16 +430,16 @@ ports: []
  </TableHeader>
  <TableBody>
  {isLoading && isConnected && !isError ? (
- <ListPageLoadingShell columnCount={13} resourceName="endpoint slices" isLoading={isLoading} onRetry={() => refetch()} />
+ <ListPageLoadingShell columnCount={14} resourceName="endpoint slices" isLoading={isLoading} onRetry={() => refetch()} />
  ) : isError ? (
  <TableRow>
- <TableCell colSpan={13} className="h-40 text-center">
+ <TableCell colSpan={14} className="h-40 text-center">
  <TableErrorState onRetry={() => refetch()} />
  </TableCell>
  </TableRow>
  ) : itemsOnPage.length === 0 ? (
  <TableRow>
- <TableCell colSpan={13} className="h-40 text-center">
+ <TableCell colSpan={14} className="h-40 text-center">
  <TableEmptyState
  icon={<Network className="h-8 w-8" />}
  title="No EndpointSlices found"
@@ -455,6 +462,9 @@ ports: []
  <TableCell><Checkbox checked={isSelected} onCheckedChange={() => toggleSelection(es)} aria-label={`Select ${es.name}`} /></TableCell>
  <ResizableTableCell columnId="name"><Link to={`/endpointslices/${es.namespace}/${es.name}`} className="font-medium text-primary hover:underline truncate block">{es.name}</Link></ResizableTableCell>
  <ResizableTableCell columnId="namespace"><NamespaceBadge namespace={es.namespace} /></ResizableTableCell>
+ <ResizableTableCell columnId="status">
+ <StatusPill variant={es.ready > 0 ? 'success' : es.terminating > 0 ? 'error' : 'default'} label={es.ready > 0 ? 'Ready' : es.terminating > 0 ? 'Not Ready' : 'Empty'} />
+ </ResizableTableCell>
  <ResizableTableCell columnId="addressType"><Badge variant="secondary">{es.addressType}</Badge></ResizableTableCell>
  <ResizableTableCell columnId="endpoints"><span className="font-mono">{es.endpoints}</span></ResizableTableCell>
  <TableCell><span className={cn('font-mono', es.ready > 0 ? 'text-emerald-600' : 'text-muted-foreground')}>{es.ready}</span></TableCell>

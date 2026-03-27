@@ -50,6 +50,7 @@ import {
  CopyNameDropdownItem,
  ResourceListTableToolbar,
  TableFilterCell,
+ StatusPill,
 } from '@/components/list';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -127,6 +128,7 @@ function transformRole(r: RoleResource): Role {
 const ROLE_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
  { id: 'namespace', defaultWidth: 180, minWidth: 120 },
+ { id: 'status', defaultWidth: 100, minWidth: 80 },
  { id: 'rules', defaultWidth: 100, minWidth: 70 },
  { id: 'apiGroups', defaultWidth: 160, minWidth: 100 },
  { id: 'resources', defaultWidth: 160, minWidth: 100 },
@@ -137,6 +139,7 @@ const ROLE_TABLE_COLUMNS: ResizableColumnConfig[] = [
 
 const ROLES_COLUMNS_FOR_VISIBILITY = [
  { id: 'namespace', label: 'Namespace' },
+ { id: 'status', label: 'Status' },
  { id: 'rules', label: 'Rules' },
  { id: 'apiGroups', label: 'API Groups' },
  { id: 'resources', label: 'Resources' },
@@ -417,6 +420,7 @@ export default function Roles() {
  <TableHead className="w-10"><Checkbox checked={isAllSelected} onCheckedChange={toggleAll} aria-label="Select all" className={cn(isSomeSelected && 'data-[state=checked]:bg-primary/50')} /></TableHead>
  <ResizableTableHead columnId="name"><TableColumnHeaderWithFilterAndSort columnId="name" label="Name" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="namespace"><TableColumnHeaderWithFilterAndSort columnId="namespace" label="Namespace" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
+ <ResizableTableHead columnId="status"><TableColumnHeaderWithFilterAndSort columnId="status" label="Status" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="rules"><TableColumnHeaderWithFilterAndSort columnId="rules" label="Rules" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="apiGroups"><TableColumnHeaderWithFilterAndSort columnId="apiGroups" label="API Groups" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="resources"><TableColumnHeaderWithFilterAndSort columnId="resources" label="Resources" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
@@ -430,6 +434,7 @@ export default function Roles() {
  <TableCell className="w-10" />
  <ResizableTableCell columnId="name" className="p-1.5" />
  <ResizableTableCell columnId="namespace" className="p-1.5"><TableFilterCell columnId="namespace" label="Namespace" distinctValues={distinctValuesByColumn.namespace ?? []} selectedFilterValues={columnFilters.namespace ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.namespace} /></ResizableTableCell>
+ <ResizableTableCell columnId="status" className="p-1.5" />
  <ResizableTableCell columnId="rules" className="p-1.5"><TableFilterCell columnId="permissionLevel" label="Permission Level" distinctValues={distinctValuesByColumn.permissionLevel ?? []} selectedFilterValues={columnFilters.permissionLevel ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.permissionLevel} /></ResizableTableCell>
  <ResizableTableCell columnId="apiGroups" className="p-1.5" />
  <ResizableTableCell columnId="resources" className="p-1.5" />
@@ -474,6 +479,7 @@ export default function Roles() {
  </Link>
  </ResizableTableCell>
  <ResizableTableCell columnId="namespace"><NamespaceBadge namespace={r.namespace} /></ResizableTableCell>
+ <ResizableTableCell columnId="status"><StatusPill variant="success" label="Active" /></ResizableTableCell>
  <ResizableTableCell columnId="rules" className="font-mono text-sm">{r.rulesCount}</ResizableTableCell>
  <ResizableTableCell columnId="apiGroups" className="text-muted-foreground text-sm truncate" title={r.apiGroups}>{r.apiGroups}</ResizableTableCell>
  <ResizableTableCell columnId="resources" className="text-muted-foreground text-sm truncate" title={r.resources}>{r.resources}</ResizableTableCell>

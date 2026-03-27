@@ -49,6 +49,7 @@ import {
  CopyNameDropdownItem,
  ResourceListTableToolbar,
  TableFilterCell,
+ StatusPill,
 } from '@/components/list';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -105,6 +106,7 @@ function transformClusterRoleBinding(r: ClusterRoleBindingResource): ClusterRole
 
 const CLUSTER_ROLE_BINDING_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
+ { id: 'status', defaultWidth: 100, minWidth: 80 },
  { id: 'clusterRole', defaultWidth: 220, minWidth: 120 },
  { id: 'subjects', defaultWidth: 220, minWidth: 120 },
  { id: 'subjectKinds', defaultWidth: 160, minWidth: 100 },
@@ -114,6 +116,7 @@ const CLUSTER_ROLE_BINDING_TABLE_COLUMNS: ResizableColumnConfig[] = [
 ];
 
 const CLUSTERROLEBINDINGS_COLUMNS_FOR_VISIBILITY = [
+ { id: 'status', label: 'Status' },
  { id: 'clusterRole', label: 'Cluster Role' },
  { id: 'subjects', label: 'Subjects' },
  { id: 'subjectKinds', label: 'Subject Kinds' },
@@ -356,6 +359,7 @@ export default function ClusterRoleBindings() {
  <TableRow className="bg-muted/50 hover:bg-muted/50 border-b-2 border-border">
  <TableHead className="w-10"><Checkbox checked={isAllSelected} onCheckedChange={toggleAll} aria-label="Select all" className={cn(isSomeSelected && 'data-[state=checked]:bg-primary/50')} /></TableHead>
  <ResizableTableHead columnId="name"><TableColumnHeaderWithFilterAndSort columnId="name" label="Name" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
+ <ResizableTableHead columnId="status"><TableColumnHeaderWithFilterAndSort columnId="status" label="Status" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="clusterRole"><TableColumnHeaderWithFilterAndSort columnId="clusterRole" label="Cluster Role" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="subjects"><TableColumnHeaderWithFilterAndSort columnId="subjects" label="Subjects" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="subjectKinds"><TableColumnHeaderWithFilterAndSort columnId="subjectKinds" label="Subject Kinds" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
@@ -368,6 +372,7 @@ export default function ClusterRoleBindings() {
  <TableRow className="bg-muted/30 hover:bg-muted/30 border-b-2 border-border">
  <TableCell className="w-10" />
  <ResizableTableCell columnId="name" className="p-1.5" />
+ <ResizableTableCell columnId="status" className="p-1.5" />
  <ResizableTableCell columnId="clusterRole" className="p-1.5" />
  <ResizableTableCell columnId="subjects" className="p-1.5" />
  <ResizableTableCell columnId="subjectKinds" className="p-1.5"><TableFilterCell columnId="subjectKinds" label="Subject Kinds" distinctValues={distinctValuesByColumn.subjectKinds ?? []} selectedFilterValues={columnFilters.subjectKinds ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.subjectKinds} /></ResizableTableCell>
@@ -411,6 +416,7 @@ export default function ClusterRoleBindings() {
  <span className="truncate">{r.name}</span>
  </Link>
  </ResizableTableCell>
+ <ResizableTableCell columnId="status"><StatusPill variant="success" label="Active" /></ResizableTableCell>
  <ResizableTableCell columnId="clusterRole">
  <Link to={`/clusterroles/${r.clusterRoleName}`} className="text-primary hover:underline font-mono text-sm truncate block">{r.clusterRoleName}</Link>
  </ResizableTableCell>

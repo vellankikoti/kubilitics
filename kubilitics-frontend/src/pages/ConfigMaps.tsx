@@ -44,7 +44,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
-import { ResourceCommandBar, ResourceExportDropdown, ListViewSegmentedControl, ListPagination, PAGE_SIZE_OPTIONS, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, ResourceListTableToolbar, NamespaceBadge } from '@/components/list';
+import { ResourceCommandBar, ResourceExportDropdown, ListViewSegmentedControl, ListPagination, PAGE_SIZE_OPTIONS, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, ResourceListTableToolbar, NamespaceBadge, StatusPill } from '@/components/list';
 import { buildAutoWidthColumns } from '@/lib/tableSizing';
 import { ConfigMapIcon } from '@/components/icons/KubernetesIcons';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
@@ -89,6 +89,7 @@ function formatBytes(n: number): string {
 const CONFIGMAPS_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
  { id: 'namespace', defaultWidth: 180, minWidth: 120 },
+ { id: 'status', defaultWidth: 120, minWidth: 80 },
  { id: 'dataKeys', defaultWidth: 100, minWidth: 70 },
  { id: 'totalSize', defaultWidth: 100, minWidth: 70 },
  { id: 'usedBy', defaultWidth: 100, minWidth: 70 },
@@ -100,6 +101,7 @@ const CONFIGMAPS_TABLE_COLUMNS: ResizableColumnConfig[] = [
 
 const CONFIGMAPS_COLUMNS_FOR_VISIBILITY = [
  { id: 'namespace', label: 'Namespace' },
+ { id: 'status', label: 'Status' },
  { id: 'dataKeys', label: 'Data Keys' },
  { id: 'totalSize', label: 'Total Size' },
  { id: 'usedBy', label: 'Used By' },
@@ -246,6 +248,7 @@ export default function ConfigMaps() {
  () => [
  { columnId: 'name', getValue: (i) => i.name, sortable: true, filterable: true },
  { columnId: 'namespace', getValue: (i) => i.namespace, sortable: true, filterable: true },
+ { columnId: 'status', getValue: (i) => i.immutable ? 'Immutable' : 'Active', sortable: true, filterable: true },
  { columnId: 'dataKeys', getValue: (i) => i.dataKeys, sortable: true, filterable: false },
  { columnId: 'totalSize', getValue: (i) => i.totalSizeHuman, sortable: true, filterable: false },
  { columnId: 'usedBy', getValue: () => '', sortable: false, filterable: false },
@@ -661,6 +664,11 @@ data: {}
  <TableColumnHeaderWithFilterAndSort columnId="namespace" label="Namespace" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} />
  </ResizableTableHead>
  )}
+ {columnVisibility.isColumnVisible('status') && (
+ <ResizableTableHead columnId="status">
+ <TableColumnHeaderWithFilterAndSort columnId="status" label="Status" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} />
+ </ResizableTableHead>
+ )}
  {columnVisibility.isColumnVisible('dataKeys') && (
  <ResizableTableHead columnId="dataKeys">
  <TableColumnHeaderWithFilterAndSort columnId="dataKeys" label="Data Keys" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} />
@@ -708,6 +716,7 @@ data: {}
  <TableFilterCell columnId="name" label="Name" distinctValues={distinctValuesByColumn.name ?? []} selectedFilterValues={columnFilters.name ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.name} />
  </ResizableTableCell>
  {columnVisibility.isColumnVisible('namespace') && <ResizableTableCell columnId="namespace" className="p-1.5"><TableFilterCell columnId="namespace" label="Namespace" distinctValues={distinctValuesByColumn.namespace ?? []} selectedFilterValues={columnFilters.namespace ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.namespace} /></ResizableTableCell>}
+ {columnVisibility.isColumnVisible('status') && <ResizableTableCell columnId="status" className="p-1.5"><TableFilterCell columnId="status" label="Status" distinctValues={distinctValuesByColumn.status ?? []} selectedFilterValues={columnFilters.status ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.status} /></ResizableTableCell>}
  {columnVisibility.isColumnVisible('dataKeys') && <ResizableTableCell columnId="dataKeys" className="p-1.5" />}
  {columnVisibility.isColumnVisible('totalSize') && <ResizableTableCell columnId="totalSize" className="p-1.5" />}
  {columnVisibility.isColumnVisible('usedBy') && <ResizableTableCell columnId="usedBy" className="p-1.5"><TableFilterCell columnId="usage" label="Used By" distinctValues={distinctValuesByColumn.usage ?? []} selectedFilterValues={columnFilters.usage ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.usage} /></ResizableTableCell>}
@@ -721,16 +730,16 @@ data: {}
  </TableHeader>
  <TableBody>
  {isLoading && isConnected && !isError ? (
- <ListPageLoadingShell columnCount={10} resourceName="config maps" isLoading={isLoading} onRetry={() => refetch()} />
+ <ListPageLoadingShell columnCount={11} resourceName="config maps" isLoading={isLoading} onRetry={() => refetch()} />
  ) : isError ? (
  <TableRow>
- <TableCell colSpan={10} className="h-40 text-center">
+ <TableCell colSpan={12} className="h-40 text-center">
  <TableErrorState onRetry={() => refetch()} />
  </TableCell>
  </TableRow>
  ) : filteredItems.length === 0 ? (
  <TableRow>
- <TableCell colSpan={10} className="h-40 text-center">
+ <TableCell colSpan={12} className="h-40 text-center">
  <TableEmptyState
  icon={<FileJson className="h-8 w-8" />}
  title="No ConfigMaps found"
@@ -779,6 +788,11 @@ data: {}
  namespace={item.namespace}
  className="font-normal truncate block w-fit max-w-full"
  />
+ </ResizableTableCell>
+ )}
+ {columnVisibility.isColumnVisible('status') && (
+ <ResizableTableCell columnId="status">
+ <StatusPill variant={item.immutable ? 'warning' : 'success'} label={item.immutable ? 'Immutable' : 'Active'} />
  </ResizableTableCell>
  )}
  {columnVisibility.isColumnVisible('dataKeys') && (
@@ -865,7 +879,7 @@ data: {}
  className="bg-muted/30 hover:bg-muted/40 cursor-pointer border-b border-border/60 transition-all duration-200"
  onClick={() => toggleGroup(group.groupKey)}
  >
- <TableCell colSpan={11} className="py-2">
+ <TableCell colSpan={12} className="py-2">
  <div className="flex items-center gap-2 font-medium">
  {isCollapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
  Namespace: {group.label}
@@ -904,6 +918,11 @@ data: {}
  namespace={item.namespace}
  className="font-normal truncate block w-fit max-w-full"
  />
+ </ResizableTableCell>
+ )}
+ {columnVisibility.isColumnVisible('status') && (
+ <ResizableTableCell columnId="status">
+ <StatusPill variant={item.immutable ? 'warning' : 'success'} label={item.immutable ? 'Immutable' : 'Active'} />
  </ResizableTableCell>
  )}
  {columnVisibility.isColumnVisible('dataKeys') && (

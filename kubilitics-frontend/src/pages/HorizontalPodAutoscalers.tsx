@@ -50,6 +50,7 @@ import {
  NamespaceBadge,
  ResourceListTableToolbar,
  TableFilterCell,
+ StatusPill,
 } from '@/components/list';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -136,6 +137,7 @@ function transformHPA(h: HPAResource): HPARow {
 const HPA_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
  { id: 'namespace', defaultWidth: 180, minWidth: 120 },
+ { id: 'status', defaultWidth: 140, minWidth: 90 },
  { id: 'target', defaultWidth: 160, minWidth: 100 },
  { id: 'minMaxReplicas', defaultWidth: 100, minWidth: 70 },
  { id: 'current', defaultWidth: 100, minWidth: 70 },
@@ -147,6 +149,7 @@ const HPA_TABLE_COLUMNS: ResizableColumnConfig[] = [
 
 const HPA_COLUMNS_FOR_VISIBILITY = [
  { id: 'namespace', label: 'Namespace' },
+ { id: 'status', label: 'Status' },
  { id: 'target', label: 'Target' },
  { id: 'minMaxReplicas', label: 'Min/Max Replicas' },
  { id: 'current', label: 'Current Replicas' },
@@ -185,6 +188,7 @@ export default function HorizontalPodAutoscalers() {
  const tableConfig: ColumnConfig<HPARow>[] = useMemo(() => [
  { columnId: 'name', getValue: (i) => i.name, sortable: true, filterable: false },
  { columnId: 'namespace', getValue: (i) => i.namespace, sortable: true, filterable: true },
+ { columnId: 'status', getValue: (i) => i.isScaling ? `${i.currentReplicas}/${i.desiredReplicas}` : `${i.currentReplicas}/${i.desiredReplicas}`, sortable: true, filterable: false },
  { columnId: 'scalingStatus', getValue: (i) => i.scalingUp ? 'Scaling Up' : i.scalingDown ? 'Scaling Down' : i.atMax ? 'At Max' : i.atMin ? 'At Min' : 'Stable', sortable: true, filterable: true },
  { columnId: 'target', getValue: (i) => `${i.targetKind}/${i.targetName}`, sortable: true, filterable: false },
  { columnId: 'minMaxReplicas', getValue: (i) => i.minMaxReplicas, sortable: true, filterable: false, compare: (a, b) => a.minReplicas - b.minReplicas || a.maxReplicas - b.maxReplicas },
@@ -436,6 +440,7 @@ export default function HorizontalPodAutoscalers() {
  <TableHead className="w-10"><Checkbox checked={isAllSelected} onCheckedChange={toggleAll} aria-label="Select all" className={cn(isSomeSelected && 'data-[state=checked]:bg-primary/50')} /></TableHead>
  <ResizableTableHead columnId="name"><TableColumnHeaderWithFilterAndSort columnId="name" label="Name" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="namespace"><TableColumnHeaderWithFilterAndSort columnId="namespace" label="Namespace" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
+ <ResizableTableHead columnId="status"><TableColumnHeaderWithFilterAndSort columnId="status" label="Status" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="target"><TableColumnHeaderWithFilterAndSort columnId="target" label="Target" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="minMaxReplicas"><TableColumnHeaderWithFilterAndSort columnId="minMaxReplicas" label="Min/Max Replicas" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="current"><TableColumnHeaderWithFilterAndSort columnId="current" label="Current Replicas" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
@@ -450,6 +455,7 @@ export default function HorizontalPodAutoscalers() {
  <TableCell className="w-10" />
  <ResizableTableCell columnId="name" className="p-1.5" />
  <ResizableTableCell columnId="namespace" className="p-1.5"><TableFilterCell columnId="namespace" label="Namespace" distinctValues={distinctValuesByColumn.namespace ?? []} selectedFilterValues={columnFilters.namespace ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.namespace} /></ResizableTableCell>
+ <ResizableTableCell columnId="status" className="p-1.5" />
  <ResizableTableCell columnId="target" className="p-1.5" />
  <ResizableTableCell columnId="minMaxReplicas" className="p-1.5" />
  <ResizableTableCell columnId="current" className="p-1.5"><TableFilterCell columnId="scalingStatus" label="Scaling Status" distinctValues={distinctValuesByColumn.scalingStatus ?? []} selectedFilterValues={columnFilters.scalingStatus ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.scalingStatus} /></ResizableTableCell>
@@ -463,16 +469,16 @@ export default function HorizontalPodAutoscalers() {
  </TableHeader>
  <TableBody>
  {isLoading && isConnected && !isError ? (
- <ListPageLoadingShell columnCount={12} resourceName="autoscalers" isLoading={isLoading} onRetry={() => refetch()} />
+ <ListPageLoadingShell columnCount={13} resourceName="autoscalers" isLoading={isLoading} onRetry={() => refetch()} />
  ) : isError ? (
  <TableRow>
- <TableCell colSpan={12} className="h-40 text-center">
+ <TableCell colSpan={13} className="h-40 text-center">
  <TableErrorState onRetry={() => refetch()} />
  </TableCell>
  </TableRow>
  ) : searchFiltered.length === 0 ? (
  <TableRow>
- <TableCell colSpan={12} className="h-40 text-center">
+ <TableCell colSpan={13} className="h-40 text-center">
  <TableEmptyState
  icon={<Scale className="h-8 w-8" />}
  title="No HPAs found"
@@ -495,6 +501,9 @@ export default function HorizontalPodAutoscalers() {
  </Link>
  </ResizableTableCell>
  <ResizableTableCell columnId="namespace"><NamespaceBadge namespace={r.namespace} /></ResizableTableCell>
+ <ResizableTableCell columnId="status">
+ <StatusPill variant={r.isScaling ? 'warning' : r.scalingLimited ? 'error' : 'success'} label={r.isScaling ? `${r.currentReplicas}/${r.desiredReplicas}` : `${r.currentReplicas}/${r.desiredReplicas}`} />
+ </ResizableTableCell>
  <ResizableTableCell columnId="target">
  {r.targetName !== '–' ? (
  <Link to={targetLink(r)} className="font-mono text-sm text-primary hover:underline truncate block">{r.targetKind}/{r.targetName}</Link>

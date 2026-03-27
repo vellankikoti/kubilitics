@@ -59,6 +59,7 @@ interface RuntimeClass {
 
 const RC_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
+ { id: 'status', defaultWidth: 100, minWidth: 80 },
  { id: 'handler', defaultWidth: 160, minWidth: 100 },
  { id: 'overheadCpu', defaultWidth: 130, minWidth: 90 },
  { id: 'overheadMemory', defaultWidth: 130, minWidth: 90 },
@@ -67,6 +68,7 @@ const RC_TABLE_COLUMNS: ResizableColumnConfig[] = [
 ];
 
 const RC_COLUMNS_FOR_VISIBILITY = [
+ { id: 'status', label: 'Status' },
  { id: 'handler', label: 'Handler' },
  { id: 'overheadCpu', label: 'Overhead CPU' },
  { id: 'overheadMemory', label: 'Overhead Memory' },
@@ -313,6 +315,7 @@ handler: ${d.handler}
  <TableRow className="bg-muted/50 hover:bg-muted/50 border-b-2 border-border">
  <TableHead className="w-10"><Checkbox checked={isAllSelected} onCheckedChange={toggleAll} className={cn(isSomeSelected && 'data-[state=checked]:bg-primary/50')} /></TableHead>
  <ResizableTableHead columnId="name"><TableColumnHeaderWithFilterAndSort columnId="name" label="Name" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
+ <ResizableTableHead columnId="status"><TableColumnHeaderWithFilterAndSort columnId="status" label="Status" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="handler"><TableColumnHeaderWithFilterAndSort columnId="handler" label="Handler" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="overheadCpu"><TableColumnHeaderWithFilterAndSort columnId="overheadCpu" label="Overhead CPU" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="overheadMemory"><TableColumnHeaderWithFilterAndSort columnId="overheadMemory" label="Overhead Memory" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
@@ -324,6 +327,7 @@ handler: ${d.handler}
  <TableRow className="bg-muted/30 hover:bg-muted/30 border-b-2 border-border">
  <TableCell className="w-10" />
  <ResizableTableCell columnId="name" className="p-1.5" />
+ <ResizableTableCell columnId="status" className="p-1.5" />
  <ResizableTableCell columnId="handler" className="p-1.5" />
  <ResizableTableCell columnId="overheadCpu" className="p-1.5" />
  <ResizableTableCell columnId="overheadMemory" className="p-1.5" />
@@ -370,6 +374,7 @@ handler: ${d.handler}
  <span className="truncate">{item.name}</span>
  </span>
  </ResizableTableCell>
+ <ResizableTableCell columnId="status"><StatusPill variant="success" label="Active" /></ResizableTableCell>
  <ResizableTableCell columnId="handler">
  {item.handler !== '-' ? (
  <Badge variant="secondary" className="font-mono text-xs">{item.handler}</Badge>

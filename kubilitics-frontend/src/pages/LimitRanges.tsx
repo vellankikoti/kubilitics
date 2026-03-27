@@ -50,6 +50,7 @@ import {
  NamespaceBadge,
  ResourceListTableToolbar,
  TableFilterCell,
+ StatusPill,
 } from '@/components/list';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -116,6 +117,8 @@ function transformLimitRange(r: LimitRangeResource): LimitRangeRow {
 const LR_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
  { id: 'namespace', defaultWidth: 180, minWidth: 120 },
+ { id: 'status', defaultWidth: 100, minWidth: 80 },
+ { id: 'typesCount', defaultWidth: 100, minWidth: 70 },
  { id: 'types', defaultWidth: 160, minWidth: 100 },
  { id: 'defaultCpu', defaultWidth: 130, minWidth: 90 },
  { id: 'defaultMemory', defaultWidth: 130, minWidth: 90 },
@@ -126,6 +129,8 @@ const LR_TABLE_COLUMNS: ResizableColumnConfig[] = [
 
 const LR_COLUMNS_FOR_VISIBILITY = [
  { id: 'namespace', label: 'Namespace' },
+ { id: 'status', label: 'Status' },
+ { id: 'typesCount', label: 'Types Count' },
  { id: 'types', label: 'Limit Types' },
  { id: 'defaultCpu', label: 'Default CPU' },
  { id: 'defaultMemory', label: 'Default Memory' },
@@ -401,6 +406,8 @@ export default function LimitRanges() {
  <TableHead className="w-10"><Checkbox checked={isAllSelected} onCheckedChange={toggleAll} aria-label="Select all" className={cn(isSomeSelected && 'data-[state=checked]:bg-primary/50')} /></TableHead>
  <ResizableTableHead columnId="name"><TableColumnHeaderWithFilterAndSort columnId="name" label="Name" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} /></ResizableTableHead>
  <ResizableTableHead columnId="namespace"><TableColumnHeaderWithFilterAndSort columnId="namespace" label="Namespace" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} /></ResizableTableHead>
+ <ResizableTableHead columnId="status"><TableColumnHeaderWithFilterAndSort columnId="status" label="Status" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} /></ResizableTableHead>
+ <ResizableTableHead columnId="typesCount"><TableColumnHeaderWithFilterAndSort columnId="typesCount" label="Types" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} /></ResizableTableHead>
  <ResizableTableHead columnId="types"><TableColumnHeaderWithFilterAndSort columnId="types" label="Limit Types" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} /></ResizableTableHead>
  <ResizableTableHead columnId="defaultCpu"><TableColumnHeaderWithFilterAndSort columnId="defaultCpu" label="Default CPU" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} /></ResizableTableHead>
  <ResizableTableHead columnId="defaultMemory"><TableColumnHeaderWithFilterAndSort columnId="defaultMemory" label="Default Memory" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} /></ResizableTableHead>
@@ -414,6 +421,8 @@ export default function LimitRanges() {
  <TableCell className="w-10" />
  <ResizableTableCell columnId="name" className="p-1.5" />
  <ResizableTableCell columnId="namespace" className="p-1.5"><TableFilterCell columnId="namespace" label="Namespace" distinctValues={distinctValuesByColumn.namespace ?? []} selectedFilterValues={columnFilters.namespace ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.namespace} /></ResizableTableCell>
+ <ResizableTableCell columnId="status" className="p-1.5" />
+ <ResizableTableCell columnId="typesCount" className="p-1.5" />
  <ResizableTableCell columnId="types" className="p-1.5"><TableFilterCell columnId="limitCategory" label="Limit Category" distinctValues={distinctValuesByColumn.limitCategory ?? []} selectedFilterValues={columnFilters.limitCategory ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.limitCategory} /></ResizableTableCell>
  <ResizableTableCell columnId="defaultCpu" className="p-1.5" />
  <ResizableTableCell columnId="defaultMemory" className="p-1.5" />
@@ -458,6 +467,8 @@ export default function LimitRanges() {
  </Link>
  </ResizableTableCell>
  <ResizableTableCell columnId="namespace"><NamespaceBadge namespace={r.namespace} /></ResizableTableCell>
+ <ResizableTableCell columnId="status"><StatusPill variant="success" label="Active" /></ResizableTableCell>
+ <ResizableTableCell columnId="typesCount" className="font-mono text-sm">{r.types.length}</ResizableTableCell>
  <ResizableTableCell columnId="types">
  <div className="flex flex-wrap gap-1">
  {r.types.map((t) => (

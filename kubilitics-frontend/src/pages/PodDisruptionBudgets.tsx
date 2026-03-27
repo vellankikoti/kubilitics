@@ -50,6 +50,7 @@ import {
  NamespaceBadge,
  ResourceListTableToolbar,
  TableFilterCell,
+ StatusPill,
 } from '@/components/list';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -118,6 +119,7 @@ function transformPDB(p: PDBResource): PDBRow {
 const PDB_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
  { id: 'namespace', defaultWidth: 180, minWidth: 120 },
+ { id: 'status', defaultWidth: 110, minWidth: 80 },
  { id: 'minAvailable', defaultWidth: 100, minWidth: 70 },
  { id: 'maxUnavailable', defaultWidth: 100, minWidth: 70 },
  { id: 'currentHealthy', defaultWidth: 100, minWidth: 70 },
@@ -129,6 +131,7 @@ const PDB_TABLE_COLUMNS: ResizableColumnConfig[] = [
 
 const PDB_COLUMNS_FOR_VISIBILITY = [
  { id: 'namespace', label: 'Namespace' },
+ { id: 'status', label: 'Status' },
  { id: 'minAvailable', label: 'Min Available' },
  { id: 'maxUnavailable', label: 'Max Unavailable' },
  { id: 'currentHealthy', label: 'Current Healthy' },
@@ -408,6 +411,7 @@ export default function PodDisruptionBudgets() {
  <TableHead className="w-10"><Checkbox checked={isAllSelected} onCheckedChange={toggleAll} aria-label="Select all" className={cn(isSomeSelected && 'data-[state=checked]:bg-primary/50')} /></TableHead>
  <ResizableTableHead columnId="name"><TableColumnHeaderWithFilterAndSort columnId="name" label="Name" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="namespace"><TableColumnHeaderWithFilterAndSort columnId="namespace" label="Namespace" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
+ <ResizableTableHead columnId="status"><TableColumnHeaderWithFilterAndSort columnId="status" label="Status" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="minAvailable"><TableColumnHeaderWithFilterAndSort columnId="minAvailable" label="Min Available" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="maxUnavailable"><TableColumnHeaderWithFilterAndSort columnId="maxUnavailable" label="Max Unavailable" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="currentHealthy"><TableColumnHeaderWithFilterAndSort columnId="currentHealthy" label="Current Healthy" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
@@ -422,6 +426,7 @@ export default function PodDisruptionBudgets() {
  <TableCell className="w-10" />
  <ResizableTableCell columnId="name" className="p-1.5" />
  <ResizableTableCell columnId="namespace" className="p-1.5"><TableFilterCell columnId="namespace" label="Namespace" distinctValues={distinctValuesByColumn.namespace ?? []} selectedFilterValues={columnFilters.namespace ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.namespace} /></ResizableTableCell>
+ <ResizableTableCell columnId="status" className="p-1.5" />
  <ResizableTableCell columnId="minAvailable" className="p-1.5"><TableFilterCell columnId="disruptionStatus" label="Disruption Status" distinctValues={distinctValuesByColumn.disruptionStatus ?? []} selectedFilterValues={columnFilters.disruptionStatus ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.disruptionStatus} /></ResizableTableCell>
  <ResizableTableCell columnId="maxUnavailable" className="p-1.5" />
  <ResizableTableCell columnId="currentHealthy" className="p-1.5" />
@@ -467,6 +472,7 @@ export default function PodDisruptionBudgets() {
  </Link>
  </ResizableTableCell>
  <ResizableTableCell columnId="namespace"><NamespaceBadge namespace={r.namespace} /></ResizableTableCell>
+ <ResizableTableCell columnId="status"><StatusPill variant={r.currentHealthy >= r.desiredHealthy ? 'success' : 'warning'} label={r.currentHealthy >= r.desiredHealthy ? 'Healthy' : 'Disrupted'} /></ResizableTableCell>
  <ResizableTableCell columnId="minAvailable" className="font-mono text-sm">{r.minAvailable}</ResizableTableCell>
  <ResizableTableCell columnId="maxUnavailable" className="font-mono text-sm">{r.maxUnavailable}</ResizableTableCell>
  <ResizableTableCell columnId="currentHealthy" className="font-mono text-sm tabular-nums">{r.currentHealthy}</ResizableTableCell>

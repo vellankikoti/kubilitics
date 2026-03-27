@@ -43,7 +43,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
-import { ResourceCommandBar, ResourceExportDropdown, ListViewSegmentedControl, ListPagination, PAGE_SIZE_OPTIONS, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, ResourceListTableToolbar, NamespaceBadge } from '@/components/list';
+import { ResourceCommandBar, ResourceExportDropdown, ListViewSegmentedControl, ListPagination, PAGE_SIZE_OPTIONS, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, ResourceListTableToolbar, NamespaceBadge, StatusPill } from '@/components/list';
 import { buildAutoWidthColumns } from '@/lib/tableSizing';
 import { SecretIcon } from '@/components/icons/KubernetesIcons';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
@@ -123,6 +123,7 @@ function TLSExpiryCell({ info }: { info: TLSSecretInfo | undefined }) {
 const SECRETS_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
  { id: 'namespace', defaultWidth: 180, minWidth: 120 },
+ { id: 'status', defaultWidth: 140, minWidth: 90 },
  { id: 'type', defaultWidth: 160, minWidth: 100 },
  { id: 'dataKeys', defaultWidth: 100, minWidth: 70 },
  { id: 'totalSize', defaultWidth: 100, minWidth: 70 },
@@ -135,6 +136,7 @@ const SECRETS_TABLE_COLUMNS: ResizableColumnConfig[] = [
 
 const SECRETS_COLUMNS_FOR_VISIBILITY = [
  { id: 'namespace', label: 'Namespace' },
+ { id: 'status', label: 'Status' },
  { id: 'type', label: 'Type' },
  { id: 'dataKeys', label: 'Data Keys' },
  { id: 'totalSize', label: 'Total Size' },
@@ -233,6 +235,7 @@ export default function Secrets() {
  () => [
  { columnId: 'name', getValue: (i) => i.name, sortable: true, filterable: true },
  { columnId: 'namespace', getValue: (i) => i.namespace, sortable: true, filterable: true },
+ { columnId: 'status', getValue: (i) => typeLabel(i.type), sortable: true, filterable: true },
  { columnId: 'type', getValue: (i) => typeLabel(i.type), sortable: true, filterable: true },
  { columnId: 'dataKeys', getValue: (i) => i.dataKeys, sortable: true, filterable: false },
  { columnId: 'totalSize', getValue: (i) => i.totalSizeBytes, sortable: true, filterable: false },
@@ -622,6 +625,9 @@ data: {}
  <ResizableTableHead columnId="namespace">
  <TableColumnHeaderWithFilterAndSort columnId="namespace" label="Namespace" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} />
  </ResizableTableHead>
+ <ResizableTableHead columnId="status">
+ <TableColumnHeaderWithFilterAndSort columnId="status" label="Status" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} />
+ </ResizableTableHead>
  <ResizableTableHead columnId="type">
  <TableColumnHeaderWithFilterAndSort columnId="type" label="Type" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} />
  </ResizableTableHead>
@@ -658,6 +664,7 @@ data: {}
  <TableFilterCell columnId="name" label="Name" distinctValues={distinctValuesByColumn.name ?? []} selectedFilterValues={columnFilters.name ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.name} />
  </ResizableTableCell>
  <ResizableTableCell columnId="namespace" className="p-1.5"><TableFilterCell columnId="namespace" label="Namespace" distinctValues={distinctValuesByColumn.namespace ?? []} selectedFilterValues={columnFilters.namespace ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.namespace} /></ResizableTableCell>
+ <ResizableTableCell columnId="status" className="p-1.5"><TableFilterCell columnId="status" label="Status" distinctValues={distinctValuesByColumn.status ?? []} selectedFilterValues={columnFilters.status ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.status} /></ResizableTableCell>
  <ResizableTableCell columnId="type" className="p-1.5"><TableFilterCell columnId="type" label="Type" distinctValues={distinctValuesByColumn.type ?? []} selectedFilterValues={columnFilters.type ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.type} /></ResizableTableCell>
  <ResizableTableCell columnId="dataKeys" className="p-1.5" />
  <ResizableTableCell columnId="totalSize" className="p-1.5" />
@@ -672,16 +679,16 @@ data: {}
  </TableHeader>
  <TableBody>
  {isLoading && isConnected && !isError ? (
- <ListPageLoadingShell columnCount={12} resourceName="secrets" isLoading={isLoading} onRetry={() => refetch()} />
+ <ListPageLoadingShell columnCount={13} resourceName="secrets" isLoading={isLoading} onRetry={() => refetch()} />
  ) : isError ? (
  <TableRow>
- <TableCell colSpan={12} className="h-40 text-center">
+ <TableCell colSpan={13} className="h-40 text-center">
  <TableErrorState onRetry={() => refetch()} />
  </TableCell>
  </TableRow>
  ) : filteredItems.length === 0 ? (
  <TableRow>
- <TableCell colSpan={12} className="h-40 text-center">
+ <TableCell colSpan={13} className="h-40 text-center">
  <TableEmptyState
  icon={<KeyRound className="h-8 w-8" />}
  title="No secrets found"
@@ -729,6 +736,9 @@ data: {}
  namespace={item.namespace}
  className="font-normal truncate block w-fit max-w-full"
  />
+ </ResizableTableCell>
+ <ResizableTableCell columnId="status">
+ <StatusPill variant={item.type === 'kubernetes.io/tls' ? 'info' : item.type === 'Opaque' ? 'default' : 'success'} label={typeLabel(item.type)} />
  </ResizableTableCell>
  <ResizableTableCell columnId="type">
  <Badge variant="secondary" className="font-mono text-xs truncate block w-fit max-w-full">
@@ -799,7 +809,7 @@ data: {}
  className="bg-muted/30 hover:bg-muted/40 cursor-pointer border-b border-border/60 transition-all duration-200"
  onClick={() => toggleGroup(group.groupKey)}
  >
- <TableCell colSpan={12} className="py-2">
+ <TableCell colSpan={13} className="py-2">
  <div className="flex items-center gap-2 font-medium">
  {isCollapsed ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
  Namespace: {group.label}
@@ -837,6 +847,9 @@ data: {}
  namespace={item.namespace}
  className="font-normal truncate block w-fit max-w-full"
  />
+ </ResizableTableCell>
+ <ResizableTableCell columnId="status">
+ <StatusPill variant={item.type === 'kubernetes.io/tls' ? 'info' : item.type === 'Opaque' ? 'default' : 'success'} label={typeLabel(item.type)} />
  </ResizableTableCell>
  <ResizableTableCell columnId="type">
  <Badge variant="secondary" className="font-mono text-xs truncate block w-fit max-w-full">

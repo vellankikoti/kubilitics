@@ -49,6 +49,7 @@ import {
  CopyNameDropdownItem,
  ResourceListTableToolbar,
  TableFilterCell,
+ StatusPill,
 } from '@/components/list';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -154,6 +155,7 @@ function transformClusterRole(r: ClusterRoleResource): ClusterRoleRow {
 
 const CLUSTER_ROLE_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
+ { id: 'status', defaultWidth: 100, minWidth: 80 },
  { id: 'rules', defaultWidth: 100, minWidth: 70 },
  { id: 'apiGroups', defaultWidth: 160, minWidth: 100 },
  { id: 'resources', defaultWidth: 160, minWidth: 100 },
@@ -165,6 +167,7 @@ const CLUSTER_ROLE_TABLE_COLUMNS: ResizableColumnConfig[] = [
 ];
 
 const CLUSTERROLES_COLUMNS_FOR_VISIBILITY = [
+ { id: 'status', label: 'Status' },
  { id: 'rules', label: 'Rules' },
  { id: 'apiGroups', label: 'API Groups' },
  { id: 'resources', label: 'Resources' },
@@ -407,6 +410,7 @@ export default function ClusterRoles() {
  <TableRow className="bg-muted/50 hover:bg-muted/50 border-b-2 border-border">
  <TableHead className="w-10"><Checkbox checked={isAllSelected} onCheckedChange={toggleAll} aria-label="Select all" className={cn(isSomeSelected && 'data-[state=checked]:bg-primary/50')} /></TableHead>
  <ResizableTableHead columnId="name"><TableColumnHeaderWithFilterAndSort columnId="name" label="Name" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
+ <ResizableTableHead columnId="status"><TableColumnHeaderWithFilterAndSort columnId="status" label="Status" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="rules"><TableColumnHeaderWithFilterAndSort columnId="rules" label="Rules" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="apiGroups"><TableColumnHeaderWithFilterAndSort columnId="apiGroups" label="API Groups" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="resources"><TableColumnHeaderWithFilterAndSort columnId="resources" label="Resources" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
@@ -421,6 +425,7 @@ export default function ClusterRoles() {
  <TableRow className="bg-muted/30 hover:bg-muted/30 border-b-2 border-border">
  <TableCell className="w-10" />
  <ResizableTableCell columnId="name" className="p-1.5" />
+ <ResizableTableCell columnId="status" className="p-1.5" />
  <ResizableTableCell columnId="rules" className="p-1.5"><TableFilterCell columnId="permissionLevel" label="Permission Level" distinctValues={distinctValuesByColumn.permissionLevel ?? []} selectedFilterValues={columnFilters.permissionLevel ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.permissionLevel} /></ResizableTableCell>
  <ResizableTableCell columnId="apiGroups" className="p-1.5" />
  <ResizableTableCell columnId="resources" className="p-1.5" />
@@ -466,6 +471,7 @@ export default function ClusterRoles() {
  <span className="truncate">{r.name}</span>
  </Link>
  </ResizableTableCell>
+ <ResizableTableCell columnId="status"><StatusPill variant="success" label="Active" /></ResizableTableCell>
  <ResizableTableCell columnId="rules" className="font-mono text-sm">{r.rulesCount}</ResizableTableCell>
  <ResizableTableCell columnId="apiGroups" className="text-muted-foreground text-sm truncate" title={r.apiGroups}>{r.apiGroups}</ResizableTableCell>
  <ResizableTableCell columnId="resources" className="text-muted-foreground text-sm truncate" title={r.resources}>{r.resources}</ResizableTableCell>

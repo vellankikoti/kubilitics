@@ -50,6 +50,7 @@ import {
  NamespaceBadge,
  ResourceListTableToolbar,
  TableFilterCell,
+ StatusPill,
 } from '@/components/list';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -113,6 +114,7 @@ function transformRoleBinding(r: RoleBindingResource): RoleBindingRow {
 const ROLE_BINDING_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
  { id: 'namespace', defaultWidth: 180, minWidth: 120 },
+ { id: 'status', defaultWidth: 100, minWidth: 80 },
  { id: 'role', defaultWidth: 160, minWidth: 100 },
  { id: 'roleKind', defaultWidth: 160, minWidth: 100 },
  { id: 'subjects', defaultWidth: 220, minWidth: 120 },
@@ -123,6 +125,7 @@ const ROLE_BINDING_TABLE_COLUMNS: ResizableColumnConfig[] = [
 
 const ROLEBINDINGS_COLUMNS_FOR_VISIBILITY = [
  { id: 'namespace', label: 'Namespace' },
+ { id: 'status', label: 'Status' },
  { id: 'role', label: 'Role' },
  { id: 'roleKind', label: 'Role Kind' },
  { id: 'subjects', label: 'Subjects' },
@@ -412,6 +415,7 @@ export default function RoleBindings() {
  <TableHead className="w-10"><Checkbox checked={isAllSelected} onCheckedChange={toggleAll} aria-label="Select all" className={cn(isSomeSelected && 'data-[state=checked]:bg-primary/50')} /></TableHead>
  <ResizableTableHead columnId="name"><TableColumnHeaderWithFilterAndSort columnId="name" label="Name" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="namespace"><TableColumnHeaderWithFilterAndSort columnId="namespace" label="Namespace" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
+ <ResizableTableHead columnId="status"><TableColumnHeaderWithFilterAndSort columnId="status" label="Status" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="role"><TableColumnHeaderWithFilterAndSort columnId="role" label="Role" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="roleKind"><TableColumnHeaderWithFilterAndSort columnId="roleKind" label="Role Kind" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
  <ResizableTableHead columnId="subjects"><TableColumnHeaderWithFilterAndSort columnId="subjects" label="Subjects" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => {}} /></ResizableTableHead>
@@ -425,6 +429,7 @@ export default function RoleBindings() {
  <TableCell className="w-10" />
  <ResizableTableCell columnId="name" className="p-1.5" />
  <ResizableTableCell columnId="namespace" className="p-1.5"><TableFilterCell columnId="namespace" label="Namespace" distinctValues={distinctValuesByColumn.namespace ?? []} selectedFilterValues={columnFilters.namespace ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.namespace} /></ResizableTableCell>
+ <ResizableTableCell columnId="status" className="p-1.5" />
  <ResizableTableCell columnId="role" className="p-1.5" />
  <ResizableTableCell columnId="roleKind" className="p-1.5"><TableFilterCell columnId="roleKind" label="Role Kind" distinctValues={distinctValuesByColumn.roleKind ?? []} selectedFilterValues={columnFilters.roleKind ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.roleKind} /></ResizableTableCell>
  <ResizableTableCell columnId="subjects" className="p-1.5" />
@@ -469,6 +474,7 @@ export default function RoleBindings() {
  </Link>
  </ResizableTableCell>
  <ResizableTableCell columnId="namespace"><NamespaceBadge namespace={r.namespace} /></ResizableTableCell>
+ <ResizableTableCell columnId="status"><StatusPill variant="success" label="Active" /></ResizableTableCell>
  <ResizableTableCell columnId="role">
  <div className="flex items-center gap-2 flex-wrap">
  <Link to={roleLink(r)} className="text-primary hover:underline font-mono text-sm truncate">{r.roleName}</Link>

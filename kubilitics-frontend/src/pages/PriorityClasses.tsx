@@ -48,6 +48,7 @@ import {
  TableEmptyState, ListPageLoadingShell, TableErrorState,
  ResourceListTableToolbar,
  TableFilterCell,
+ StatusPill,
 } from '@/components/list';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -93,6 +94,7 @@ function transformPriorityClass(r: PriorityClassResource): PriorityClassRow {
 
 const PRIORITY_CLASS_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
+ { id: 'status', defaultWidth: 100, minWidth: 80 },
  { id: 'value', defaultWidth: 100, minWidth: 70 },
  { id: 'globalDefault', defaultWidth: 100, minWidth: 70 },
  { id: 'preemptionPolicy', defaultWidth: 160, minWidth: 100 },
@@ -102,6 +104,7 @@ const PRIORITY_CLASS_TABLE_COLUMNS: ResizableColumnConfig[] = [
 ];
 
 const PRIORITY_CLASS_COLUMNS_FOR_VISIBILITY = [
+ { id: 'status', label: 'Status' },
  { id: 'value', label: 'Value' },
  { id: 'globalDefault', label: 'Global Default' },
  { id: 'preemptionPolicy', label: 'Preemption Policy' },
@@ -391,6 +394,7 @@ export default function PriorityClasses() {
  <TableRow className="bg-muted/50 hover:bg-muted/50 border-b-2 border-border">
  <TableHead className="w-10"><Checkbox checked={isAllSelected} onCheckedChange={toggleAll} aria-label="Select all" className={cn(isSomeSelected && 'data-[state=checked]:bg-primary/50')} /></TableHead>
  <ResizableTableHead columnId="name"><TableColumnHeaderWithFilterAndSort columnId="name" label="Name" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} /></ResizableTableHead>
+ <ResizableTableHead columnId="status"><TableColumnHeaderWithFilterAndSort columnId="status" label="Status" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} /></ResizableTableHead>
  <ResizableTableHead columnId="value"><TableColumnHeaderWithFilterAndSort columnId="value" label="Value" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} /></ResizableTableHead>
  <ResizableTableHead columnId="globalDefault"><TableColumnHeaderWithFilterAndSort columnId="globalDefault" label="Global Default" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} /></ResizableTableHead>
  <ResizableTableHead columnId="preemptionPolicy"><TableColumnHeaderWithFilterAndSort columnId="preemptionPolicy" label="Preemption Policy" sortKey={sortKey} sortOrder={sortOrder} onSort={setSort} filterable={false} distinctValues={[]} selectedFilterValues={new Set()} onFilterChange={() => { }} /></ResizableTableHead>
@@ -403,6 +407,7 @@ export default function PriorityClasses() {
  <TableRow className="bg-muted/30 hover:bg-muted/30 border-b-2 border-border">
  <TableCell className="w-10" />
  <ResizableTableCell columnId="name" className="p-1.5" />
+ <ResizableTableCell columnId="status" className="p-1.5" />
  <ResizableTableCell columnId="value" className="p-1.5" />
  <ResizableTableCell columnId="globalDefault" className="p-1.5"><TableFilterCell columnId="globalDefault" label="Global Default" distinctValues={distinctValuesByColumn.globalDefault ?? []} selectedFilterValues={columnFilters.globalDefault ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.globalDefault} /></ResizableTableCell>
  <ResizableTableCell columnId="preemptionPolicy" className="p-1.5"><TableFilterCell columnId="preemptionPolicy" label="Preemption Policy" distinctValues={distinctValuesByColumn.preemptionPolicy ?? []} selectedFilterValues={columnFilters.preemptionPolicy ?? new Set()} onFilterChange={setColumnFilter} valueCounts={valueCountsByColumn.preemptionPolicy} /></ResizableTableCell>
@@ -446,6 +451,7 @@ export default function PriorityClasses() {
  <span className="truncate">{r.name}</span>
  </Link>
  </ResizableTableCell>
+ <ResizableTableCell columnId="status"><StatusPill variant="success" label="Active" /></ResizableTableCell>
  <ResizableTableCell columnId="value" className="font-mono text-sm">{r.value}</ResizableTableCell>
  <ResizableTableCell columnId="globalDefault">{r.globalDefault ? 'Yes' : 'No'}</ResizableTableCell>
  <ResizableTableCell columnId="preemptionPolicy">

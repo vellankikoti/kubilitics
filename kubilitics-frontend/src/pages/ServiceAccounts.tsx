@@ -54,6 +54,7 @@ import {
  NamespaceBadge,
  ResourceListTableToolbar,
  TableFilterCell,
+ StatusPill,
 } from '@/components/list';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
@@ -107,6 +108,7 @@ function transformServiceAccount(sa: ServiceAccountResource): ServiceAccount {
 const SA_TABLE_COLUMNS: ResizableColumnConfig[] = [
  { id: 'name', defaultWidth: 280, minWidth: 150 },
  { id: 'namespace', defaultWidth: 180, minWidth: 120 },
+ { id: 'status', defaultWidth: 120, minWidth: 80 },
  { id: 'secrets', defaultWidth: 100, minWidth: 70 },
  { id: 'imagePullSecrets', defaultWidth: 160, minWidth: 100 },
  { id: 'tokens', defaultWidth: 100, minWidth: 70 },
@@ -120,6 +122,7 @@ const SA_TABLE_COLUMNS: ResizableColumnConfig[] = [
 
 const SA_COLUMNS_FOR_VISIBILITY = [
  { id: 'namespace', label: 'Namespace' },
+ { id: 'status', label: 'Status' },
  { id: 'secrets', label: 'Secrets' },
  { id: 'imagePullSecrets', label: 'Image Pull Secrets' },
  { id: 'tokens', label: 'Tokens' },
@@ -179,6 +182,7 @@ export default function ServiceAccounts() {
  const tableConfig: ColumnConfig<ServiceAccount>[] = useMemo(() => [
  { columnId: 'name', getValue: (i) => i.name, sortable: true, filterable: false },
  { columnId: 'namespace', getValue: (i) => i.namespace, sortable: true, filterable: true },
+ { columnId: 'status', getValue: () => 'Active', sortable: false, filterable: false },
  { columnId: 'hasTokens', getValue: (i) => i.tokens > 0 ? 'Yes' : 'No', sortable: true, filterable: true },
  { columnId: 'hasImagePullSecrets', getValue: (i) => i.imagePullSecrets > 0 ? 'Yes' : 'No', sortable: true, filterable: true },
  { columnId: 'secrets', getValue: (i) => String(i.secrets), sortable: true, filterable: false, compare: (a, b) => a.secrets - b.secrets },

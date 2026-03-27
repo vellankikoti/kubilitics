@@ -47,7 +47,7 @@ export function NamespaceBadge({ namespace, className }: NamespaceBadgeProps) {
   return (
     <span
       className={cn(
-        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors',
+        'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors whitespace-nowrap max-w-[10rem] truncate',
         colorClass,
         className
       )}
