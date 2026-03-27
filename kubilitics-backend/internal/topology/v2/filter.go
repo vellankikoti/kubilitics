@@ -147,10 +147,10 @@ func (f *ViewFilter) filterResource(resp *TopologyResponse, resource, ns string,
 		nodeKind[n.ID] = n.Kind
 	}
 
-	typedAdj := buildTypedAdjacency(resp.Edges)
+	outgoingAdj, incomingAdj := buildDirectedTypedAdjacency(resp.Edges)
 
 	// Compute dynamic hubs: non-workload nodes with fan-out > threshold.
-	dynamicHubs := computeDynamicHubs(typedAdj, nodeKind)
+	dynamicHubs := computeDynamicHubs(outgoingAdj, incomingAdj, nodeKind)
 
 	// isHub returns true if a node is a static or dynamic hub.
 	isHub := func(nodeID string) bool {
@@ -166,60 +166,65 @@ func (f *ViewFilter) filterResource(resp *TopologyResponse, resource, ns string,
 		maxDepth = 100
 	}
 
-	// --- Edge-type-aware, hub-aware BFS ---
+	// --- Edge-type-aware, hub-aware directional BFS ---
+	// We traverse the graph in two monotonic directions:
+	//   1. Outgoing chain: follow source -> target dependencies only
+	//   2. Incoming chain: follow target <- source dependents/parents only
+	//
+	// This preserves the selected resource's dependency chain while preventing
+	// sideways leakage through shared intermediaries such as ServiceAccounts,
+	// ReplicaSets, Namespaces, or Nodes.
 	type bfsEntry struct {
 		id    string
 		depth int
 	}
-	visited := make(map[string]int) // nodeID → depth at which it was visited
-	visited[focusID] = 0
-	queue := []bfsEntry{{id: focusID, depth: 0}}
+	included := make(map[string]bool, len(resp.Nodes))
+	included[focusID] = true
 
-	for len(queue) > 0 {
-		current := queue[0]
-		queue = queue[1:]
+	traverse := func(adj map[string][]adjacencyEntry) {
+		visited := make(map[string]int)
+		visited[focusID] = 0
+		queue := []bfsEntry{{id: focusID, depth: 0}}
+		for len(queue) > 0 {
+			current := queue[0]
+			queue = queue[1:]
 
-		if current.depth >= maxDepth {
-			continue
-		}
-
-		// Hub nodes are leaf-only: do NOT expand from them (unless they are the focus).
-		if current.id != focusID && isHub(current.id) {
-			continue
-		}
-
-		for _, neighbor := range typedAdj[current.id] {
-			if _, seen := visited[neighbor.nodeID]; seen {
+			if current.depth >= maxDepth {
+				continue
+			}
+			if current.id != focusID && isHub(current.id) {
 				continue
 			}
 
-			// Add the neighbor at the next depth level.
-			neighborDepth := current.depth + 1
-			visited[neighbor.nodeID] = neighborDepth
+			for _, neighbor := range adj[current.id] {
+				if _, seen := visited[neighbor.nodeID]; seen {
+					continue
+				}
 
-			// Leaf-only edge categories: include the neighbor but do NOT queue for expansion.
-			// Also, if the neighbor is a hub, include it but don't expand.
-			if leafOnlyCategories[neighbor.category] || isHub(neighbor.nodeID) {
-				continue // included in visited, but not queued
+				neighborDepth := current.depth + 1
+				visited[neighbor.nodeID] = neighborDepth
+				included[neighbor.nodeID] = true
+
+				if leafOnlyCategories[neighbor.category] || isHub(neighbor.nodeID) {
+					continue
+				}
+				queue = append(queue, bfsEntry{id: neighbor.nodeID, depth: neighborDepth})
 			}
-
-			queue = append(queue, bfsEntry{id: neighbor.nodeID, depth: neighborDepth})
 		}
 	}
 
+	traverse(outgoingAdj)
+	traverse(incomingAdj)
+
 	// --- Build filtered response ---
-	nodeIDs := make(map[string]bool, len(visited))
-	for id := range visited {
-		nodeIDs[id] = true
-	}
 	var nodes []TopologyNode
 	for _, n := range resp.Nodes {
-		if nodeIDs[n.ID] {
+		if included[n.ID] {
 			nodes = append(nodes, n)
 		}
 	}
-	edges := filterEdgesByNodes(resp.Edges, nodeIDs)
-	groups := filterGroupsByNodes(resp.Groups, nodeIDs)
+	edges := filterEdgesByNodes(resp.Edges, included)
+	groups := filterGroupsByNodes(resp.Groups, included)
 	meta := resp.Metadata
 	meta.FocusResource = focusID
 	return &TopologyResponse{Metadata: meta, Nodes: nodes, Edges: edges, Groups: groups}
@@ -231,19 +236,21 @@ type adjacencyEntry struct {
 	category string
 }
 
-// buildTypedAdjacency builds a bidirectional adjacency map that preserves edge categories.
-func buildTypedAdjacency(edges []TopologyEdge) map[string][]adjacencyEntry {
-	adj := make(map[string][]adjacencyEntry, len(edges)*2)
+// buildDirectedTypedAdjacency builds source->target and target->source adjacency maps
+// that preserve edge categories for directional resource traversal.
+func buildDirectedTypedAdjacency(edges []TopologyEdge) (map[string][]adjacencyEntry, map[string][]adjacencyEntry) {
+	outgoing := make(map[string][]adjacencyEntry, len(edges))
+	incoming := make(map[string][]adjacencyEntry, len(edges))
 	for _, e := range edges {
-		adj[e.Source] = append(adj[e.Source], adjacencyEntry{nodeID: e.Target, category: e.RelationshipCategory})
-		adj[e.Target] = append(adj[e.Target], adjacencyEntry{nodeID: e.Source, category: e.RelationshipCategory})
+		outgoing[e.Source] = append(outgoing[e.Source], adjacencyEntry{nodeID: e.Target, category: e.RelationshipCategory})
+		incoming[e.Target] = append(incoming[e.Target], adjacencyEntry{nodeID: e.Source, category: e.RelationshipCategory})
 	}
-	return adj
+	return outgoing, incoming
 }
 
 // computeDynamicHubs identifies non-workload, non-static-hub nodes with fan-out
 // exceeding dynamicHubThreshold. These are treated as hubs at runtime.
-func computeDynamicHubs(adj map[string][]adjacencyEntry, nodeKind map[string]string) map[string]bool {
+func computeDynamicHubs(outgoingAdj, incomingAdj map[string][]adjacencyEntry, nodeKind map[string]string) map[string]bool {
 	// Workload kinds are never dynamic hubs — they are core dependency chain members.
 	neverDynamicHub := map[string]bool{
 		"Deployment": true, "StatefulSet": true, "DaemonSet": true,
@@ -257,12 +264,12 @@ func computeDynamicHubs(adj map[string][]adjacencyEntry, nodeKind map[string]str
 	}
 
 	hubs := make(map[string]bool)
-	for nodeID, neighbors := range adj {
-		kind := nodeKind[nodeID]
+	for nodeID, kind := range nodeKind {
 		if staticHubKinds[kind] || neverDynamicHub[kind] {
 			continue
 		}
-		if len(neighbors) > dynamicHubThreshold {
+		neighborCount := len(outgoingAdj[nodeID]) + len(incomingAdj[nodeID])
+		if neighborCount > dynamicHubThreshold {
 			hubs[nodeID] = true
 		}
 	}
@@ -363,4 +370,3 @@ func matchesResourceQuery(n TopologyNode, resource, ns string) bool {
 	}
 	return false
 }
-

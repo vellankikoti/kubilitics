@@ -251,8 +251,8 @@ func TestViewFilter_Resource_FullMode(t *testing.T) {
 			{ID: "e1", Source: "Ingress/default/my-ingress", Target: "Service/default/my-svc", RelationshipCategory: "networking"},
 			{ID: "e2", Source: "Service/default/my-svc", Target: "Endpoints/default/my-ep", RelationshipCategory: "networking"},
 			{ID: "e3", Source: "Endpoints/default/my-ep", Target: "Pod/default/my-pod", RelationshipCategory: "networking"},
-			{ID: "e4", Source: "ReplicaSet/default/my-rs", Target: "Pod/default/my-pod", RelationshipCategory: "ownership"},
-			{ID: "e5", Source: "Deployment/default/my-deploy", Target: "ReplicaSet/default/my-rs", RelationshipCategory: "ownership"},
+			{ID: "e4", Source: "Pod/default/my-pod", Target: "ReplicaSet/default/my-rs", RelationshipCategory: "ownership"},
+			{ID: "e5", Source: "ReplicaSet/default/my-rs", Target: "Deployment/default/my-deploy", RelationshipCategory: "ownership"},
 			{ID: "e6", Source: "Pod/default/my-pod", Target: "ConfigMap/default/my-cm", RelationshipCategory: "configuration"},
 			{ID: "e7", Source: "Pod/default/my-pod", Target: "Node/worker-1", RelationshipCategory: "scheduling"},
 		},
@@ -323,6 +323,98 @@ func TestViewFilter_Resource_DirectVsExtended(t *testing.T) {
 	if len(extended.Nodes) <= len(direct.Nodes) {
 		t.Errorf("Extended should have more nodes than Direct: extended=%d, direct=%d",
 			len(extended.Nodes), len(direct.Nodes))
+	}
+}
+
+func TestViewFilter_Resource_ExtendedExpandsThroughServiceAccountRBACChain(t *testing.T) {
+	resp := &TopologyResponse{
+		Metadata: TopologyMetadata{ClusterID: "test"},
+		Nodes: []TopologyNode{
+			{ID: "Pod/default/app-pod", Kind: "Pod", Name: "app-pod", Namespace: "default"},
+			{ID: "ServiceAccount/default/app-sa", Kind: "ServiceAccount", Name: "app-sa", Namespace: "default"},
+			{ID: "RoleBinding/default/app-rb", Kind: "RoleBinding", Name: "app-rb", Namespace: "default"},
+			{ID: "Role/default/app-role", Kind: "Role", Name: "app-role", Namespace: "default"},
+			{ID: "Pod/default/unrelated-pod", Kind: "Pod", Name: "unrelated-pod", Namespace: "default"},
+		},
+		Edges: []TopologyEdge{
+			{ID: "e1", Source: "Pod/default/app-pod", Target: "ServiceAccount/default/app-sa", RelationshipCategory: "rbac"},
+			{ID: "e2", Source: "ServiceAccount/default/app-sa", Target: "RoleBinding/default/app-rb", RelationshipCategory: "rbac"},
+			{ID: "e3", Source: "RoleBinding/default/app-rb", Target: "Role/default/app-role", RelationshipCategory: "rbac"},
+			{ID: "e4", Source: "Pod/default/unrelated-pod", Target: "ServiceAccount/default/app-sa", RelationshipCategory: "rbac"},
+		},
+	}
+
+	filter := &ViewFilter{}
+	result := filter.Filter(resp, Options{
+		Mode:     ViewModeResource,
+		Resource: "Pod/default/app-pod",
+		Depth:    2,
+	})
+
+	nodeIDs := make(map[string]bool)
+	for _, n := range result.Nodes {
+		nodeIDs[n.ID] = true
+	}
+
+	if !nodeIDs["Pod/default/app-pod"] {
+		t.Fatal("missing focus pod")
+	}
+	if !nodeIDs["ServiceAccount/default/app-sa"] {
+		t.Fatal("missing service account at direct level")
+	}
+	if !nodeIDs["RoleBinding/default/app-rb"] {
+		t.Fatal("missing rolebinding at extended level")
+	}
+	if nodeIDs["Role/default/app-role"] {
+		t.Fatal("role should not appear in depth=2 extended view")
+	}
+	if nodeIDs["Pod/default/unrelated-pod"] {
+		t.Fatal("unrelated pod should not appear via service account expansion")
+	}
+}
+
+func TestViewFilter_Resource_StorageClassIsLeafOnlyInFullMode(t *testing.T) {
+	resp := &TopologyResponse{
+		Metadata: TopologyMetadata{ClusterID: "test"},
+		Nodes: []TopologyNode{
+			{ID: "Pod/default/app-pod", Kind: "Pod", Name: "app-pod", Namespace: "default"},
+			{ID: "PersistentVolumeClaim/default/app-pvc", Kind: "PersistentVolumeClaim", Name: "app-pvc", Namespace: "default"},
+			{ID: "PersistentVolume/app-pv", Kind: "PersistentVolume", Name: "app-pv"},
+			{ID: "StorageClass/fast", Kind: "StorageClass", Name: "fast"},
+			{ID: "PersistentVolume/unrelated-pv", Kind: "PersistentVolume", Name: "unrelated-pv"},
+		},
+		Edges: []TopologyEdge{
+			{ID: "e1", Source: "Pod/default/app-pod", Target: "PersistentVolumeClaim/default/app-pvc", RelationshipCategory: "storage"},
+			{ID: "e2", Source: "PersistentVolumeClaim/default/app-pvc", Target: "PersistentVolume/app-pv", RelationshipCategory: "storage"},
+			{ID: "e3", Source: "PersistentVolume/app-pv", Target: "StorageClass/fast", RelationshipCategory: "storage"},
+			{ID: "e4", Source: "StorageClass/fast", Target: "PersistentVolume/unrelated-pv", RelationshipCategory: "storage"},
+		},
+	}
+
+	filter := &ViewFilter{}
+	result := filter.Filter(resp, Options{
+		Mode:     ViewModeResource,
+		Resource: "Pod/default/app-pod",
+		Depth:    3,
+	})
+
+	nodeIDs := make(map[string]bool)
+	for _, n := range result.Nodes {
+		nodeIDs[n.ID] = true
+	}
+
+	for _, expected := range []string{
+		"Pod/default/app-pod",
+		"PersistentVolumeClaim/default/app-pvc",
+		"PersistentVolume/app-pv",
+		"StorageClass/fast",
+	} {
+		if !nodeIDs[expected] {
+			t.Fatalf("missing expected node %s", expected)
+		}
+	}
+	if nodeIDs["PersistentVolume/unrelated-pv"] {
+		t.Fatal("storage class must be leaf-only and must not expand to unrelated PVs")
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -1323,265 +1322,37 @@ func (h *Handler) GetResourceTopology(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if buildErr == nil && v2Resp != nil && len(v2Resp.Nodes) > 0 {
-		// v2 succeeded — filter to connected subgraph around the target resource
 		var targetID string
 		if namespace == "" {
 			targetID = kind + "/" + name
 		} else {
 			targetID = kind + "/" + namespace + "/" + name
 		}
-		ri := topologyv2builder.BuildReverseIndex(v2Resp.Edges)
-
-		// ── Edge-type-aware traversal ────────────────────────────────
-		//
-		// expandableCategories and hubKinds are defined at package level.
-		// Infra categories — included as leaf context but NOT traversed through.
-		// containment = Namespace edges, scheduling = Node/Affinity/Taint edges.
-		// These fan out to every resource in the namespace or node.
-		//   Pod → Namespace ✅ (show)    Namespace → other Pods ❌ (block)
-		//   Pod → Node ✅ (show)         Node → other Pods ❌ (block)
-		isExpandableEdge := func(category string) bool {
-			return expandableCategories[category]
+		filter := &topologyv2.ViewFilter{}
+		result := filter.Filter(v2Resp, topologyv2.Options{
+			Mode:      topologyv2.ViewModeResource,
+			Namespace: namespace,
+			Resource:  targetID,
+			Depth:     hops,
+		})
+		if result == nil {
+			result = &topologyv2.TopologyResponse{}
 		}
-
-		// Hub detection — two layers:
-		// 1. Static: hubKinds (Namespace, Node, etc.) — always hubs
-		// 2. Dynamic: any node with >10 total connections is a hub
-		//    (catches ServiceAccount/default, ConfigMap/kube-root-ca.crt, etc.)
-		nodeKind := func(id string) string {
-			if idx := strings.IndexByte(id, '/'); idx > 0 {
-				return id[:idx]
-			}
-			return id
-		}
-		// Kinds that are NEVER dynamic hubs — they're meant to have many connections.
-		// A Service routing to 10 pods is important, not noise.
-		neverHubKinds := map[string]bool{
-			"Deployment":  true,
-			"StatefulSet": true,
-			"DaemonSet":   true,
-			"ReplicaSet":  true,
-			"CronJob":     true,
-			"Job":         true,
-			"Pod":         true,
-			"Service":     true,
-			"Endpoints":   true,
-			"EndpointSlice": true,
-			"PersistentVolumeClaim": true,
-			"PersistentVolume": true,
-			"HorizontalPodAutoscaler": true,
-			"PodDisruptionBudget": true,
-			"Role":        true,
-			"ClusterRole": true,
-			"RoleBinding": true,
-			"ClusterRoleBinding": true,
-		}
-		// Dynamic hub: only applies to config/infra kinds (ConfigMap, Secret, etc.)
-		// that are passively shared by many resources. Workload/networking kinds
-		// are never hubs — they're meant to have many connections.
-		isHub := func(id string) bool {
-			k := nodeKind(id)
-			if hubKinds[k] {
-				return true
-			}
-			if neverHubKinds[k] {
-				return false
-			}
-			// For config/infra kinds: >5 dependents = likely shared (e.g., kube-root-ca.crt)
-			return len(ri.GetDependents(id)) > 5
-		}
-
-		// Resource-focused traversal:
-		// Direct   (depth=1): target + immediate meaningful connections (hubs as leaves)
-		// Extended (depth=2): expand non-hub Direct nodes via meaningful edges
-		// Full     (depth=3): unrestricted BFS — entire reachable graph
-		connected := make(map[string]bool)
-		connected[targetID] = true
-
-		if hops >= 3 {
-			// ── Full mode ────────────────────────────────────────────
-			// Same edge-type filtering as Extended, but UNLIMITED depth.
-			// Follows ownership/networking/storage chains as deep as
-			// they go. Hub nodes included as leaves, never expanded.
-			// This gives the COMPLETE dependency chain of THIS resource
-			// without cross-service leakage.
-			//
-			// Key difference from Extended: Extended = 2 hops, Full = unlimited.
-			// Both use the same expand rules (expandable edges + non-hub check).
-			frontier := []string{targetID}
-			visited := make(map[string]bool)
-			visited[targetID] = true
-			for len(frontier) > 0 {
-				var next []string
-				for _, id := range frontier {
-					for _, en := range ri.GetDependenciesEdgeAware(id) {
-						if visited[en.ID] {
-							continue
-						}
-						visited[en.ID] = true
-						// Include ALL neighbors as nodes (even via non-expandable edges)
-						connected[en.ID] = true
-						// But only EXPAND through meaningful edges on non-hub nodes
-						if isExpandableEdge(en.Category) && !isHub(en.ID) {
-							next = append(next, en.ID)
-						}
-					}
-					for _, en := range ri.GetDependentsEdgeAware(id) {
-						if visited[en.ID] {
-							continue
-						}
-						visited[en.ID] = true
-						connected[en.ID] = true
-						if isExpandableEdge(en.Category) && !isHub(en.ID) {
-							next = append(next, en.ID)
-						}
-					}
-				}
-				frontier = next
-			}
-		} else {
-			// ── Direct / Extended ────────────────────────────────────
-			//
-			// Hop 1: ALL direct connections of the target.
-			//   - Meaningful edges (ownership, networking, etc.): include neighbor
-			//   - Infra edges (containment, scheduling): include neighbor as LEAF
-			//   Both types are added to `connected`, but only non-hub,
-			//   expandable-edge neighbors are eligible for hop-2 expansion.
-			expandableHop1 := make([]string, 0) // nodes eligible for hop-2 expansion
-			for _, en := range ri.GetDependenciesEdgeAware(targetID) {
-				connected[en.ID] = true
-				if isExpandableEdge(en.Category) && !isHub(en.ID) {
-					expandableHop1 = append(expandableHop1, en.ID)
-				}
-			}
-			for _, en := range ri.GetDependentsEdgeAware(targetID) {
-				connected[en.ID] = true
-				if isExpandableEdge(en.Category) && !isHub(en.ID) {
-					expandableHop1 = append(expandableHop1, en.ID)
-				}
-			}
-
-			if hops >= 2 {
-				// Hop 2: expand ONLY non-hub hop-1 nodes that were reached
-				// via meaningful edges. For each, follow ONLY expandable edges.
-				// Hub neighbors discovered at hop 2 are included as leaves.
-				//
-				// This produces meaningful chains:
-				//   Deployment → RS → Pods (ownership)
-				//   Pods → Service → Endpoints → Ingress (networking)
-				//   Pods → PVC → PV (storage)
-				//   Pods → SA → RoleBinding → Role (rbac)
-				// Without cross-service leakage:
-				//   Pod → Namespace → other Pods ❌ (containment blocked)
-				//   Pod → Node → other Pods ❌ (scheduling blocked)
-				for _, id := range expandableHop1 {
-					for _, en := range ri.GetDependenciesEdgeAware(id) {
-						if isExpandableEdge(en.Category) {
-							connected[en.ID] = true
-						}
-					}
-					for _, en := range ri.GetDependentsEdgeAware(id) {
-						if isExpandableEdge(en.Category) {
-							connected[en.ID] = true
-						}
-					}
-				}
-			}
-		}
-
-		// ── Orphan node detection ────────────────────────────────────
-		// The BFS produces a connected component by definition (everything
-		// reachable from targetID). If a node has no edges within the
-		// connected set, that indicates a missing edge in a relationship
-		// matcher — log it for debugging rather than silently removing it.
-		if len(connected) > 1 {
-			hasEdge := make(map[string]bool)
-			for _, e := range v2Resp.Edges {
-				if connected[e.Source] && connected[e.Target] {
-					hasEdge[e.Source] = true
-					hasEdge[e.Target] = true
-				}
-			}
-			for id := range connected {
-				if id != targetID && !hasEdge[id] {
-					slog.Warn("topology orphan node detected — likely missing edge in relationship matcher",
-						"orphanNode", id,
-						"focusResource", targetID,
-						"hops", hops,
-						"clusterID", clusterID,
-					)
-				}
-			}
-		}
-
-		// Filter nodes and edges to connected set
-		var filteredNodes []topologyv2.TopologyNode
-		for _, n := range v2Resp.Nodes {
-			if connected[n.ID] {
-				// Mark the central node
-				if n.ID == targetID {
-					if n.Extra == nil {
-						n.Extra = make(map[string]interface{})
-					}
-					n.Extra["isCentral"] = true
-				}
-				filteredNodes = append(filteredNodes, n)
-			}
-		}
-		var filteredEdges []topologyv2.TopologyEdge
-		for _, e := range v2Resp.Edges {
-			if connected[e.Source] && connected[e.Target] {
-				filteredEdges = append(filteredEdges, e)
-			}
-		}
-
-		result := &topologyv2.TopologyResponse{
-			Metadata: v2Resp.Metadata,
-			Nodes:    filteredNodes,
-			Edges:    filteredEdges,
-			Groups:   v2Resp.Groups,
-		}
-		result.Metadata.ResourceCount = len(filteredNodes)
-		result.Metadata.EdgeCount = len(filteredEdges)
+		result.Metadata.ResourceCount = len(result.Nodes)
+		result.Metadata.EdgeCount = len(result.Edges)
 		result.Metadata.TotalNodes = len(v2Resp.Nodes)
+		result.Metadata.Depth = hops
 		result.Metadata.FocusResource = targetID
 
-		// Resource topology safety: if BFS returned too many nodes in Direct/Extended,
-		// redo with fewer hops. Full mode (hops>=3) is exempt — user explicitly wants everything.
-		if len(filteredNodes) > 50 && hops > 1 && hops < 3 {
-			// Too many nodes — redo BFS with hops=1 (hubs included as leaves)
-			connected = make(map[string]bool)
-			connected[targetID] = true
-			for _, en := range ri.GetDependenciesEdgeAware(targetID) {
-				connected[en.ID] = true
+		for i := range result.Nodes {
+			if result.Nodes[i].ID != targetID {
+				continue
 			}
-			for _, en := range ri.GetDependentsEdgeAware(targetID) {
-				connected[en.ID] = true
+			if result.Nodes[i].Extra == nil {
+				result.Nodes[i].Extra = make(map[string]interface{})
 			}
-			filteredNodes = nil
-			for _, n := range v2Resp.Nodes {
-				if connected[n.ID] {
-					if n.ID == targetID {
-						if n.Extra == nil {
-							n.Extra = make(map[string]interface{})
-						}
-						n.Extra["isCentral"] = true
-					}
-					filteredNodes = append(filteredNodes, n)
-				}
-			}
-			filteredEdges = nil
-			for _, e := range v2Resp.Edges {
-				if connected[e.Source] && connected[e.Target] {
-					filteredEdges = append(filteredEdges, e)
-				}
-			}
-			result.Nodes = filteredNodes
-			result.Edges = filteredEdges
-			result.Metadata.ResourceCount = len(filteredNodes)
-			result.Metadata.EdgeCount = len(filteredEdges)
-			result.Metadata.Truncated = true
-			result.Metadata.TruncateReason = "auto-reduced to 1 hop (too many nodes at requested depth)"
+			result.Nodes[i].Extra["isCentral"] = true
+			break
 		}
 
 		respondJSON(w, http.StatusOK, result)
