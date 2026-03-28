@@ -38,6 +38,16 @@ import { backendClusterToCluster } from '@/lib/backendClusterAdapter';
 import { useQueryClient } from '@tanstack/react-query';
 import { useClustersFromBackend } from '@/hooks/useClustersFromBackend';
 
+/** Shorten long cluster/context names (EKS ARNs, GKE project paths). */
+function shortName(name: string): string {
+  if (!name) return name;
+  const eksMatch = name.match(/cluster\/(.+)$/);
+  if (eksMatch) return eksMatch[1];
+  const gkeMatch = name.match(/^gke_[^_]+_[^_]+_(.+)$/);
+  if (gkeMatch) return gkeMatch[1];
+  return name;
+}
+
 /* ── Step definitions ───────────────────────────────────────── */
 
 const STEPS = ['welcome', 'connect', 'tour', 'ready'] as const;
@@ -377,8 +387,8 @@ function ConnectClusterStep({ onNext, onSkip }: { onNext: () => void; onSkip: ()
                       {selected && <div className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-medium text-foreground truncate">{ctx.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{ctx.context}</p>
+                      <p className="font-medium text-foreground truncate">{shortName(ctx.name)}</p>
+                      <p className="text-xs text-muted-foreground truncate">{shortName(ctx.context)}</p>
                     </div>
                     {selected && status === 'connected' && (
                       <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))] shrink-0" />

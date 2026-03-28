@@ -56,14 +56,46 @@ function StatusDot({ status }: { status: DiscoveredContext['status'] }) {
   }
 }
 
-/** Extract a short display name from the server URL (host:port or IP). */
-function shortServer(server: string): string {
+/** Extract a human-readable display name from a kubeconfig context/cluster name. */
+function friendlyName(name: string): string {
+  if (!name) return name;
+  // EKS: arn:aws:eks:us-east-1:123456:cluster/my-cluster → my-cluster
+  const eksMatch = name.match(/cluster\/(.+)$/);
+  if (eksMatch) return eksMatch[1];
+  // GKE: gke_project_zone_cluster → cluster
+  const gkeMatch = name.match(/^gke_[^_]+_[^_]+_(.+)$/);
+  if (gkeMatch) return gkeMatch[1];
+  // Kind: kind-my-cluster → my-cluster
+  if (name.startsWith('kind-')) return name;
+  return name;
+}
+
+/** Format server URL for display. Recognizes local clusters. */
+function displayServer(server: string, context: string): string {
   if (!server) return '';
+  // Recognize well-known local clusters by context name
+  const ctxLower = context.toLowerCase();
+  if (ctxLower === 'docker-desktop' || ctxLower === 'docker-for-desktop') return 'Docker Desktop';
+  if (ctxLower.startsWith('kind-')) return `Kind (local)`;
+  if (ctxLower === 'minikube') return 'Minikube (local)';
+  if (ctxLower === 'rancher-desktop') return 'Rancher Desktop';
+  if (ctxLower.startsWith('colima')) return 'Colima (local)';
+  // Cloud clusters — show the hostname
   try {
     const url = new URL(server.startsWith('http') ? server : `https://${server}`);
-    return url.host;
+    const host = url.hostname;
+    // Hide raw IPs for localhost
+    if (host === '127.0.0.1' || host === 'localhost' || host === '::1') return 'localhost:' + url.port;
+    // EKS: long hash.region.eks.amazonaws.com → region (EKS)
+    const eksHost = host.match(/\.([^.]+)\.eks\.amazonaws\.com$/);
+    if (eksHost) return `${eksHost[1]} (EKS)`;
+    // GKE: container.googleapis.com
+    if (host.includes('googleapis.com')) return 'GKE';
+    // AKS: *.azmk8s.io
+    if (host.includes('azmk8s.io')) return 'AKS';
+    return host;
   } catch {
-    return server.length > 40 ? server.slice(0, 37) + '...' : server;
+    return server.length > 35 ? server.slice(0, 32) + '...' : server;
   }
 }
 
@@ -178,10 +210,10 @@ export function ContextPicker({
                   {/* Context name */}
                   <div className="pr-6">
                     <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate mb-0.5">
-                      {ctx.name || ctx.context}
+                      {friendlyName(ctx.name || ctx.context)}
                     </p>
                     <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">
-                      {ctx.context}
+                      {friendlyName(ctx.context)}
                     </p>
                   </div>
 
@@ -189,7 +221,7 @@ export function ContextPicker({
                   <div className="flex items-center gap-1.5 mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800">
                     <StatusDot status={ctx.status} />
                     <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium truncate">
-                      {shortServer(ctx.server) || 'Local cluster'}
+                      {displayServer(ctx.server, ctx.context)}
                     </span>
                     {ctx.isCurrent && (
                       <span className="ml-auto shrink-0 text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400">
