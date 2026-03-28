@@ -144,9 +144,19 @@ func NodesFromBundle(b *v2.ResourceBundle) []v2.TopologyNode {
 	}
 	for i := range b.ReplicaSets {
 		rs := &b.ReplicaSets[i]
+		rsStatus := "healthy"
+		desired := int32(0)
+		if rs.Spec.Replicas != nil {
+			desired = *rs.Spec.Replicas
+		}
+		if desired > 0 && rs.Status.ReadyReplicas == 0 {
+			rsStatus = "degraded"
+		} else if desired > 0 && rs.Status.ReadyReplicas < desired {
+			rsStatus = "progressing"
+		}
 		out = append(out, v2.TopologyNode{
 			ID: v2.NodeID("ReplicaSet", rs.Namespace, rs.Name), Kind: "ReplicaSet", Name: rs.Name, Namespace: rs.Namespace, APIVersion: "apps/v1",
-			Category: "workload", Label: rs.Name, Status: "healthy", Layer: 3, Group: groupIDForNamespace(rs.Namespace),
+			Category: "workload", Label: rs.Name, Status: rsStatus, Layer: 3, Group: groupIDForNamespace(rs.Namespace),
 			Labels: rs.Labels, Annotations: stripHeavyAnnotations(rs.Annotations), CreatedAt: formatTime(rs.CreationTimestamp),
 		})
 	}
@@ -174,11 +184,38 @@ func NodesFromBundle(b *v2.ResourceBundle) []v2.TopologyNode {
 	}
 	for i := range b.Jobs {
 		j := &b.Jobs[i]
-		out = append(out, v2.TopologyNode{ID: v2.NodeID("Job", j.Namespace, j.Name), Kind: "Job", Name: j.Name, Namespace: j.Namespace, APIVersion: "batch/v1", Category: "workload", Label: j.Name, Status: "healthy", Layer: 3, Group: groupIDForNamespace(j.Namespace), Labels: j.Labels, Annotations: stripHeavyAnnotations(j.Annotations), CreatedAt: formatTime(j.CreationTimestamp)})
+		jobStatus := "healthy"
+		if j.Status.Failed > 0 {
+			jobStatus = "degraded"
+		} else if j.Status.Active > 0 {
+			jobStatus = "progressing"
+		} else if j.Status.Succeeded > 0 {
+			jobStatus = "healthy"
+		}
+		out = append(out, v2.TopologyNode{ID: v2.NodeID("Job", j.Namespace, j.Name), Kind: "Job", Name: j.Name, Namespace: j.Namespace, APIVersion: "batch/v1", Category: "workload", Label: j.Name, Status: jobStatus, Layer: 3, Group: groupIDForNamespace(j.Namespace), Labels: j.Labels, Annotations: stripHeavyAnnotations(j.Annotations), CreatedAt: formatTime(j.CreationTimestamp)})
 	}
 	for i := range b.CronJobs {
 		cj := &b.CronJobs[i]
-		out = append(out, v2.TopologyNode{ID: v2.NodeID("CronJob", cj.Namespace, cj.Name), Kind: "CronJob", Name: cj.Name, Namespace: cj.Namespace, APIVersion: "batch/v1", Category: "workload", Label: cj.Name, Status: "healthy", Layer: 2, Group: groupIDForNamespace(cj.Namespace), Labels: cj.Labels, Annotations: stripHeavyAnnotations(cj.Annotations), CreatedAt: formatTime(cj.CreationTimestamp)})
+		cronStatus := "healthy"
+		if cj.Spec.Suspend != nil && *cj.Spec.Suspend {
+			cronStatus = "warning" // suspended
+		}
+		out = append(out, v2.TopologyNode{ID: v2.NodeID("CronJob", cj.Namespace, cj.Name), Kind: "CronJob", Name: cj.Name, Namespace: cj.Namespace, APIVersion: "batch/v1", Category: "workload", Label: cj.Name, Status: cronStatus, Layer: 2, Group: groupIDForNamespace(cj.Namespace), Labels: cj.Labels, Annotations: stripHeavyAnnotations(cj.Annotations), CreatedAt: formatTime(cj.CreationTimestamp)})
+	}
+	// Build endpoint lookup: service name+ns → has ready addresses
+	epHasAddresses := make(map[string]bool)
+	for i := range b.Endpoints {
+		ep := &b.Endpoints[i]
+		key := ep.Namespace + "/" + ep.Name
+		for _, subset := range ep.Subsets {
+			if len(subset.Addresses) > 0 {
+				epHasAddresses[key] = true
+				break
+			}
+		}
+		if !epHasAddresses[key] {
+			epHasAddresses[key] = false // explicitly mark as no addresses
+		}
 	}
 	for i := range b.Services {
 		s := &b.Services[i]
@@ -197,11 +234,36 @@ func NodesFromBundle(b *v2.ResourceBundle) []v2.TopologyNode {
 		if s.Spec.SessionAffinity != "" {
 			extra["sessionAffinity"] = string(s.Spec.SessionAffinity)
 		}
-		out = append(out, v2.TopologyNode{ID: v2.NodeID("Service", s.Namespace, s.Name), Kind: "Service", Name: s.Name, Namespace: s.Namespace, APIVersion: "v1", Category: "networking", Label: s.Name, Status: "healthy", Layer: 1, Group: groupIDForNamespace(s.Namespace), Labels: s.Labels, Annotations: stripHeavyAnnotations(s.Annotations), CreatedAt: formatTime(s.CreationTimestamp), ClusterIP: s.Spec.ClusterIP, ServiceType: string(s.Spec.Type), Extra: extra})
+		svcStatus := "healthy"
+		// Services with selectors should have endpoints with ready addresses
+		if len(s.Spec.Selector) > 0 {
+			key := s.Namespace + "/" + s.Name
+			if hasAddr, found := epHasAddresses[key]; found && !hasAddr {
+				svcStatus = "warning"
+			} else if !found {
+				svcStatus = "warning"
+			}
+		}
+		// ExternalName services don't have endpoints — always healthy
+		if s.Spec.Type == corev1.ServiceTypeExternalName {
+			svcStatus = "healthy"
+		}
+		out = append(out, v2.TopologyNode{ID: v2.NodeID("Service", s.Namespace, s.Name), Kind: "Service", Name: s.Name, Namespace: s.Namespace, APIVersion: "v1", Category: "networking", Label: s.Name, Status: svcStatus, Layer: 1, Group: groupIDForNamespace(s.Namespace), Labels: s.Labels, Annotations: stripHeavyAnnotations(s.Annotations), CreatedAt: formatTime(s.CreationTimestamp), ClusterIP: s.Spec.ClusterIP, ServiceType: string(s.Spec.Type), Extra: extra})
 	}
 	for i := range b.Endpoints {
 		e := &b.Endpoints[i]
-		out = append(out, v2.TopologyNode{ID: v2.NodeID("Endpoints", e.Namespace, e.Name), Kind: "Endpoints", Name: e.Name, Namespace: e.Namespace, APIVersion: "v1", Category: "networking", Label: e.Name, Status: "healthy", Layer: 1, Group: groupIDForNamespace(e.Namespace), Labels: e.Labels, Annotations: stripHeavyAnnotations(e.Annotations), CreatedAt: formatTime(e.CreationTimestamp)})
+		epStatus := "healthy"
+		hasReady := false
+		for _, subset := range e.Subsets {
+			if len(subset.Addresses) > 0 {
+				hasReady = true
+				break
+			}
+		}
+		if !hasReady && len(e.Subsets) > 0 {
+			epStatus = "warning" // subsets exist but no ready addresses
+		}
+		out = append(out, v2.TopologyNode{ID: v2.NodeID("Endpoints", e.Namespace, e.Name), Kind: "Endpoints", Name: e.Name, Namespace: e.Namespace, APIVersion: "v1", Category: "networking", Label: e.Name, Status: epStatus, Layer: 1, Group: groupIDForNamespace(e.Namespace), Labels: e.Labels, Annotations: stripHeavyAnnotations(e.Annotations), CreatedAt: formatTime(e.CreationTimestamp)})
 	}
 	for i := range b.EndpointSlices {
 		es := &b.EndpointSlices[i]
@@ -209,7 +271,25 @@ func NodesFromBundle(b *v2.ResourceBundle) []v2.TopologyNode {
 	}
 	for i := range b.Ingresses {
 		ing := &b.Ingresses[i]
-		out = append(out, v2.TopologyNode{ID: v2.NodeID("Ingress", ing.Namespace, ing.Name), Kind: "Ingress", Name: ing.Name, Namespace: ing.Namespace, APIVersion: "networking.k8s.io/v1", Category: "networking", Label: ing.Name, Status: "healthy", Layer: 0, Group: groupIDForNamespace(ing.Namespace), Labels: ing.Labels, Annotations: stripHeavyAnnotations(ing.Annotations), CreatedAt: formatTime(ing.CreationTimestamp)})
+		ingStatus := "healthy"
+		// Ingress without any rules or default backend is misconfigured
+		hasBackend := ing.Spec.DefaultBackend != nil
+		if !hasBackend {
+			for _, rule := range ing.Spec.Rules {
+				if rule.HTTP != nil && len(rule.HTTP.Paths) > 0 {
+					hasBackend = true
+					break
+				}
+			}
+		}
+		if !hasBackend {
+			ingStatus = "warning"
+		}
+		// No LoadBalancer IP assigned yet → progressing
+		if ingStatus == "healthy" && len(ing.Status.LoadBalancer.Ingress) == 0 {
+			ingStatus = "progressing"
+		}
+		out = append(out, v2.TopologyNode{ID: v2.NodeID("Ingress", ing.Namespace, ing.Name), Kind: "Ingress", Name: ing.Name, Namespace: ing.Namespace, APIVersion: "networking.k8s.io/v1", Category: "networking", Label: ing.Name, Status: ingStatus, Layer: 0, Group: groupIDForNamespace(ing.Namespace), Labels: ing.Labels, Annotations: stripHeavyAnnotations(ing.Annotations), CreatedAt: formatTime(ing.CreationTimestamp)})
 	}
 	for i := range b.IngressClasses {
 		ic := &b.IngressClasses[i]
@@ -301,11 +381,38 @@ func NodesFromBundle(b *v2.ResourceBundle) []v2.TopologyNode {
 	}
 	for i := range b.HPAs {
 		h := &b.HPAs[i]
-		out = append(out, v2.TopologyNode{ID: v2.NodeID("HorizontalPodAutoscaler", h.Namespace, h.Name), Kind: "HorizontalPodAutoscaler", Name: h.Name, Namespace: h.Namespace, APIVersion: "autoscaling/v2", Category: "scaling", Label: h.Name, Status: "healthy", Layer: 1, Group: groupIDForNamespace(h.Namespace), Labels: h.Labels, Annotations: stripHeavyAnnotations(h.Annotations), CreatedAt: formatTime(h.CreationTimestamp)})
+		hpaStatus := "healthy"
+		// Check if HPA is at max replicas (capacity pressure)
+		if h.Status.CurrentReplicas >= h.Spec.MaxReplicas && h.Spec.MaxReplicas > 0 {
+			hpaStatus = "warning"
+		}
+		// Check if current replicas is 0 when min > 0 (not scaling)
+		if h.Spec.MinReplicas != nil && *h.Spec.MinReplicas > 0 && h.Status.CurrentReplicas == 0 {
+			hpaStatus = "degraded"
+		}
+		// Check conditions for ScalingLimited or AbleToScale=False
+		for _, cond := range h.Status.Conditions {
+			if cond.Type == "ScalingLimited" && cond.Status == "True" {
+				hpaStatus = "warning"
+			}
+			if cond.Type == "AbleToScale" && cond.Status == "False" {
+				hpaStatus = "degraded"
+			}
+		}
+		out = append(out, v2.TopologyNode{ID: v2.NodeID("HorizontalPodAutoscaler", h.Namespace, h.Name), Kind: "HorizontalPodAutoscaler", Name: h.Name, Namespace: h.Namespace, APIVersion: "autoscaling/v2", Category: "scaling", Label: h.Name, Status: hpaStatus, Layer: 1, Group: groupIDForNamespace(h.Namespace), Labels: h.Labels, Annotations: stripHeavyAnnotations(h.Annotations), CreatedAt: formatTime(h.CreationTimestamp)})
 	}
 	for i := range b.PDBs {
 		pdb := &b.PDBs[i]
-		out = append(out, v2.TopologyNode{ID: v2.NodeID("PodDisruptionBudget", pdb.Namespace, pdb.Name), Kind: "PodDisruptionBudget", Name: pdb.Name, Namespace: pdb.Namespace, APIVersion: "policy/v1", Category: "policy", Label: pdb.Name, Status: "healthy", Layer: 1, Group: groupIDForNamespace(pdb.Namespace), Labels: pdb.Labels, Annotations: stripHeavyAnnotations(pdb.Annotations), CreatedAt: formatTime(pdb.CreationTimestamp)})
+		pdbStatus := "healthy"
+		// If expected pods > 0 but current healthy < expected → warning
+		if pdb.Status.ExpectedPods > 0 && pdb.Status.CurrentHealthy < pdb.Status.ExpectedPods {
+			pdbStatus = "warning"
+		}
+		// If disruptions allowed is 0 and there are expected pods → budget exhausted
+		if pdb.Status.DisruptionsAllowed == 0 && pdb.Status.ExpectedPods > 0 {
+			pdbStatus = "warning"
+		}
+		out = append(out, v2.TopologyNode{ID: v2.NodeID("PodDisruptionBudget", pdb.Namespace, pdb.Name), Kind: "PodDisruptionBudget", Name: pdb.Name, Namespace: pdb.Namespace, APIVersion: "policy/v1", Category: "policy", Label: pdb.Name, Status: pdbStatus, Layer: 1, Group: groupIDForNamespace(pdb.Namespace), Labels: pdb.Labels, Annotations: stripHeavyAnnotations(pdb.Annotations), CreatedAt: formatTime(pdb.CreationTimestamp)})
 	}
 	for i := range b.NetworkPolicies {
 		np := &b.NetworkPolicies[i]

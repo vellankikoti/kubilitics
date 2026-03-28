@@ -19,11 +19,7 @@ import {
   RefreshCw,
   Loader2,
   TrendingUp,
-  Lock,
-  Network,
-  Box,
   ChevronRight,
-  ExternalLink,
 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 
@@ -91,87 +87,13 @@ function statusIcon(status: string) {
   }
 }
 
-// ─── Mock data ───────────────────────────────────────────────
-
-function buildDefaultCategories(): ComplianceCategory[] {
-  return [
-    {
-      id: 'cis',
-      name: 'CIS Kubernetes Benchmark',
-      icon: Shield,
-      score: 78,
-      passed: 62,
-      failed: 8,
-      warnings: 10,
-      total: 80,
-      items: [
-        { id: 'cis-1.1', title: 'API Server - Anonymous Auth Disabled', status: 'pass', severity: 'critical', description: 'Anonymous authentication is disabled on the API server' },
-        { id: 'cis-1.2', title: 'API Server - RBAC Enabled', status: 'pass', severity: 'critical', description: 'RBAC authorization mode is enabled' },
-        { id: 'cis-1.3', title: 'API Server - Audit Logging', status: 'fail', severity: 'high', description: 'Audit logging is not enabled on the API server', remediation: 'Enable audit logging with --audit-policy-file flag' },
-        { id: 'cis-2.1', title: 'etcd - Encryption at Rest', status: 'warning', severity: 'high', description: 'etcd encryption at rest may not be configured', remediation: 'Configure EncryptionConfiguration for etcd' },
-        { id: 'cis-2.2', title: 'etcd - TLS Enabled', status: 'pass', severity: 'critical', description: 'etcd client and peer TLS is enabled' },
-        { id: 'cis-3.1', title: 'Kubelet - Authentication', status: 'pass', severity: 'high', description: 'Kubelet authentication is configured' },
-        { id: 'cis-4.1', title: 'Worker Node - Config Permissions', status: 'fail', severity: 'medium', description: 'Worker node config file permissions are too permissive', remediation: 'Set file permissions to 600' },
-        { id: 'cis-5.1', title: 'RBAC - Cluster Admin Usage', status: 'warning', severity: 'high', description: 'Multiple users have cluster-admin role', remediation: 'Minimize use of cluster-admin role bindings' },
-      ],
-    },
-    {
-      id: 'rbac',
-      name: 'RBAC Compliance',
-      icon: Lock,
-      score: 85,
-      passed: 17,
-      failed: 2,
-      warnings: 1,
-      total: 20,
-      items: [
-        { id: 'rbac-1', title: 'Least Privilege - No Wildcard Roles', status: 'fail', severity: 'high', description: 'Some roles use wildcard (*) permissions', remediation: 'Replace wildcard permissions with explicit resource/verb lists' },
-        { id: 'rbac-2', title: 'Service Account Token Auto-Mount', status: 'warning', severity: 'medium', description: 'Some pods auto-mount service account tokens unnecessarily' },
-        { id: 'rbac-3', title: 'Default Service Account Restrictions', status: 'pass', severity: 'high', description: 'Default service accounts have restricted permissions' },
-        { id: 'rbac-4', title: 'Role Binding Scope', status: 'pass', severity: 'medium', description: 'Role bindings are scoped to appropriate namespaces' },
-      ],
-    },
-    {
-      id: 'network',
-      name: 'Network Policy Coverage',
-      icon: Network,
-      score: 62,
-      passed: 5,
-      failed: 3,
-      warnings: 0,
-      total: 8,
-      items: [
-        { id: 'net-1', title: 'Default Deny Policy', status: 'fail', severity: 'critical', description: 'Not all namespaces have a default deny network policy', remediation: 'Apply deny-all network policy to each namespace' },
-        { id: 'net-2', title: 'Ingress Policies Defined', status: 'pass', severity: 'high', description: 'Ingress network policies are defined for public-facing services' },
-        { id: 'net-3', title: 'Egress Policies Defined', status: 'fail', severity: 'high', description: 'Egress network policies are missing for sensitive namespaces', remediation: 'Define egress policies to restrict outbound traffic' },
-        { id: 'net-4', title: 'Cross-Namespace Isolation', status: 'fail', severity: 'medium', description: 'Some namespaces allow unrestricted cross-namespace traffic' },
-      ],
-    },
-    {
-      id: 'pss',
-      name: 'Pod Security Standards',
-      icon: Box,
-      score: 91,
-      passed: 20,
-      failed: 1,
-      warnings: 1,
-      total: 22,
-      items: [
-        { id: 'pss-1', title: 'No Privileged Containers', status: 'pass', severity: 'critical', description: 'No containers run in privileged mode' },
-        { id: 'pss-2', title: 'Non-Root Users', status: 'pass', severity: 'high', description: 'Containers run as non-root users' },
-        { id: 'pss-3', title: 'Read-Only Root Filesystem', status: 'warning', severity: 'medium', description: 'Some containers do not use read-only root filesystem' },
-        { id: 'pss-4', title: 'Capability Restrictions', status: 'fail', severity: 'high', description: 'One pod has excessive Linux capabilities', remediation: 'Drop all capabilities and add only required ones' },
-        { id: 'pss-5', title: 'Host Namespace Restrictions', status: 'pass', severity: 'critical', description: 'No pods share host PID, network, or IPC namespaces' },
-      ],
-    },
-  ];
-}
+// No mock data — empty state shown when compliance engine is not connected
 
 // ─── Component ───────────────────────────────────────────────
 
 export default function ComplianceDashboard() {
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
-  const [categories, setCategories] = useState<ComplianceCategory[]>(buildDefaultCategories);
+  const [categories, setCategories] = useState<ComplianceCategory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [lastScanned, setLastScanned] = useState<string>(new Date().toISOString());
@@ -188,7 +110,7 @@ export default function ComplianceDashboard() {
         if (data.lastScanned) setLastScanned(data.lastScanned);
       }
     } catch {
-      // Use default data
+      // API unavailable — keep empty state
     } finally {
       setIsLoading(false);
     }
@@ -291,6 +213,19 @@ export default function ComplianceDashboard() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Empty state */}
+      {categories.length === 0 && !isLoading && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center gap-3 p-12">
+            <Shield className="h-12 w-12 text-muted-foreground/50" />
+            <p className="text-sm font-medium text-foreground">No compliance data available</p>
+            <p className="text-xs text-muted-foreground max-w-sm text-center">
+              Connect a compliance engine to see CIS benchmarks, RBAC audits, network policy coverage, and pod security standards.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Category cards */}
       <div className="grid grid-cols-2 gap-4">

@@ -77,83 +77,13 @@ interface RBACReportSummary {
   avgPermissionsPerUser: number;
 }
 
-// ─── Mock data for demonstration ─────────────────────────────
-
-const MOCK_ENTRIES: RBACReportEntry[] = [
-  {
-    userId: 'u1',
-    username: 'admin',
-    email: 'admin@example.com',
-    roles: ['admin'],
-    permissions: ['*:*'],
-    permissionCount: 84,
-    lastActivity: new Date(Date.now() - 3600000).toISOString(),
-    loginCount: 142,
-    isOverPermissioned: false,
-    createdAt: '2024-01-01T00:00:00Z',
-    status: 'active',
-  },
-  {
-    userId: 'u2',
-    username: 'dev-lead',
-    email: 'devlead@example.com',
-    roles: ['admin', 'operator'],
-    permissions: ['pods:*', 'deployments:*', 'services:*', 'secrets:*', 'configmaps:*'],
-    permissionCount: 72,
-    lastActivity: new Date(Date.now() - 86400000).toISOString(),
-    loginCount: 89,
-    isOverPermissioned: true,
-    overPermissionReason: 'Has admin role but only uses operator-level actions',
-    createdAt: '2024-02-15T00:00:00Z',
-    status: 'active',
-  },
-  {
-    userId: 'u3',
-    username: 'sre-engineer',
-    email: 'sre@example.com',
-    roles: ['operator'],
-    permissions: ['pods:get,list,watch,delete', 'deployments:get,list,watch,update'],
-    permissionCount: 35,
-    lastActivity: new Date(Date.now() - 7200000).toISOString(),
-    loginCount: 214,
-    isOverPermissioned: false,
-    createdAt: '2024-03-01T00:00:00Z',
-    status: 'active',
-  },
-  {
-    userId: 'u4',
-    username: 'readonly-user',
-    email: 'readonly@example.com',
-    roles: ['viewer'],
-    permissions: ['pods:get,list,watch', 'deployments:get,list,watch'],
-    permissionCount: 18,
-    lastActivity: null,
-    loginCount: 0,
-    isOverPermissioned: false,
-    createdAt: '2024-06-01T00:00:00Z',
-    status: 'inactive',
-  },
-  {
-    userId: 'u5',
-    username: 'former-admin',
-    email: 'former@example.com',
-    roles: ['admin'],
-    permissions: ['*:*'],
-    permissionCount: 84,
-    lastActivity: new Date(Date.now() - 30 * 86400000).toISOString(),
-    loginCount: 5,
-    isOverPermissioned: true,
-    overPermissionReason: 'No activity in 30+ days but retains admin role',
-    createdAt: '2024-01-15T00:00:00Z',
-    status: 'active',
-  },
-];
+// No mock data — empty state shown when API returns no data
 
 // ─── Component ───────────────────────────────────────────────
 
 export default function RBACReports() {
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
-  const [entries, setEntries] = useState<RBACReportEntry[]>(MOCK_ENTRIES);
+  const [entries, setEntries] = useState<RBACReportEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'over-permissioned'>('all');
@@ -169,7 +99,7 @@ export default function RBACReports() {
         if (data.entries) setEntries(data.entries);
       }
     } catch {
-      // Use mock data
+      // API unavailable — keep empty state
     } finally {
       setIsLoading(false);
     }
@@ -451,7 +381,7 @@ export default function RBACReports() {
           {filteredEntries.length === 0 && (
             <div className="text-center py-12 text-muted-foreground">
               <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p className="text-sm">No users match your filters</p>
+              <p className="text-sm">{entries.length === 0 ? 'No RBAC reports available' : 'No users match your filters'}</p>
             </div>
           )}
         </CardContent>

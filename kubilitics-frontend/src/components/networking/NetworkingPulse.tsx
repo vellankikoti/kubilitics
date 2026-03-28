@@ -1,13 +1,14 @@
+/* Decorative animation — not real metrics */
 import React, { useMemo } from 'react';
 import { AreaChart, Area, ResponsiveContainer, YAxis } from 'recharts';
 import { K8S_BLUE } from '@/lib/colors';
 
 export function NetworkingPulse() {
-    // Generate synthetic pulse data that looks organic
+    // Static decorative wave data (not real network metrics)
     const data = useMemo(() => {
         return Array.from({ length: 20 }, (_, i) => ({
             time: i,
-            value: 40 + Math.random() * 40 + (Math.sin(i / 2) * 20),
+            value: 40 + (Math.sin(i / 2) * 20),
         }));
     }, []);
 

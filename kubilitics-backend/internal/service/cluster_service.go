@@ -17,6 +17,8 @@ import (
 	"github.com/kubilitics/kubilitics-backend/internal/models"
 	"github.com/kubilitics/kubilitics-backend/internal/repository"
 	"golang.org/x/time/rate"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
@@ -518,9 +520,13 @@ func (s *clusterService) GetClusterSummary(ctx context.Context, id string) (*mod
 		return nil, err
 	}
 
+	nodes, _ := client.Clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
 	pods, _ := client.Clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
 	deployments, _ := client.Clientset.AppsV1().Deployments("").List(ctx, metav1.ListOptions{})
 	services, _ := client.Clientset.CoreV1().Services("").List(ctx, metav1.ListOptions{})
+
+	// Compute health from actual resource state
+	healthStatus := computeClusterHealthStatus(nodes, pods, deployments)
 
 	return &models.ClusterSummary{
 		ID:              id,
@@ -530,7 +536,7 @@ func (s *clusterService) GetClusterSummary(ctx context.Context, id string) (*mod
 		PodCount:        len(pods.Items),
 		DeploymentCount: len(deployments.Items),
 		ServiceCount:    len(services.Items),
-		HealthStatus:    "healthy",
+		HealthStatus:    healthStatus,
 	}, nil
 }
 
@@ -819,6 +825,60 @@ func (s *clusterService) DiscoverClusters(ctx context.Context) ([]*models.Cluste
 	}
 
 	return discovered, nil
+}
+
+// computeClusterHealthStatus derives an overall cluster health status from live
+// node, pod, and deployment state. Returns "healthy", "degraded", or "unhealthy".
+func computeClusterHealthStatus(nodes *corev1.NodeList, pods *corev1.PodList, deployments *appsv1.DeploymentList) string {
+	health := "healthy"
+
+	// Any node not Ready → degraded
+	if nodes != nil {
+		for i := range nodes.Items {
+			ready := false
+			for _, cond := range nodes.Items[i].Status.Conditions {
+				if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
+					ready = true
+					break
+				}
+			}
+			if !ready {
+				health = "degraded"
+				break
+			}
+		}
+	}
+
+	// Pod failure ratio >30% → unhealthy, >10% → degraded
+	if pods != nil && len(pods.Items) > 0 {
+		total := len(pods.Items)
+		failing := 0
+		for i := range pods.Items {
+			phase := pods.Items[i].Status.Phase
+			if phase == corev1.PodFailed || phase == corev1.PodPending {
+				failing++
+			}
+		}
+		ratio := float64(failing) / float64(total)
+		if ratio > 0.3 {
+			return "unhealthy"
+		}
+		if ratio > 0.1 {
+			health = "degraded"
+		}
+	}
+
+	// Any deployment with unavailable replicas → degraded
+	if deployments != nil && health == "healthy" {
+		for i := range deployments.Items {
+			if deployments.Items[i].Status.UnavailableReplicas > 0 {
+				health = "degraded"
+				break
+			}
+		}
+	}
+
+	return health
 }
 
 // clusterStatusFromError maps K8s/context errors to status: "disconnected" for connection/context errors, "error" for 403/5xx etc.

@@ -32,6 +32,8 @@ import (
 	topologyv2 "github.com/kubilitics/kubilitics-backend/internal/topology/v2"
 	topologyv2builder "github.com/kubilitics/kubilitics-backend/internal/topology/v2/builder"
 	"golang.org/x/time/rate"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -718,6 +720,7 @@ func (h *Handler) GetClusterSummary(w http.ResponseWriter, r *http.Request) {
 	}
 	nodeCount := info["node_count"].(int)
 	namespaceCount := info["namespace_count"].(int)
+	nodes, _ := client.Clientset.CoreV1().Nodes().List(r.Context(), metav1.ListOptions{})
 
 	var projectNSSet map[string]struct{}
 	if projectID := strings.TrimSpace(r.URL.Query().Get("projectId")); projectID != "" && h.projSvc != nil {
@@ -843,6 +846,9 @@ func (h *Handler) GetClusterSummary(w http.ResponseWriter, r *http.Request) {
 		// Cluster-scoped resources (PVs, StorageClasses, ClusterRoles, etc.) are NOT project-filtered
 	}
 
+	// Compute cluster health from actual resource states
+	healthStatus := computeClusterHealth(nodes, pods, deployments)
+
 	summary := &models.ClusterSummary{
 		ID:               clusterID,
 		Name:             clusterID,
@@ -856,7 +862,7 @@ func (h *Handler) GetClusterSummary(w http.ResponseWriter, r *http.Request) {
 		DaemonSetCount:   daemonsetCount,
 		JobCount:         jobCount,
 		CronJobCount:     cronjobCount,
-		HealthStatus:     "healthy",
+		HealthStatus:     healthStatus,
 
 		IngressCount:       ingressCount,
 		IngressClassCount:  ingressClassCount,
@@ -889,6 +895,66 @@ func (h *Handler) GetClusterSummary(w http.ResponseWriter, r *http.Request) {
 		ValidatingWebhookConfigCount:  validatingWebhookCount,
 	}
 	respondJSON(w, http.StatusOK, summary)
+}
+
+// computeClusterHealth derives an overall cluster health status from live node, pod,
+// and deployment state. Returns "healthy", "degraded", or "unhealthy".
+//
+// Rules (evaluated in priority order):
+//  1. Any node not Ready → "degraded"
+//  2. Pod failure ratio >30% → "unhealthy", >10% → "degraded"
+//  3. Any deployment with unavailable replicas → "degraded"
+//  4. Otherwise → "healthy"
+func computeClusterHealth(nodes *corev1.NodeList, pods *corev1.PodList, deployments *appsv1.DeploymentList) string {
+	health := "healthy"
+
+	// Check nodes: any node not Ready → degraded
+	if nodes != nil {
+		for i := range nodes.Items {
+			ready := false
+			for _, cond := range nodes.Items[i].Status.Conditions {
+				if cond.Type == corev1.NodeReady && cond.Status == corev1.ConditionTrue {
+					ready = true
+					break
+				}
+			}
+			if !ready {
+				health = "degraded"
+				break
+			}
+		}
+	}
+
+	// Check pods: count non-healthy pods (Failed + Pending)
+	if pods != nil && len(pods.Items) > 0 {
+		total := len(pods.Items)
+		failing := 0
+		for i := range pods.Items {
+			phase := pods.Items[i].Status.Phase
+			if phase == corev1.PodFailed || phase == corev1.PodPending {
+				failing++
+			}
+		}
+		ratio := float64(failing) / float64(total)
+		if ratio > 0.3 {
+			return "unhealthy"
+		}
+		if ratio > 0.1 && health != "unhealthy" {
+			health = "degraded"
+		}
+	}
+
+	// Check deployments: any with unavailable replicas → degraded
+	if deployments != nil && health == "healthy" {
+		for i := range deployments.Items {
+			if deployments.Items[i].Status.UnavailableReplicas > 0 {
+				health = "degraded"
+				break
+			}
+		}
+	}
+
+	return health
 }
 
 // GetCapabilities returns backend capabilities (e.g. resource topology kinds). GET /api/v1/capabilities.

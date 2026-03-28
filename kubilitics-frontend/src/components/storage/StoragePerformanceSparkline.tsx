@@ -1,12 +1,14 @@
+/* Decorative animation — not real metrics */
 import React, { useMemo } from 'react';
 import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import { K8S_BLUE } from '@/lib/colors';
 
 export function StoragePerformanceSparkline() {
+    // Static decorative wave data (not real IOPS)
     const data = useMemo(() => {
         return Array.from({ length: 15 }, (_, i) => ({
             time: i,
-            iops: 50 + Math.random() * 30 + (Math.sin(i) * 10),
+            iops: 50 + (Math.sin(i) * 10),
         }));
     }, []);
 

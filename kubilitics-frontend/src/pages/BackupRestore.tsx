@@ -23,7 +23,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -282,48 +281,35 @@ export default function BackupRestore() {
   // ── Progress Simulation ──────────────────────────────────────────────────
   // In production, progress would come from WebSocket or polling an endpoint.
 
+  // Show indeterminate progress — real progress would come from WebSocket or polling.
   const simulateProgress = useCallback((id: string, type: 'backup' | 'restore') => {
-    let pct = 0;
-    const phases = type === 'backup'
-      ? ['initializing', 'backing-up', 'uploading', 'finalizing'] as const
-      : ['downloading', 'validating', 'restoring', 'finalizing'] as const;
-    let phaseIdx = 0;
-
+    if (type === 'backup') {
+      setBackupProgress({
+        backupId: id,
+        phase: 'backing-up',
+        percentComplete: -1, // indeterminate
+        itemsProcessed: 0,
+        totalItems: 0,
+      });
+    } else {
+      setRestoreProgress({
+        restoreId: id,
+        phase: 'restoring',
+        percentComplete: -1, // indeterminate
+        itemsRestored: 0,
+        totalItems: 0,
+      });
+    }
+    // Poll for completion by re-fetching backups list
     const interval = setInterval(() => {
-      pct += Math.random() * 15 + 5;
-      if (pct > 100) pct = 100;
-      if (pct > (phaseIdx + 1) * 25 && phaseIdx < phases.length - 1) {
-        phaseIdx++;
-      }
-
-      if (type === 'backup') {
-        setBackupProgress({
-          backupId: id,
-          phase: phases[phaseIdx] as BackupProgress['phase'],
-          percentComplete: Math.round(pct),
-          itemsProcessed: Math.round(pct * 1.5),
-          totalItems: 150,
-        });
-      } else {
-        setRestoreProgress({
-          restoreId: id,
-          phase: phases[phaseIdx] as RestoreProgress['phase'],
-          percentComplete: Math.round(pct),
-          itemsRestored: Math.round(pct * 1.2),
-          totalItems: 120,
-        });
-      }
-
-      if (pct >= 100) {
-        clearInterval(interval);
-        setTimeout(() => {
-          if (type === 'backup') setBackupProgress(null);
-          else setRestoreProgress(null);
-          queryClient.invalidateQueries({ queryKey: ['backups'] });
-          toast.success(type === 'backup' ? 'Backup completed' : 'Restore completed');
-        }, 1000);
-      }
-    }, 800);
+      queryClient.invalidateQueries({ queryKey: ['backups'] });
+    }, 5000);
+    // Safety timeout: clear progress after 5 minutes if no update
+    setTimeout(() => {
+      clearInterval(interval);
+      if (type === 'backup') setBackupProgress(null);
+      else setRestoreProgress(null);
+    }, 5 * 60 * 1000);
   }, [queryClient]);
 
   // ── Stats ────────────────────────────────────────────────────────────────
@@ -404,10 +390,11 @@ export default function BackupRestore() {
                   <span className="font-medium text-sm">Creating Backup</span>
                   <span className="text-xs text-muted-foreground">{getPhaseLabel(backupProgress.phase)}</span>
                 </div>
-                <Progress value={backupProgress.percentComplete} className="h-2" />
-                <div className="flex justify-between mt-1.5 text-xs text-muted-foreground">
-                  <span>{backupProgress.itemsProcessed} / {backupProgress.totalItems} items</span>
-                  <span>{backupProgress.percentComplete}%</span>
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full w-1/3 bg-blue-500 rounded-full animate-pulse" />
+                </div>
+                <div className="mt-1.5 text-xs text-muted-foreground">
+                  <span>In progress...</span>
                 </div>
               </CardContent>
             </Card>
@@ -426,10 +413,11 @@ export default function BackupRestore() {
                   <span className="font-medium text-sm">Restoring</span>
                   <span className="text-xs text-muted-foreground">{getPhaseLabel(restoreProgress.phase)}</span>
                 </div>
-                <Progress value={restoreProgress.percentComplete} className="h-2" />
-                <div className="flex justify-between mt-1.5 text-xs text-muted-foreground">
-                  <span>{restoreProgress.itemsRestored} / {restoreProgress.totalItems} items</span>
-                  <span>{restoreProgress.percentComplete}%</span>
+                <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full w-1/3 bg-amber-500 rounded-full animate-pulse" />
+                </div>
+                <div className="mt-1.5 text-xs text-muted-foreground">
+                  <span>In progress...</span>
                 </div>
               </CardContent>
             </Card>

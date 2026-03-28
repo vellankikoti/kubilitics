@@ -57,8 +57,7 @@ func (h *HealthEnricher) EnrichNodes(nodes []TopologyNode, bundle *ResourceBundl
 		case "DaemonSet":
 			n.Status, n.StatusReason = computeDaemonSetHealth(n, bundle)
 		case "Service":
-			n.Status = string(HealthStatusHealthy)
-			n.StatusReason = "Active"
+			n.Status, n.StatusReason = computeServiceHealth(n, bundle)
 		case "PersistentVolumeClaim":
 			n.Status, n.StatusReason = computePVCHealth(n, bundle)
 		case "PersistentVolume":
@@ -234,5 +233,34 @@ func computePVHealth(n *TopologyNode, bundle *ResourceBundle) (string, string) {
 		}
 	}
 	return string(HealthStatusUnknown), "Unknown"
+}
+
+func computeServiceHealth(n *TopologyNode, bundle *ResourceBundle) (string, string) {
+	for i := range bundle.Services {
+		svc := &bundle.Services[i]
+		if svc.Namespace == n.Namespace && svc.Name == n.Name {
+			// ExternalName services don't have endpoints
+			if svc.Spec.Type == corev1.ServiceTypeExternalName {
+				return string(HealthStatusHealthy), "ExternalName"
+			}
+			// Selector-based services: check for ready endpoint addresses
+			if len(svc.Spec.Selector) > 0 {
+				for j := range bundle.Endpoints {
+					ep := &bundle.Endpoints[j]
+					if ep.Namespace == svc.Namespace && ep.Name == svc.Name {
+						for _, subset := range ep.Subsets {
+							if len(subset.Addresses) > 0 {
+								return string(HealthStatusHealthy), "EndpointsReady"
+							}
+						}
+						return string(HealthStatusWarning), "NoReadyEndpoints"
+					}
+				}
+				return string(HealthStatusWarning), "NoEndpoints"
+			}
+			return string(HealthStatusHealthy), "Active"
+		}
+	}
+	return string(HealthStatusHealthy), "Active"
 }
 

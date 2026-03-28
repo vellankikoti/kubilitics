@@ -61,25 +61,25 @@ beforeEach(() => {
 });
 
 // ============================================================================
-// Disconnected mode — returns mock counts
+// Disconnected mode — returns zero counts (no fake data)
 // ============================================================================
 
 describe('useResourceCounts — disconnected', () => {
-  it('returns mock counts when disconnected', () => {
+  it('returns zero counts when disconnected', () => {
     mockIsConnected = false;
 
     const { result } = renderHook(() => useResourceCounts());
     const { counts, isConnected } = result.current;
 
     expect(isConnected).toBe(false);
-    expect(counts.pods).toBe(54);
-    expect(counts.deployments).toBe(18);
-    expect(counts.services).toBe(15);
-    expect(counts.nodes).toBe(3);
-    expect(counts.namespaces).toBe(22);
-    expect(counts.jobs).toBe(1614);
-    expect(counts.cronjobs).toBe(8);
-    expect(counts.secrets).toBe(3);
+    expect(counts.pods).toBe(0);
+    expect(counts.deployments).toBe(0);
+    expect(counts.services).toBe(0);
+    expect(counts.nodes).toBe(0);
+    expect(counts.namespaces).toBe(0);
+    expect(counts.jobs).toBe(0);
+    expect(counts.cronjobs).toBe(0);
+    expect(counts.secrets).toBe(0);
   });
 });
 

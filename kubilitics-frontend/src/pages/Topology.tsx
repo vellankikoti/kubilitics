@@ -874,55 +874,13 @@ function DetailPanel({
   );
 }
 
-// ─── Mock Graph ───────────────────────────────────────────────────────────────
-
-function n(partial: Omit<TopologyNode, 'label'>): TopologyNode {
-  return { ...partial, label: partial.name };
-}
-
-const mockGraph: TopologyGraph = {
+// Empty graph used when no real topology data is available
+const emptyGraph: TopologyGraph = {
   schemaVersion: '1.0',
-  nodes: [
-    n({ id: 'Namespace/demo', kind: 'Namespace', namespace: '', name: 'demo', apiVersion: 'v1', status: 'Running', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'ns-1' }, computed: { health: 'healthy' } }),
-    n({ id: 'Node/worker-1', kind: 'Node', namespace: '', name: 'worker-1', apiVersion: 'v1', status: 'Ready', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'node-1' }, computed: { health: 'healthy', cpuUsage: 45 } }),
-    n({ id: 'Ingress/demo/main', kind: 'Ingress', namespace: 'demo', name: 'main-ingress', apiVersion: 'networking.k8s.io/v1', status: 'Running', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'ing-1' }, computed: { health: 'healthy' } }),
-    n({ id: 'Service/demo/web', kind: 'Service', namespace: 'demo', name: 'web-svc', apiVersion: 'v1', status: 'Running', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'svc-1' }, computed: { health: 'healthy' } }),
-    n({ id: 'Service/demo/api', kind: 'Service', namespace: 'demo', name: 'api-svc', apiVersion: 'v1', status: 'Running', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'svc-2' }, computed: { health: 'healthy' } }),
-    n({ id: 'Deployment/demo/web', kind: 'Deployment', namespace: 'demo', name: 'web', apiVersion: 'apps/v1', status: 'Running', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'dep-1' }, computed: { health: 'healthy', replicas: { desired: 3, ready: 3, available: 3 } } }),
-    n({ id: 'Deployment/demo/api', kind: 'Deployment', namespace: 'demo', name: 'api-gateway', apiVersion: 'apps/v1', status: 'Running', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'dep-2' }, computed: { health: 'warning', replicas: { desired: 2, ready: 1, available: 1 }, cpuUsage: 78 } }),
-    n({ id: 'ReplicaSet/demo/web-rs', kind: 'ReplicaSet', namespace: 'demo', name: 'web-rs-abc', apiVersion: 'apps/v1', status: 'Running', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'rs-1' }, computed: { health: 'healthy', replicas: { desired: 3, ready: 3, available: 3 } } }),
-    n({ id: 'Pod/demo/web-1', kind: 'Pod', namespace: 'demo', name: 'web-abc-1', apiVersion: 'v1', status: 'Running', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'pod-1' }, computed: { health: 'healthy', restartCount: 0, cpuUsage: 12 } }),
-    n({ id: 'Pod/demo/web-2', kind: 'Pod', namespace: 'demo', name: 'web-abc-2', apiVersion: 'v1', status: 'Running', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'pod-2' }, computed: { health: 'healthy', restartCount: 0, cpuUsage: 18 } }),
-    n({ id: 'Pod/demo/web-3', kind: 'Pod', namespace: 'demo', name: 'web-abc-3', apiVersion: 'v1', status: 'Running', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'pod-3' }, computed: { health: 'warning', restartCount: 5, cpuUsage: 62 } }),
-    n({ id: 'Pod/demo/api-1', kind: 'Pod', namespace: 'demo', name: 'api-xyz-1', apiVersion: 'v1', status: 'Running', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'pod-4' }, computed: { health: 'healthy', restartCount: 1, cpuUsage: 34 } }),
-    n({ id: 'ConfigMap/demo/web-config', kind: 'ConfigMap', namespace: 'demo', name: 'web-config', apiVersion: 'v1', status: 'Running', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'cm-1' }, computed: { health: 'healthy' } }),
-    n({ id: 'Secret/demo/api-secrets', kind: 'Secret', namespace: 'demo', name: 'api-secrets', apiVersion: 'v1', status: 'Running', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'sec-1' }, computed: { health: 'healthy' } }),
-    n({ id: 'PersistentVolumeClaim/demo/data', kind: 'PersistentVolumeClaim', namespace: 'demo', name: 'data-pvc', apiVersion: 'v1', status: 'Bound', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'pvc-1' }, computed: { health: 'healthy' } }),
-    n({ id: 'ServiceAccount/demo/web-sa', kind: 'ServiceAccount', namespace: 'demo', name: 'web-sa', apiVersion: 'v1', status: 'Running', metadata: { labels: {}, annotations: {}, createdAt: '2024-01-01', uid: 'sa-1' }, computed: { health: 'healthy' } }),
-  ],
-  edges: [
-    { id: 'e1', source: 'Ingress/demo/main', target: 'Service/demo/web', relationshipType: 'routes', label: 'routes', metadata: { derivation: 'fieldReference', confidence: 1, sourceField: 'spec.rules' } },
-    { id: 'e2', source: 'Ingress/demo/main', target: 'Service/demo/api', relationshipType: 'routes', label: 'routes', metadata: { derivation: 'fieldReference', confidence: 1, sourceField: 'spec.rules' } },
-    { id: 'e3', source: 'Service/demo/web', target: 'Pod/demo/web-1', relationshipType: 'selects', label: 'selects', metadata: { derivation: 'labelSelector', confidence: 1, sourceField: 'spec.selector' } },
-    { id: 'e4', source: 'Service/demo/web', target: 'Pod/demo/web-2', relationshipType: 'selects', label: 'selects', metadata: { derivation: 'labelSelector', confidence: 1, sourceField: 'spec.selector' } },
-    { id: 'e5', source: 'Service/demo/web', target: 'Pod/demo/web-3', relationshipType: 'selects', label: 'selects', metadata: { derivation: 'labelSelector', confidence: 1, sourceField: 'spec.selector' } },
-    { id: 'e6', source: 'Service/demo/api', target: 'Pod/demo/api-1', relationshipType: 'selects', label: 'selects', metadata: { derivation: 'labelSelector', confidence: 1, sourceField: 'spec.selector' } },
-    { id: 'e7', source: 'Deployment/demo/web', target: 'ReplicaSet/demo/web-rs', relationshipType: 'owns', label: 'owns', metadata: { derivation: 'ownerReference', confidence: 1, sourceField: 'metadata.ownerReferences' } },
-    { id: 'e8', source: 'ReplicaSet/demo/web-rs', target: 'Pod/demo/web-1', relationshipType: 'owns', label: 'owns', metadata: { derivation: 'ownerReference', confidence: 1, sourceField: 'metadata.ownerReferences' } },
-    { id: 'e9', source: 'ReplicaSet/demo/web-rs', target: 'Pod/demo/web-2', relationshipType: 'owns', label: 'owns', metadata: { derivation: 'ownerReference', confidence: 1, sourceField: 'metadata.ownerReferences' } },
-    { id: 'e10', source: 'ReplicaSet/demo/web-rs', target: 'Pod/demo/web-3', relationshipType: 'owns', label: 'owns', metadata: { derivation: 'ownerReference', confidence: 1, sourceField: 'metadata.ownerReferences' } },
-    { id: 'e11', source: 'Deployment/demo/api', target: 'Pod/demo/api-1', relationshipType: 'owns', label: 'owns', metadata: { derivation: 'ownerReference', confidence: 1, sourceField: 'metadata.ownerReferences' } },
-    { id: 'e12', source: 'Pod/demo/web-1', target: 'Node/worker-1', relationshipType: 'scheduled_on', label: 'runs on', metadata: { derivation: 'fieldReference', confidence: 1, sourceField: 'spec.nodeName' } },
-    { id: 'e13', source: 'Pod/demo/web-2', target: 'Node/worker-1', relationshipType: 'scheduled_on', label: 'runs on', metadata: { derivation: 'fieldReference', confidence: 1, sourceField: 'spec.nodeName' } },
-    { id: 'e14', source: 'Pod/demo/web-3', target: 'Node/worker-1', relationshipType: 'scheduled_on', label: 'runs on', metadata: { derivation: 'fieldReference', confidence: 1, sourceField: 'spec.nodeName' } },
-    { id: 'e15', source: 'Pod/demo/api-1', target: 'Node/worker-1', relationshipType: 'scheduled_on', label: 'runs on', metadata: { derivation: 'fieldReference', confidence: 1, sourceField: 'spec.nodeName' } },
-    { id: 'e16', source: 'Deployment/demo/web', target: 'ConfigMap/demo/web-config', relationshipType: 'references', label: 'uses config', metadata: { derivation: 'envReference', confidence: 1, sourceField: 'spec.template.spec.volumes' } },
-    { id: 'e17', source: 'Deployment/demo/api', target: 'Secret/demo/api-secrets', relationshipType: 'references', label: 'uses secret', metadata: { derivation: 'envReference', confidence: 1, sourceField: 'spec.template.spec.containers[].envFrom' } },
-    { id: 'e18', source: 'Pod/demo/web-1', target: 'PersistentVolumeClaim/demo/data', relationshipType: 'mounts', label: 'mounts', metadata: { derivation: 'volumeMount', confidence: 1, sourceField: 'spec.volumes' } },
-    { id: 'e19', source: 'Pod/demo/web-1', target: 'ServiceAccount/demo/web-sa', relationshipType: 'references', label: 'uses SA', metadata: { derivation: 'fieldReference', confidence: 1, sourceField: 'spec.serviceAccountName' } },
-  ],
+  nodes: [],
+  edges: [],
   metadata: {
-    clusterId: 'docker-desktop',
+    clusterId: '',
     generatedAt: new Date().toISOString(),
     layoutSeed: 'deterministic',
     isComplete: true,
@@ -1350,7 +1308,7 @@ function TopologyV1() {
   const availableNamespaces = useMemo(() => {
     if (clusterNamespaces?.length) return [...clusterNamespaces].sort();
     const ns = new Set<string>();
-    (clusterGraph ?? mockGraph).nodes.forEach(n => { if (n.namespace) ns.add(n.namespace); });
+    (clusterGraph ?? emptyGraph).nodes.forEach(n => { if (n.namespace) ns.add(n.namespace); });
     return Array.from(ns).sort();
   }, [clusterNamespaces, clusterGraph]);
 
@@ -1361,7 +1319,7 @@ function TopologyV1() {
     [perfTestNodes]
   );
 
-  const displayGraph = perfTestGraph ?? clusterGraph ?? mockGraph;
+  const displayGraph = perfTestGraph ?? clusterGraph ?? emptyGraph;
   const isLiveData = !!clusterGraph;
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -1488,7 +1446,7 @@ function TopologyV1() {
       {topologyError && (
         <Alert variant="destructive" className="flex-shrink-0 py-2">
           <AlertDescription className="text-xs">
-            Failed to load: {topologyError.message}. Showing demo data.
+            Failed to load topology: {topologyError.message}
           </AlertDescription>
         </Alert>
       )}

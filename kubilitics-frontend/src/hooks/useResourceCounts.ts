@@ -7,7 +7,7 @@
  * - When only direct K8s is connected (no backend): fall back to individual list
  *   queries, but only for the handful of resource types shown in the sidebar nav,
  *   and only with limit:100 (counts don't need full data).
- * - When disconnected: show mock counts (demo/onboarding).
+ * - When disconnected: show zero counts.
  */
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { useK8sResourceList, type KubernetesResource } from './useKubernetes';
@@ -15,54 +15,54 @@ import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useClusterSummaryWithProject } from '@/hooks/useClusterSummary';
 import { useMemo, useRef } from 'react';
 
-// Mock counts for demo mode
-const mockCounts: Record<string, number> = {
-  pods: 54,
-  deployments: 18,
-  replicasets: 22,
-  statefulsets: 2,
-  daemonsets: 3,
-  jobs: 1614,
-  cronjobs: 8,
+// Zero counts returned when disconnected (no fake data)
+const zeroCounts: ResourceCounts = {
+  pods: 0,
+  deployments: 0,
+  replicasets: 0,
+  statefulsets: 0,
+  daemonsets: 0,
+  jobs: 0,
+  cronjobs: 0,
   podtemplates: 0,
   controllerrevisions: 0,
   resourceslices: 0,
   deviceclasses: 0,
   ipaddresspools: 0,
   bgppeers: 0,
-  services: 15,
-  ingresses: 5,
-  ingressclasses: 2,
-  endpoints: 15,
-  endpointslices: 15,
-  networkpolicies: 7,
-  configmaps: 34,
-  secrets: 3,
-  persistentvolumes: 3,
-  persistentvolumeclaims: 4,
-  storageclasses: 2,
-  volumeattachments: 3,
+  services: 0,
+  ingresses: 0,
+  ingressclasses: 0,
+  endpoints: 0,
+  endpointslices: 0,
+  networkpolicies: 0,
+  configmaps: 0,
+  secrets: 0,
+  persistentvolumes: 0,
+  persistentvolumeclaims: 0,
+  storageclasses: 0,
+  volumeattachments: 0,
   volumesnapshots: 0,
   volumesnapshotclasses: 0,
   volumesnapshotcontents: 0,
-  nodes: 3,
-  namespaces: 22,
-  apiservices: 27,
-  leases: 7,
-  serviceaccounts: 63,
-  roles: 14,
-  clusterroles: 70,
-  rolebindings: 14,
-  clusterrolebindings: 56,
-  priorityclasses: 2,
-  resourcequotas: 2,
-  limitranges: 2,
-  horizontalpodautoscalers: 4,
-  verticalpodautoscalers: 10,
-  poddisruptionbudgets: 2,
-  customresourcedefinitions: 7,
-  mutatingwebhookconfigurations: 5,
-  validatingwebhookconfigurations: 2,
+  nodes: 0,
+  namespaces: 0,
+  apiservices: 0,
+  leases: 0,
+  serviceaccounts: 0,
+  roles: 0,
+  clusterroles: 0,
+  rolebindings: 0,
+  clusterrolebindings: 0,
+  priorityclasses: 0,
+  resourcequotas: 0,
+  limitranges: 0,
+  horizontalpodautoscalers: 0,
+  verticalpodautoscalers: 0,
+  poddisruptionbudgets: 0,
+  customresourcedefinitions: 0,
+  mutatingwebhookconfigurations: 0,
+  validatingwebhookconfigurations: 0,
 };
 
 export interface ResourceCounts {
@@ -209,8 +209,8 @@ export function useResourceCounts(): { counts: ResourceCounts; isLoading: boolea
 
   const counts = useMemo<ResourceCounts>(() => {
     if (!isConnected) {
-      // Prefer last-cached real counts over hardcoded mocks
-      return lastRealCountsRef.current ?? ({ ...mockCounts } as unknown as ResourceCounts);
+      // Prefer last-cached real counts; otherwise show zeros (not fake data)
+      return lastRealCountsRef.current ?? zeroCounts;
     }
 
     if (isBackendConfigured() && summaryQuery.data) {
@@ -424,7 +424,7 @@ function useResourceCount(resourceType: keyof ResourceCounts) {
   );
 
   return {
-    count: isConnected ? (data?.items?.length ?? 0) : (mockCounts[resourceType] ?? 0),
+    count: isConnected ? (data?.items?.length ?? 0) : 0,
     isLoading: isConnected && isLoading && isPlaceholderData === false,
     isInitialLoad: isConnected && isLoading && isPlaceholderData === false && !data,
     isConnected,
