@@ -40,7 +40,6 @@ import { cn } from '@/lib/utils';
 import { parseLogLine, detectLevel, type LogEntry } from '@/lib/logParser';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
-import { useKubernetesConfigStore } from '@/stores/kubernetesConfigStore';
 import { useActiveClusterId } from '@/hooks/useActiveClusterId';
 import { getPodLogsUrl } from '@/services/backendApiClient';
 import { useTheme } from '@/hooks/useTheme';
@@ -499,7 +498,7 @@ function usePodLogStream(
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
   const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
   const clusterId = useActiveClusterId();
-  const { config } = useKubernetesConfigStore();
+  const { isConnected } = useConnectionStatus();
   const useBackend = isBackendConfigured() && !!clusterId;
   const abortRef = useRef<AbortController | null>(null);
   const activeRef = useRef(false);
@@ -507,7 +506,7 @@ function usePodLogStream(
   useEffect(() => {
     if (!enabled || !pod.name || !pod.namespace) return;
     // Need either backend or direct K8s connection
-    if (!useBackend && !config.isConnected) return;
+    if (!useBackend && !isConnected) return;
 
     // Abort previous stream
     if (abortRef.current) abortRef.current.abort();
@@ -515,27 +514,19 @@ function usePodLogStream(
     abortRef.current = controller;
     activeRef.current = true;
 
-    // Build log URL: backend mode or direct K8s proxy mode
-    let url: string;
-    let headers: Record<string, string> = {};
-    if (useBackend && clusterId) {
-      url = getPodLogsUrl(backendBaseUrl, clusterId, pod.namespace, pod.name, {
-        container,
-        tail: tailLines,
-        follow,
-      });
-    } else {
-      const params = new URLSearchParams();
-      if (container) params.set('container', container);
-      if (tailLines) params.set('tailLines', String(tailLines));
-      if (follow) params.set('follow', 'true');
-      url = `${config.apiUrl}/api/v1/namespaces/${pod.namespace}/pods/${pod.name}/log?${params.toString()}`;
-      if (config.token) headers = { Authorization: `Bearer ${config.token}` };
-    }
+    // Build log URL — always use backend getPodLogsUrl when available,
+    // otherwise construct direct K8s proxy URL from backendBaseUrl
+    const url = (useBackend && clusterId)
+      ? getPodLogsUrl(backendBaseUrl, clusterId, pod.namespace, pod.name, {
+          container,
+          tail: tailLines,
+          follow,
+        })
+      : `${backendBaseUrl}/api/v1/clusters/${clusterId || 'default'}/pods/${pod.namespace}/${pod.name}/logs?container=${container || ''}&tail=${tailLines}&follow=${follow}`;
 
     (async () => {
       try {
-        const response = await fetch(url, { signal: controller.signal, headers });
+        const response = await fetch(url, { signal: controller.signal });
         if (!response.ok) {
           console.warn(`[MultiPodLogViewer] Log fetch failed for ${pod.name}: ${response.status} ${response.statusText}`);
           return;
@@ -596,7 +587,7 @@ function usePodLogStream(
       controller.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, useBackend, clusterId, config.isConnected, config.apiUrl, pod.name, pod.namespace, container, tailLines, follow]);
+  }, [enabled, useBackend, clusterId, isConnected, backendBaseUrl, pod.name, pod.namespace, container, tailLines, follow]);
 }
 
 // ─── MultiPodLogViewer ─────────────────────────────────────────────────────────
