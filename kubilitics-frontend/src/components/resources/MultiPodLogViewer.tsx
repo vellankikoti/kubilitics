@@ -504,7 +504,6 @@ function usePodLogStream(
   const activeRef = useRef(false);
 
   useEffect(() => {
-    console.log('[MultiPodLog]', { enabled, useBackend, isConnected, clusterId, backendBaseUrl, podName: pod.name, podNs: pod.namespace, container });
     if (!enabled || !pod.name || !pod.namespace) return;
     // Need either backend or direct K8s connection
     if (!useBackend && !isConnected) return;
@@ -515,22 +514,39 @@ function usePodLogStream(
     abortRef.current = controller;
     activeRef.current = true;
 
-    // Build log URL — always use backend getPodLogsUrl when available,
-    // otherwise construct direct K8s proxy URL from backendBaseUrl
-    const url = (useBackend && clusterId)
-      ? getPodLogsUrl(backendBaseUrl, clusterId, pod.namespace, pod.name, {
-          container,
-          tail: tailLines,
-          follow,
-        })
-      : `${backendBaseUrl}/api/v1/clusters/${clusterId || 'default'}/pods/${pod.namespace}/${pod.name}/logs?container=${container || ''}&tail=${tailLines}&follow=${follow}`;
+    // Always use getPodLogsUrl (works with both backend and proxy modes)
+    const url = getPodLogsUrl(backendBaseUrl, clusterId || '', pod.namespace, pod.name, {
+      container,
+      tail: tailLines,
+      follow: false, // First fetch historical logs without follow
+    });
+    const followUrl = follow ? getPodLogsUrl(backendBaseUrl, clusterId || '', pod.namespace, pod.name, {
+      container,
+      tail: 1,
+      follow: true,
+    }) : null;
 
-    console.log('[MultiPodLog] Fetching:', url);
     (async () => {
       try {
-        const response = await fetch(url, { signal: controller.signal });
+        // Step 1: Fetch historical logs (non-streaming)
+        const histResponse = await fetch(url, { signal: controller.signal });
+        if (histResponse.ok) {
+          const text = await histResponse.text();
+          if (text.trim()) {
+            const histLines = text.split('\n').filter((l: string) => l.trim());
+            const entries: MultiLogEntry[] = histLines.map((line: string) => {
+              const parsed = parseLogLine(line);
+              return { ...parsed, podName: pod.name, containerName: container, podIndex, seq: seqRef.current++ };
+            });
+            if (entries.length > 0) onLines(entries);
+          }
+        }
+
+        // Step 2: If follow mode, start streaming for new logs
+        if (!followUrl || !activeRef.current) return;
+        const response = await fetch(followUrl, { signal: controller.signal });
         if (!response.ok) {
-          console.warn(`[MultiPodLogViewer] Log fetch failed for ${pod.name}: ${response.status} ${response.statusText}`);
+          console.warn(`[MultiPodLogViewer] Follow stream failed for ${pod.name}: ${response.status}`);
           return;
         }
         if (!response.body) return;
