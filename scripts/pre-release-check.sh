@@ -41,12 +41,14 @@ TAURI_VERSION=$(jq -r '.version' kubilitics-desktop/src-tauri/tauri.conf.json)
 CARGO_VERSION=$(grep '^version' kubilitics-desktop/src-tauri/Cargo.toml | head -1 | sed 's/.*"\(.*\)".*/\1/')
 CHART_VERSION=$(grep '^version:' deploy/helm/kubilitics/Chart.yaml | awk '{print $2}')
 APP_VERSION=$(grep '^appVersion:' deploy/helm/kubilitics/Chart.yaml | sed 's/appVersion: *"\(.*\)"/\1/')
+IMAGE_TAG=$(grep '  tag:' deploy/helm/kubilitics/values.yaml | head -1 | sed 's/.*"\(.*\)".*/\1/')
 
 echo "  frontend/package.json:  $FRONTEND_VERSION"
 echo "  tauri.conf.json:        $TAURI_VERSION"
 echo "  Cargo.toml:             $CARGO_VERSION"
 echo "  Chart.yaml version:     $CHART_VERSION"
 echo "  Chart.yaml appVersion:  $APP_VERSION"
+echo "  values.yaml image.tag:  $IMAGE_TAG"
 
 if [ -n "$EXPECTED_VERSION" ]; then
   REF_VERSION="$EXPECTED_VERSION"
@@ -56,7 +58,7 @@ else
 fi
 
 ALL_MATCH=true
-for V in "$FRONTEND_VERSION" "$TAURI_VERSION" "$CARGO_VERSION" "$CHART_VERSION" "$APP_VERSION"; do
+for V in "$FRONTEND_VERSION" "$TAURI_VERSION" "$CARGO_VERSION" "$CHART_VERSION" "$APP_VERSION" "$IMAGE_TAG"; do
   if [ "$V" != "$REF_VERSION" ]; then
     ALL_MATCH=false
   fi

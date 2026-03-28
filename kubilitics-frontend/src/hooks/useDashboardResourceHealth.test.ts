@@ -29,7 +29,7 @@ vi.mock('./useConnectionStatus', () => ({
 }));
 
 vi.mock('@/stores/backendConfigStore', () => ({
-  useBackendConfigStore: (selector: (s: any) => any) => {
+  useBackendConfigStore: (selector: (s: Record<string, unknown>) => unknown) => {
     // The hook calls useBackendConfigStore(s => s.currentClusterId)
     return selector({ currentClusterId: 'cluster-1' });
   },
@@ -44,15 +44,15 @@ import { useDashboardResourceHealth, type ResourceHealthSummary } from './useDas
  * nodes, pods, deployments, services, daemonsets, namespaces, configmaps, secrets, cronjobs
  */
 type ResourceDataMap = {
-  nodes?: any;
-  pods?: any;
-  deployments?: any;
-  services?: any;
-  daemonsets?: any;
-  namespaces?: any;
-  configmaps?: any;
-  secrets?: any;
-  cronjobs?: any;
+  nodes?: Record<string, unknown>[];
+  pods?: Record<string, unknown>[];
+  deployments?: Record<string, unknown>[];
+  services?: Record<string, unknown>[];
+  daemonsets?: Record<string, unknown>[];
+  namespaces?: Record<string, unknown>[];
+  configmaps?: Record<string, unknown>[];
+  secrets?: Record<string, unknown>[];
+  cronjobs?: Record<string, unknown>[];
 };
 
 const RESOURCE_ORDER = [

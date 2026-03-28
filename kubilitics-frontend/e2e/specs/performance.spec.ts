@@ -25,7 +25,7 @@ test.describe('Performance & Stability Validation', () => {
                 // Timeout after 10s if no paint
                 setTimeout(() => resolve(null), 10000);
             });
-        }) as any;
+        }) as PerformanceEntry | null;
 
         expect(fcpEntry).toBeTruthy();
         expect(fcpEntry.startTime).toBeLessThan(2000); // Target < 2s
@@ -45,7 +45,7 @@ test.describe('Performance & Stability Validation', () => {
         }
         // expect(accessibilityScanResults.violations).toEqual([]); // Uncomment to enforce
 
-        const startMemory = await page.evaluate(() => (performance as any).memory?.usedJSHeapSize);
+        const startMemory = await page.evaluate(() => (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize);
 
         for (let i = 0; i < 5; i++) {
             await page.goto('/pods');
@@ -54,7 +54,7 @@ test.describe('Performance & Stability Validation', () => {
             await page.waitForTimeout(500);
         }
 
-        const endMemory = await page.evaluate(() => (performance as any).memory?.usedJSHeapSize);
+        const endMemory = await page.evaluate(() => (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize);
         if (startMemory && endMemory) {
             const growth = (endMemory - startMemory) / 1024 / 1024;
             console.log(`Memory growth after 5 navigations: ${growth.toFixed(2)} MB`);

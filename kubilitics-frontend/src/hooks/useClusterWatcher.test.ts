@@ -15,14 +15,14 @@ const mockAddNotification = vi.fn();
 let mockClusterId: string | null = 'test-cluster';
 
 // State that tracks query data and a setState function to trigger re-renders
-let setQueryData: ((d: any) => void) | null = null;
+let setQueryData: ((d: unknown) => void) | null = null;
 
 vi.mock('@/hooks/useActiveClusterId', () => ({
   useActiveClusterId: () => mockClusterId,
 }));
 
 vi.mock('@/stores/backendConfigStore', () => ({
-  useBackendConfigStore: (selector: any) => {
+  useBackendConfigStore: (selector: (s: Record<string, unknown>) => unknown) => {
     const state = {
       backendBaseUrl: 'http://localhost:8190',
       isBackendConfigured: () => true,
@@ -33,7 +33,7 @@ vi.mock('@/stores/backendConfigStore', () => ({
 }));
 
 vi.mock('@/stores/notificationStore', () => ({
-  useNotificationStore: (selector: any) => {
+  useNotificationStore: (selector: (s: Record<string, unknown>) => unknown) => {
     const state = { addNotification: mockAddNotification };
     return selector(state);
   },
@@ -47,7 +47,7 @@ vi.mock('@/services/backendApiClient', () => ({
 // and the useEffect in useClusterWatcher fires with the new data reference.
 vi.mock('@tanstack/react-query', () => ({
   useQuery: () => {
-    const [data, _setData] = React.useState<any>(null);
+    const [data, _setData] = React.useState<unknown>(null);
     // Expose the setter so the test can trigger data changes
     setQueryData = _setData;
     return { data };
@@ -59,9 +59,9 @@ import { useClusterWatcher } from './useClusterWatcher';
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function makePod(name: string, ns: string, waitingReason?: string, terminatedReason?: string) {
-  const cs: any[] = [];
+  const cs: { state: { waiting?: { reason: string }; terminated?: { reason: string } } }[] = [];
   if (waitingReason || terminatedReason) {
-    const s: any = { state: {} };
+    const s: { state: { waiting?: { reason: string }; terminated?: { reason: string } } } = { state: {} };
     if (waitingReason) s.state.waiting = { reason: waitingReason };
     if (terminatedReason) s.state.terminated = { reason: terminatedReason };
     cs.push(s);
@@ -80,7 +80,7 @@ function makeDeployment(name: string, ns: string, desired: number, available: nu
   };
 }
 
-function makeData(overrides: { pods?: any[]; deployments?: any[]; nodes?: any[]; hpas?: any[] } = {}) {
+function makeData(overrides: { pods?: Record<string, unknown>[]; deployments?: Record<string, unknown>[]; nodes?: Record<string, unknown>[]; hpas?: Record<string, unknown>[] } = {}) {
   return {
     pods: overrides.pods ?? [],
     deployments: overrides.deployments ?? [],

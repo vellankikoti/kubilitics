@@ -8,7 +8,7 @@
  * Returns segmented data for health bars + status labels.
  */
 import { useMemo } from 'react';
-import { useK8sResourceList, type KubernetesResource } from './useKubernetes';
+import { useK8sResourceList, type KubernetesResource, type ResourceList } from './useKubernetes';
 import { useClusterOverview } from './useClusterOverview';
 import { useBackendConfigStore } from '@/stores/backendConfigStore';
 import { useConnectionStatus } from './useConnectionStatus';
@@ -28,7 +28,7 @@ export interface ResourceHealthSummary {
 const QUERY_OPTS = {
   refetchInterval: false as const,
   staleTime: 30_000,
-  placeholderData: (prev: any) => prev,
+  placeholderData: (prev: ResourceList<KubernetesResource> | undefined) => prev,
   limit: 500,
 };
 
@@ -61,8 +61,8 @@ export function useDashboardResourceHealth() {
     if (nodes.data?.items) {
       const items = nodes.data.items;
       const ready = items.filter((n) => {
-        const conditions = (n.status as any)?.conditions as any[] | undefined;
-        return conditions?.some((c: any) => c.type === 'Ready' && c.status === 'True');
+        const conditions = n.status?.conditions as Array<{ type: string; status: string }> | undefined;
+        return conditions?.some((c) => c.type === 'Ready' && c.status === 'True');
       }).length;
       result.nodes = {
         total: items.length,
@@ -87,7 +87,7 @@ export function useDashboardResourceHealth() {
       };
     } else if (pods.data?.items) {
       const items = pods.data.items;
-      const phase = (p: string) => items.filter((i) => (i.status as any)?.phase === p).length;
+      const phase = (p: string) => items.filter((i) => i.status?.phase === p).length;
       const running = phase('Running'), succeeded = phase('Succeeded'), pending = phase('Pending');
       result.pods = {
         total: items.length,
@@ -104,12 +104,12 @@ export function useDashboardResourceHealth() {
     if (deployments.data?.items) {
       const items = deployments.data.items;
       const available = items.filter((d) => {
-        const s = d.status as any;
-        return s?.availableReplicas > 0 && s?.availableReplicas >= (s?.replicas ?? 0);
+        const s = d.status;
+        return (s?.availableReplicas as number) > 0 && (s?.availableReplicas as number) >= ((s?.replicas as number) ?? 0);
       }).length;
       const progressing = items.filter((d) => {
-        const s = d.status as any;
-        return s?.availableReplicas > 0 && s?.availableReplicas < (s?.replicas ?? 0);
+        const s = d.status;
+        return (s?.availableReplicas as number) > 0 && (s?.availableReplicas as number) < ((s?.replicas as number) ?? 0);
       }).length;
       result.deployments = {
         total: items.length,
@@ -124,7 +124,7 @@ export function useDashboardResourceHealth() {
     // ── Services ─────────────────────────────────────
     if (services.data?.items) {
       const items = services.data.items;
-      const byType = (t: string) => items.filter((s) => (s.spec as any)?.type === t).length;
+      const byType = (t: string) => items.filter((s) => s.spec?.type === t).length;
       const cip = byType('ClusterIP'), np = byType('NodePort'), lb = byType('LoadBalancer');
       result.services = {
         total: items.length,
@@ -141,8 +141,8 @@ export function useDashboardResourceHealth() {
     if (daemonsets.data?.items) {
       const items = daemonsets.data.items;
       const ready = items.filter((d) => {
-        const s = d.status as any;
-        return (s?.numberReady ?? 0) >= (s?.desiredNumberScheduled ?? 0) && (s?.desiredNumberScheduled ?? 0) > 0;
+        const s = d.status;
+        return ((s?.numberReady as number) ?? 0) >= ((s?.desiredNumberScheduled as number) ?? 0) && ((s?.desiredNumberScheduled as number) ?? 0) > 0;
       }).length;
       result.daemonsets = {
         total: items.length,
@@ -156,7 +156,7 @@ export function useDashboardResourceHealth() {
     // ── Namespaces ───────────────────────────────────
     if (namespaces.data?.items) {
       const items = namespaces.data.items;
-      const active = items.filter((n) => (n.status as any)?.phase === 'Active').length;
+      const active = items.filter((n) => n.status?.phase === 'Active').length;
       result.namespaces = {
         total: items.length,
         segments: compact([
@@ -184,11 +184,11 @@ export function useDashboardResourceHealth() {
     // ── Secrets — type distribution ──────────────────
     if (secrets.data?.items) {
       const items = secrets.data.items;
-      const byType = (t: string) => items.filter((s) => (s as any).type === t).length;
+      const byType = (t: string) => items.filter((s) => (s as Record<string, unknown>).type === t).length;
       const opaque = byType('Opaque');
       const tls = byType('kubernetes.io/tls');
       const sa = byType('kubernetes.io/service-account-token');
-      const dockercfg = items.filter((s) => ((s as any).type ?? '').includes('dockerc')).length;
+      const dockercfg = items.filter((s) => (((s as Record<string, unknown>).type as string) ?? '').includes('dockerc')).length;
       result.secrets = {
         total: items.length,
         segments: compact([
@@ -204,7 +204,7 @@ export function useDashboardResourceHealth() {
     // ── CronJobs ─────────────────────────────────────
     if (cronjobs.data?.items) {
       const items = cronjobs.data.items;
-      const suspended = items.filter((cj) => (cj.spec as any)?.suspend === true).length;
+      const suspended = items.filter((cj) => cj.spec?.suspend === true).length;
       result.cronjobs = {
         total: items.length,
         segments: compact([

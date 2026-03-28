@@ -9,6 +9,7 @@ import (
 )
 
 type Config struct {
+	BindAddress         string   `mapstructure:"bind_address"`            // Listen address: 127.0.0.1 (desktop default) or 0.0.0.0 (in-cluster)
 	Port                int      `mapstructure:"port"`
 	DatabasePath        string   `mapstructure:"database_path"`
 	LogLevel            string   `mapstructure:"log_level"`   // debug | info | warn | error
@@ -105,6 +106,7 @@ func Load() (*Config, error) {
 	viper.AddConfigPath(".")
 
 	// Defaults
+	viper.SetDefault("bind_address", "127.0.0.1") // Loopback only — safe for desktop. In-cluster deployments set KUBILITICS_BIND_ADDRESS=0.0.0.0
 	viper.SetDefault("port", 8190)
 	viper.SetDefault("database_path", "./kubilitics.db")
 	viper.SetDefault("log_level", "info")

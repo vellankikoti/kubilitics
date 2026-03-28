@@ -19,6 +19,8 @@ env:
   # Keep in sync with backend-ci.yml — includes security patch fixes
   GO_VERSION: '1.25.8'
   PLATFORMS: linux/amd64,linux/arm64
+  # Pin kcli to a specific tag — prevents uncontrolled HEAD from breaking releases
+  KCLI_VERSION: 'v0.1.0'
 
 jobs:
   # ──────────────────────────────────────────────────────────────────────────
@@ -52,8 +54,11 @@ jobs:
           echo "  deploy/helm/kubilitics/Chart.yaml version:    $CHART_VERSION"
           echo "  deploy/helm/kubilitics/Chart.yaml appVersion: $APP_VERSION"
 
+          IMAGE_TAG=$(grep '  tag:' deploy/helm/kubilitics/values.yaml | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "  deploy/helm/kubilitics/values.yaml image.tag: $IMAGE_TAG"
+
           ERRORS=0
-          for FILE_VERSION in "$FRONTEND_VERSION" "$TAURI_VERSION" "$CARGO_VERSION" "$CHART_VERSION" "$APP_VERSION"; do
+          for FILE_VERSION in "$FRONTEND_VERSION" "$TAURI_VERSION" "$CARGO_VERSION" "$CHART_VERSION" "$APP_VERSION" "$IMAGE_TAG"; do
             if [ "$FILE_VERSION" != "$TAG_VERSION" ]; then
               echo "MISMATCH: expected $TAG_VERSION but found $FILE_VERSION"
               ERRORS=$((ERRORS + 1))
@@ -67,6 +72,26 @@ jobs:
             exit 1
           fi
           echo "All version files match v$TAG_VERSION"
+
+      - name: Verify CI passed on this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMIT_SHA=$(git rev-parse HEAD)
+          echo "Checking CI status for commit $COMMIT_SHA..."
+
+          # Get check runs for this commit
+          FAILED=$(gh api repos/${{ github.repository }}/commits/${COMMIT_SHA}/check-runs \
+            --jq '[.check_runs[] | select(.conclusion == "failure" or .conclusion == "cancelled")] | length')
+
+          if [ "$FAILED" -gt 0 ]; then
+            echo "FAIL: $FAILED CI check(s) failed or were cancelled on this commit."
+            echo "Fix CI before tagging a release."
+            gh api repos/${{ github.repository }}/commits/${COMMIT_SHA}/check-runs \
+              --jq '.check_runs[] | select(.conclusion == "failure" or .conclusion == "cancelled") | "\(.name): \(.conclusion)"'
+            exit 1
+          fi
+          echo "All CI checks passed on this commit."
 
   # ──────────────────────────────────────────────────────────────────────────
   # Build the frontend dist ONCE (Tauri mode) and share across all desktop
@@ -145,10 +170,13 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/kubilitics-backend:${{ steps.version.outputs.minor }}
             ghcr.io/${{ github.repository_owner }}/kubilitics-backend:${{ steps.version.outputs.major }}
             ghcr.io/${{ github.repository_owner }}/kubilitics-backend:latest
+          build-args: |
+            APP_VERSION=${{ steps.version.outputs.version }}
           platforms: ${{ env.PLATFORMS }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          provenance: false
+          provenance: true
+          sbom: true
 
   # ──────────────────────────────────────────────────────────────────────────
   # Desktop — macOS, Windows, Linux run in PARALLEL (matrix).
@@ -167,8 +195,6 @@ jobs:
     name: Desktop (${{ matrix.name }})
     timeout-minutes: 90
     needs: [frontend-dist]
-    # Allow individual matrix entries to fail without blocking the release job.
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -255,7 +281,7 @@ jobs:
 
       # ── Clone kcli from standalone repo ─────────────────────────────────
       - name: Clone kcli repo
-        run: git clone --depth 1 https://github.com/kubilitics/kubilitics-kcli.git kcli
+        run: git clone --depth 1 --branch ${{ env.KCLI_VERSION }} https://github.com/kubilitics/kubilitics-kcli.git kcli
 
       # ── Embed Windows version resources (reduces AV false positives) ─────
       - name: Embed Windows version resources
@@ -271,10 +297,12 @@ jobs:
         run: |
           BINS="kubilitics-desktop/src-tauri/binaries"
           mkdir -p "$BINS"
+          VERSION=${GITHUB_REF#refs/tags/v}
+          BACKEND_LDFLAGS="-s -w -X github.com/kubilitics/kubilitics-backend/internal/version.Version=${VERSION}"
 
           if [ "${{ matrix.os }}" == "macos-latest" ]; then
-            (cd kubilitics-backend && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "../$BINS/kubilitics-backend-x86_64-apple-darwin"   ./cmd/server) &
-            (cd kubilitics-backend && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "../$BINS/kubilitics-backend-aarch64-apple-darwin"  ./cmd/server) &
+            (cd kubilitics-backend && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="$BACKEND_LDFLAGS" -o "../$BINS/kubilitics-backend-x86_64-apple-darwin"   ./cmd/server) &
+            (cd kubilitics-backend && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="$BACKEND_LDFLAGS" -o "../$BINS/kubilitics-backend-aarch64-apple-darwin"  ./cmd/server) &
             (cd kcli              && CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o "../$BINS/kcli-x86_64-apple-darwin"                  ./cmd/kcli) &
             (cd kcli              && CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o "../$BINS/kcli-aarch64-apple-darwin"                 ./cmd/kcli) &
             wait
@@ -292,14 +320,15 @@ jobs:
             # The ~30% size increase is worth avoiding AV flagging.
             cd kubilitics-backend
             CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
+              -ldflags="-X github.com/kubilitics/kubilitics-backend/internal/version.Version=${VERSION}" \
               -o "../$BINS/kubilitics-backend-x86_64-pc-windows-msvc.exe" ./cmd/server
             cd ../kcli
             CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build \
               -o "../$BINS/kcli-x86_64-pc-windows-msvc.exe" ./cmd/kcli
 
           else
-            (cd kubilitics-backend && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "../$BINS/kubilitics-backend-x86_64-unknown-linux-gnu"   ./cmd/server) &
-            (cd kubilitics-backend && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o "../$BINS/kubilitics-backend-aarch64-unknown-linux-gnu"  ./cmd/server) &
+            (cd kubilitics-backend && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="$BACKEND_LDFLAGS" -o "../$BINS/kubilitics-backend-x86_64-unknown-linux-gnu"   ./cmd/server) &
+            (cd kubilitics-backend && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="$BACKEND_LDFLAGS" -o "../$BINS/kubilitics-backend-aarch64-unknown-linux-gnu"  ./cmd/server) &
             (cd kcli              && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o "../$BINS/kcli-x86_64-unknown-linux-gnu"                  ./cmd/kcli) &
             (cd kcli              && CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o "../$BINS/kcli-aarch64-unknown-linux-gnu"                 ./cmd/kcli) &
             wait
@@ -368,8 +397,6 @@ jobs:
         if: matrix.os == 'macos-latest'
         working-directory: kubilitics-desktop/src-tauri
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           TAURI_SKIP_DEVSERVER_CHECK: "true"
         shell: bash
         run: |
@@ -377,17 +404,9 @@ jobs:
           [ -n "$(ls -A binaries)" ]                    || { echo "❌ binaries missing"; exit 1; }
 
           if [ -n "${{ secrets.APPLE_CERTIFICATE }}" ]; then
-            if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-              CONFIG='{"bundle":{"macOS":{"signingIdentity":"${{ secrets.APPLE_SIGNING_IDENTITY }}"}}}'
-            else
-              CONFIG='{"bundle":{"macOS":{"signingIdentity":"${{ secrets.APPLE_SIGNING_IDENTITY }}"},"createUpdaterArtifacts":false}}'
-            fi
+            CONFIG='{"bundle":{"macOS":{"signingIdentity":"${{ secrets.APPLE_SIGNING_IDENTITY }}"}}}'
           else
-            if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-              CONFIG='{"bundle":{"macOS":{"signingIdentity":null}}}'
-            else
-              CONFIG='{"bundle":{"macOS":{"signingIdentity":null},"createUpdaterArtifacts":false}}'
-            fi
+            CONFIG='{"bundle":{"macOS":{"signingIdentity":null}}}'
           fi
 
           CI=true cargo tauri build --target universal-apple-darwin --bundles app,dmg --config "$CONFIG"
@@ -414,35 +433,21 @@ jobs:
         if: matrix.os == 'windows-latest'
         working-directory: kubilitics-desktop/src-tauri
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           TAURI_SKIP_DEVSERVER_CHECK: "true"
         shell: bash
         run: |
           [ -d "../dist" ] && [ -n "$(ls -A ../dist)" ] || { echo "❌ dist missing"; exit 1; }
-          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            cargo tauri build --target x86_64-pc-windows-msvc --bundles nsis,msi
-          else
-            cargo tauri build --target x86_64-pc-windows-msvc --bundles nsis,msi \
-              --config '{"bundle":{"createUpdaterArtifacts":false}}'
-          fi
+          cargo tauri build --target x86_64-pc-windows-msvc --bundles nsis,msi
 
       - name: Build Tauri app (Linux AppImage + DEB + RPM)
         if: matrix.os == 'ubuntu-latest'
         working-directory: kubilitics-desktop/src-tauri
         env:
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           TAURI_SKIP_DEVSERVER_CHECK: "true"
         shell: bash
         run: |
           [ -d "../dist" ] && [ -n "$(ls -A ../dist)" ] || { echo "❌ dist missing"; exit 1; }
-          if [ -n "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            cargo tauri build --target x86_64-unknown-linux-gnu --bundles appimage,deb,rpm
-          else
-            cargo tauri build --target x86_64-unknown-linux-gnu --bundles appimage,deb,rpm \
-              --config '{"bundle":{"createUpdaterArtifacts":false}}'
-          fi
+          cargo tauri build --target x86_64-unknown-linux-gnu --bundles appimage,deb,rpm
 
       # ── Upload artifacts ─────────────────────────────────────────────────
       - name: Upload desktop artifacts (macOS)
@@ -474,7 +479,6 @@ jobs:
   release:
     name: Create GitHub Release
     needs: [desktop, docker-backend]
-    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -500,17 +504,6 @@ jobs:
             -o -name "*.nsis.zip"    \
           \) -exec cp {} release-assets/ \;
 
-          # ── Updater signature files (if signing is enabled) ──
-          find artifacts -type f \( \
-            -name "*.dmg.sig"        \
-            -o -name "*.AppImage.sig" \
-            -o -name "*.deb.sig"     \
-            -o -name "*.rpm.sig"     \
-            -o -name "*.exe.sig"     \
-            -o -name "*.msi.sig"     \
-            -o -name "*.nsis.zip.sig" \
-          \) -exec cp {} release-assets/ \;
-
           echo "Release assets:"
           ls -lh release-assets/
           echo "Total: $(ls release-assets/ | wc -l) files"
@@ -530,6 +523,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref, '-') }}
           files: release-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

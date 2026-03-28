@@ -148,8 +148,7 @@ function OverviewTab({ resource }: ResourceContext<ClusterRoleResource>) {
 }
 
 function PermissionMatrixTab({ resource }: ResourceContext<ClusterRoleResource>) {
-  const rules = resource?.rules ?? [];
-  const permissionMatrix = useMemo(() => buildPermissionMatrix(rules), [rules]);
+  const permissionMatrix = useMemo(() => buildPermissionMatrix(resource?.rules ?? []), [resource?.rules]);
 
   return (
     <SectionCard icon={List} title="Resources x Verbs">

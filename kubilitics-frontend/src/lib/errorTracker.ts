@@ -97,14 +97,14 @@ class ErrorTrackerService {
 
         // Read the optional remote endpoint from Vite env vars.
         try {
-            this.remoteUrl = (import.meta as any).env?.VITE_ERROR_TRACKING_URL ?? '';
+            this.remoteUrl = (import.meta as unknown as { env?: { VITE_ERROR_TRACKING_URL?: string } }).env?.VITE_ERROR_TRACKING_URL ?? '';
         } catch {
             // import.meta may not exist in test environments; ignore.
             this.remoteUrl = '';
         }
 
         // Expose the ring buffer on the window for debugging / support.
-        (window as any).__kubilitics_errors = this.ringBuffer;
+        (window as unknown as Record<string, unknown>).__kubilitics_errors = this.ringBuffer;
 
         // Global unhandled promise rejection handler
         window.addEventListener('unhandledrejection', (event) => {

@@ -9,6 +9,7 @@ ARG GO_VERSION=1.25.8
 ARG ALPINE_VERSION=3.21
 # Pinned kubectl release — keep aligned with k8s.io/client-go major version in go.mod
 ARG KUBECTL_VERSION=v1.33.3
+ARG APP_VERSION=dev
 
 # ── Stage 1: Builder ──────────────────────────────────────────────────────────
 # CRITICAL: Pin builder to linux/amd64 (the CI runner's native arch).
@@ -42,7 +43,8 @@ COPY . .
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
-    go build -ldflags="-s -w" -o /out/kubilitics-backend ./cmd/server
+    go build -ldflags="-s -w -X github.com/kubilitics/kubilitics-backend/internal/version.Version=${APP_VERSION}" \
+    -o /out/kubilitics-backend ./cmd/server
 
 RUN test -f /out/kubilitics-backend || \
     (echo "ERROR: backend binary not found (TARGETOS=${TARGETOS} TARGETARCH=${TARGETARCH})" && exit 1)

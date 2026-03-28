@@ -36,6 +36,22 @@ import { getEvents, type BackendEvent } from "@/services/backendApiClient";
 import { useK8sResourceList } from "@/hooks/useKubernetes";
 import { getDetailPath } from "@/utils/resourceKindMapper";
 import { cn } from "@/lib/utils";
+import type { KubernetesResource } from "@/hooks/useKubernetes";
+
+/** Shape of a raw Kubernetes Event object from the API. */
+interface K8sEventItem extends KubernetesResource {
+  type?: string;
+  reason?: string;
+  message?: string;
+  count?: number;
+  lastTimestamp?: string;
+  firstTimestamp?: string;
+  involvedObject?: {
+    kind?: string;
+    name?: string;
+    namespace?: string;
+  };
+}
 
 const MAX_EVENTS = 8;
 
@@ -127,7 +143,7 @@ export const RecentActivityPanel = () => {
           : null,
       }));
     } else if (k8sEvents.data?.items) {
-      rawEvents = (k8sEvents.data.items as any[]).map((e, i) => ({
+      rawEvents = (k8sEvents.data.items as K8sEventItem[]).map((e, i) => ({
         id: e.metadata?.uid || `event-${i}`,
         type: (e.type as EventDisplay["type"]) || "Normal",
         reason: e.reason || "Event",

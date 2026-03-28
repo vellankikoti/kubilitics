@@ -251,7 +251,7 @@ export default function ClusterOverview() {
     setTimeout(() => setIsSyncing(false), 1500);
   }, [queryClient]);
 
-  const resources: ClusterResource[] = data?.resources ?? [];
+  const resources = useMemo<ClusterResource[]>(() => data?.resources ?? [], [data?.resources]);
 
   const filteredResources = useMemo(() => {
     if (!searchQuery.trim()) return resources;

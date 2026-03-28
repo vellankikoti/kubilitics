@@ -38,6 +38,7 @@ import {
   TolerationsList,
   type ContainerInfo,
   type ResourceContext,
+  type ResourceStatus,
   type CustomTab,
 } from '@/components/resources';
 import { PodTerminal } from '@/components/resources/PodTerminal';
@@ -126,7 +127,7 @@ interface PodResource extends KubernetesResource {
         requests?: { cpu?: string; memory?: string };
         limits?: { cpu?: string; memory?: string };
       };
-      env?: Array<{ name: string; value?: string; valueFrom?: any }>;
+      env?: Array<{ name: string; value?: string; valueFrom?: Record<string, unknown> }>;
       volumeMounts?: Array<{ name: string; mountPath: string; readOnly?: boolean }>;
       livenessProbe?: Record<string, unknown>;
       readinessProbe?: Record<string, unknown>;
@@ -135,14 +136,14 @@ interface PodResource extends KubernetesResource {
       name: string;
       configMap?: { name: string };
       secret?: { secretName: string };
-      emptyDir?: {};
+      emptyDir?: Record<string, never>;
       persistentVolumeClaim?: { claimName: string };
       projected?: {
         defaultMode?: number;
-        sources?: Array<{ serviceAccountToken?: { audience?: string }; configMap?: { name: string }; downwardAPI?: {} }>;
+        sources?: Array<{ serviceAccountToken?: { audience?: string }; configMap?: { name: string }; downwardAPI?: Record<string, never> }>;
       };
     }>;
-    affinity?: any;
+    affinity?: Record<string, unknown>;
     tolerations?: Array<{ key?: string; operator?: string; value?: string; effect?: string; tolerationSeconds?: number }>;
     nodeSelector?: Record<string, string>;
   };
@@ -607,7 +608,7 @@ export default function PodDetail() {
       resourceIcon={Box}
       loadingCardCount={4}
       customTabs={customTabs}
-      deriveStatus={(pod) => (pod.status?.phase as any) || 'Unknown'}
+      deriveStatus={(pod) => (pod.status?.phase as ResourceStatus) || 'Unknown'}
       headerMetadata={(ctx) => {
         const pod = ctx.resource;
         return (

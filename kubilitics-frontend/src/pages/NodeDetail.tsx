@@ -17,7 +17,7 @@ import {
   type CustomTab,
   type ResourceContext,
 } from '@/components/resources';
-import { DetailPodTable } from '@/components/resources/DetailPodTable';
+import { DetailPodTable, type DetailPod } from '@/components/resources/DetailPodTable';
 import { useK8sResourceList, calculateAge, type KubernetesResource } from '@/hooks/useKubernetes';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useMutationPolling } from '@/hooks/useMutationPolling';
@@ -203,7 +203,7 @@ function OverviewTab({ resource: n, age, isCordoned, handleCordon, runningPods, 
 function PodsTab({ runningPodsRaw, runningPods }: { runningPodsRaw: KubernetesResource[]; runningPods: Array<{ name: string; namespace: string; status: string; cpu: string; memory: string; age: string }> }) {
   return (
     <SectionCard icon={Box} title={`Pods on this node (${runningPods.length})`} tooltip={<p className="text-xs text-muted-foreground">Pods scheduled on this node (fieldSelector=spec.nodeName). Click a row to open pod detail.</p>}>
-      <DetailPodTable pods={runningPodsRaw as any} namespace="" />
+      <DetailPodTable pods={runningPodsRaw as unknown as DetailPod[]} namespace="" />
     </SectionCard>
   );
 }
@@ -291,7 +291,7 @@ export default function NodeDetail() {
     refetchInterval: fastPollInterval,
     staleTime: isFastPolling ? 1000 : 30000,
   });
-  const runningPodsRaw = (isConnected && podsOnNodeQuery.data?.items) ? (podsOnNodeQuery.data.items as KubernetesResource[]) : [];
+  const runningPodsRaw = useMemo(() => (isConnected && podsOnNodeQuery.data?.items) ? (podsOnNodeQuery.data.items as KubernetesResource[]) : [], [isConnected, podsOnNodeQuery.data?.items]);
   const runningPodsBase = useMemo(() => runningPodsRaw.map((p) => {
     const r = p as KubernetesResource & { name?: string; namespace?: string; status?: string };
     const podName = r.metadata?.name ?? r.name ?? '';

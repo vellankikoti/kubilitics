@@ -27,7 +27,7 @@ jobs:
         if: env.HAS_WINGET_TOKEN == 'true'
         with:
           identifier: Kubilitics.Kubilitics
-          installers-regex: 'Kubilitics-.*-x64-setup\.exe$'
+          installers-regex: 'Kubilitics[_-].*x64[-_]setup\.exe$'
           token: ${{ secrets.WINGET_TOKEN }}
 
   # ── Update Homebrew tap for desktop app ─────────────────────────────────

@@ -17,7 +17,7 @@ vi.mock('@/hooks/useTheme', () => ({
 }));
 
 vi.mock('@/stores/backendConfigStore', () => ({
-  useBackendConfigStore: (selector: any) => {
+  useBackendConfigStore: (selector: (s: Record<string, unknown>) => unknown) => {
     const state = {
       backendBaseUrl: 'http://localhost:8190',
       isBackendConfigured: () => true,

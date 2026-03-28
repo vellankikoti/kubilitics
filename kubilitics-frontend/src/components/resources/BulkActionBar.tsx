@@ -426,6 +426,7 @@ export function BulkActionBar({
  * @param onProgress - Optional callback to update external progress state.
  * @returns Array of per-item results.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export async function executeBulkOperation(
   keys: string[],
   operation: (key: string, ns: string, name: string) => Promise<void>,

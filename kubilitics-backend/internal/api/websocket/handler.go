@@ -49,9 +49,17 @@ func NewHandler(ctx context.Context, hub *Hub, informerMgr *k8s.InformerManager,
 			CheckOrigin: func(r *http.Request) bool {
 				origin := r.Header.Get("Origin")
 				if origin == "" {
-					// Some clients don't send Origin header (e.g., native apps)
-					// Allow if auth is disabled or if token is provided
-					return true
+					// No Origin header: allow only if request carries authentication
+					// (API key or Bearer token), which proves it's not a CSRF attack.
+					if r.Header.Get("X-API-Key") != "" || r.Header.Get("Authorization") != "" {
+						return true
+					}
+					// In disabled auth mode, allow native clients without Origin
+					if strings.ToLower(strings.TrimSpace(cfg.AuthMode)) == "disabled" {
+						return true
+					}
+					log.Printf("WebSocket connection rejected: no Origin header and no auth credentials")
+					return false
 				}
 				originLower := strings.ToLower(origin)
 				allowed := originMap[originLower]

@@ -29,7 +29,7 @@ export class ShellPanel extends BasePage {
     async getTerminalText() {
         // Note: Reading xterm.js via DOM is tricky, might need to evaluate in page
         return await this.page.evaluate(() => {
-            const xterm = (window as any).term;
+            const xterm = (window as Record<string, unknown>).term as { buffer: { active: { getLine: (y: number) => { translateToString: () => string } | undefined; cursorY: number } } } | undefined;
             if (xterm) {
                 return xterm.buffer.active.getLine(xterm.buffer.active.cursorY)?.translateToString();
             }

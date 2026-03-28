@@ -3,6 +3,9 @@ import react from "@vitejs/plugin-react-swc";
 import { visualizer } from "rollup-plugin-visualizer";
 import path from "path";
 import { readFileSync } from "fs";
+import type { Server as HttpProxyServer } from "http-proxy";
+import type { IncomingMessage } from "http";
+import type { Socket } from "net";
 
 const pkg = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf-8'));
 
@@ -82,6 +85,7 @@ export default defineConfig(({ mode }) => ({
     include: ['src/**/*.test.{ts,tsx}'],
     exclude: ['e2e/**', 'node_modules/**'],
     environment: 'jsdom',
+    setupFiles: ['./src/test-setup.ts'],
   },
   server: {
     host: "::",
@@ -97,13 +101,13 @@ export default defineConfig(({ mode }) => ({
         target,
         changeOrigin: true,
         ...(path === "/api" ? { ws: true } : {}),
-        configure: (proxy: any) => {
+        configure: (proxy: HttpProxyServer) => {
           // Suppress ECONNREFUSED / EPIPE proxy errors — frontend handles reconnect itself.
           proxy.on("error", () => {});
           // Suppress "ws proxy socket error: write EPIPE" — emitted when the browser
           // closes the WebSocket connection (e.g. navigating away) while the backend is
           // still writing. Harmless in dev; backend sees a closed socket and stops writing.
-          proxy.on("proxyReqWs", (_proxyReq: any, _req: any, socket: any) => {
+          proxy.on("proxyReqWs", (_proxyReq: IncomingMessage, _req: IncomingMessage, socket: Socket) => {
             socket.on("error", () => {});
           });
         },
@@ -111,7 +115,7 @@ export default defineConfig(({ mode }) => ({
       return {
         "/api": proxyOptions("/api"),
         "/health": proxyOptions("/health"),
-        "/ws": { target, changeOrigin: true, ws: true, configure: (proxy: any) => { proxy.on("error", () => {}); } },
+        "/ws": { target, changeOrigin: true, ws: true, configure: (proxy: HttpProxyServer) => { proxy.on("error", () => {}); } },
       };
     })(),
   },

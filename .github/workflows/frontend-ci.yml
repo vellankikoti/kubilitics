@@ -37,10 +37,7 @@ jobs:
 
       - name: NPM audit
         working-directory: kubilitics-frontend
-        # continue-on-error: react-router XSS advisory (GHSA-2w69-qvjg-hvjx) requires
-        # react-router-dom >=7 which is a breaking upgrade. Audit is informational only.
-        continue-on-error: true
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=critical
 
       - name: Run tests
         run: |

@@ -35,7 +35,7 @@ vi.mock('@/hooks/useDashboardResourceHealth', () => ({
 
 // Mock useProjectStore — no active project
 vi.mock('@/stores/projectStore', () => ({
-  useProjectStore: (selector: (s: any) => any) => selector({ activeProject: null }),
+  useProjectStore: (selector: (s: Record<string, unknown>) => unknown) => selector({ activeProject: null }),
 }));
 
 // Mock k8sIconMap — return a placeholder URL for every kind

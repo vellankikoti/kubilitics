@@ -134,6 +134,23 @@ export const useKubeConfigStore = create<KubeConfigStore>()(
     }),
     {
       name: 'kubeconfig-storage',
+      // Version 1: strip rawConfig (tokens, client certs, private keys) from persistence.
+      // The migrate function clears stale credentials from users who ran version 0.
+      version: 1,
+      migrate: (persisted: unknown) => {
+        const state = persisted as Record<string, unknown> | null;
+        if (state && 'rawConfig' in state) {
+          delete state.rawConfig;
+        }
+        return state as ReturnType<typeof Object>;
+      },
+      partialize: (state) => ({
+        // Only persist non-sensitive cluster metadata. rawConfig contains tokens,
+        // client certificates, and private keys — never store credentials in localStorage.
+        parsedClusters: state.parsedClusters,
+        selectedCluster: state.selectedCluster,
+        isAuthenticated: state.isAuthenticated,
+      }),
     }
   )
 );

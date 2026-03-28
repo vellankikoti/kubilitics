@@ -23,7 +23,7 @@ replicaCount: 1
 
 image:
   repository: ghcr.io/kubilitics/kubilitics-backend
-  tag: "0.1.2"
+  tag: "0.1.0"
   pullPolicy: IfNotPresent
 
 nameOverride: ""
@@ -85,6 +85,7 @@ persistence:
 # Config: env vars (prefix KUBILITICS_)
 # See internal/config for all options
 config:
+  bindAddress: "0.0.0.0"  # In-cluster: listen on all interfaces (pod networking requires this)
   port: 8190
   databasePath: "/data/kubilitics.db"
   logLevel: "info"

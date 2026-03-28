@@ -10,7 +10,7 @@
  * - When disconnected: show zero counts.
  */
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
-import { useK8sResourceList, type KubernetesResource } from './useKubernetes';
+import { useK8sResourceList, type KubernetesResource, type ResourceList, type ResourceType } from './useKubernetes';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useClusterSummaryWithProject } from '@/hooks/useClusterSummary';
 import { useMemo, useRef } from 'react';
@@ -119,7 +119,7 @@ export interface ResourceCounts {
 const DIRECT_K8S_QUERY_OPTIONS = {
   refetchInterval: false as const,
   staleTime: 10 * 60 * 1000, // 10 minutes — sidebar counts don't need to be real-time
-  placeholderData: (prev: any) => prev,
+  placeholderData: (prev: ResourceList<KubernetesResource> | undefined) => prev,
   limit: 100,
 };
 
@@ -216,7 +216,7 @@ export function useResourceCounts(): { counts: ResourceCounts; isLoading: boolea
     if (isBackendConfigured && summaryQuery.data) {
       // Use the single summary response for key counts; for the rest, use the fetched counts
       const s = summaryQuery.data;
-      const getCount = (key: keyof ResourceCounts, res: any) => {
+      const getCount = (key: keyof ResourceCounts, data: ResourceList<KubernetesResource> | undefined) => {
         // Map summary keys to ResourceCounts keys
         const summaryMap: Partial<Record<keyof ResourceCounts, keyof typeof s>> = {
           pods: 'pod_count',
@@ -257,118 +257,118 @@ export function useResourceCounts(): { counts: ResourceCounts; isLoading: boolea
         if (summaryKey && s[summaryKey] !== undefined) {
           return s[summaryKey] as number;
         }
-        const items = res.data?.items?.length ?? 0;
-        const remaining = res.data?.metadata?.remainingItemCount ?? 0;
-        return res.data?.metadata?.total ?? (items + remaining);
+        const items = data?.items?.length ?? 0;
+        const remaining = data?.metadata?.remainingItemCount ?? 0;
+        return data?.metadata?.total ?? (items + remaining);
       };
 
       return {
-        pods: getCount('pods', pods),
-        deployments: getCount('deployments', deployments),
-        services: getCount('services', services),
-        nodes: getCount('nodes', nodes),
-        namespaces: getCount('namespaces', namespaces),
-        replicasets: getCount('replicasets', replicasets),
-        statefulsets: getCount('statefulsets', statefulsets),
-        daemonsets: getCount('daemonsets', daemonsets),
-        jobs: getCount('jobs', jobs),
-        cronjobs: getCount('cronjobs', cronjobs),
-        podtemplates: getCount('podtemplates', podtemplates),
-        controllerrevisions: getCount('controllerrevisions', controllerrevisions),
-        resourceslices: getCount('resourceslices', resourceslices),
-        deviceclasses: getCount('deviceclasses', deviceclasses),
-        ipaddresspools: getCount('ipaddresspools', ipaddresspools),
-        bgppeers: getCount('bgppeers', bgppeers),
-        ingresses: getCount('ingresses', ingresses),
-        ingressclasses: getCount('ingressclasses', ingressclasses),
-        endpoints: getCount('endpoints', endpoints),
-        endpointslices: getCount('endpointslices', endpointslices),
-        networkpolicies: getCount('networkpolicies', networkpolicies),
-        configmaps: getCount('configmaps', configmaps),
-        secrets: getCount('secrets', secrets),
-        persistentvolumes: getCount('persistentvolumes', persistentvolumes),
-        persistentvolumeclaims: getCount('persistentvolumeclaims', persistentvolumeclaims),
-        storageclasses: getCount('storageclasses', storageclasses),
-        volumeattachments: getCount('volumeattachments', volumeattachments),
-        volumesnapshots: getCount('volumesnapshots', volumesnapshots),
-        volumesnapshotclasses: getCount('volumesnapshotclasses', volumesnapshotclasses),
-        volumesnapshotcontents: getCount('volumesnapshotcontents', volumesnapshotcontents),
-        apiservices: getCount('apiservices', apiservices),
-        leases: getCount('leases', leases),
-        serviceaccounts: getCount('serviceaccounts', serviceaccounts),
-        roles: getCount('roles', roles),
-        clusterroles: getCount('clusterroles', clusterroles),
-        rolebindings: getCount('rolebindings', rolebindings),
-        clusterrolebindings: getCount('clusterrolebindings', clusterrolebindings),
-        priorityclasses: getCount('priorityclasses', priorityclasses),
-        resourcequotas: getCount('resourcequotas', resourcequotas),
-        limitranges: getCount('limitranges', limitranges),
-        horizontalpodautoscalers: getCount('horizontalpodautoscalers', horizontalpodautoscalers),
-        verticalpodautoscalers: getCount('verticalpodautoscalers', verticalpodautoscalers),
-        poddisruptionbudgets: getCount('poddisruptionbudgets', poddisruptionbudgets),
-        customresourcedefinitions: getCount('customresourcedefinitions', customresourcedefinitions),
-        mutatingwebhookconfigurations: getCount('mutatingwebhookconfigurations', mutatingwebhookconfigurations),
-        validatingwebhookconfigurations: getCount('validatingwebhookconfigurations', validatingwebhookconfigurations),
+        pods: getCount('pods', pods.data),
+        deployments: getCount('deployments', deployments.data),
+        services: getCount('services', services.data),
+        nodes: getCount('nodes', nodes.data),
+        namespaces: getCount('namespaces', namespaces.data),
+        replicasets: getCount('replicasets', replicasets.data),
+        statefulsets: getCount('statefulsets', statefulsets.data),
+        daemonsets: getCount('daemonsets', daemonsets.data),
+        jobs: getCount('jobs', jobs.data),
+        cronjobs: getCount('cronjobs', cronjobs.data),
+        podtemplates: getCount('podtemplates', podtemplates.data),
+        controllerrevisions: getCount('controllerrevisions', controllerrevisions.data),
+        resourceslices: getCount('resourceslices', resourceslices.data),
+        deviceclasses: getCount('deviceclasses', deviceclasses.data),
+        ipaddresspools: getCount('ipaddresspools', ipaddresspools.data),
+        bgppeers: getCount('bgppeers', bgppeers.data),
+        ingresses: getCount('ingresses', ingresses.data),
+        ingressclasses: getCount('ingressclasses', ingressclasses.data),
+        endpoints: getCount('endpoints', endpoints.data),
+        endpointslices: getCount('endpointslices', endpointslices.data),
+        networkpolicies: getCount('networkpolicies', networkpolicies.data),
+        configmaps: getCount('configmaps', configmaps.data),
+        secrets: getCount('secrets', secrets.data),
+        persistentvolumes: getCount('persistentvolumes', persistentvolumes.data),
+        persistentvolumeclaims: getCount('persistentvolumeclaims', persistentvolumeclaims.data),
+        storageclasses: getCount('storageclasses', storageclasses.data),
+        volumeattachments: getCount('volumeattachments', volumeattachments.data),
+        volumesnapshots: getCount('volumesnapshots', volumesnapshots.data),
+        volumesnapshotclasses: getCount('volumesnapshotclasses', volumesnapshotclasses.data),
+        volumesnapshotcontents: getCount('volumesnapshotcontents', volumesnapshotcontents.data),
+        apiservices: getCount('apiservices', apiservices.data),
+        leases: getCount('leases', leases.data),
+        serviceaccounts: getCount('serviceaccounts', serviceaccounts.data),
+        roles: getCount('roles', roles.data),
+        clusterroles: getCount('clusterroles', clusterroles.data),
+        rolebindings: getCount('rolebindings', rolebindings.data),
+        clusterrolebindings: getCount('clusterrolebindings', clusterrolebindings.data),
+        priorityclasses: getCount('priorityclasses', priorityclasses.data),
+        resourcequotas: getCount('resourcequotas', resourcequotas.data),
+        limitranges: getCount('limitranges', limitranges.data),
+        horizontalpodautoscalers: getCount('horizontalpodautoscalers', horizontalpodautoscalers.data),
+        verticalpodautoscalers: getCount('verticalpodautoscalers', verticalpodautoscalers.data),
+        poddisruptionbudgets: getCount('poddisruptionbudgets', poddisruptionbudgets.data),
+        customresourcedefinitions: getCount('customresourcedefinitions', customresourcedefinitions.data),
+        mutatingwebhookconfigurations: getCount('mutatingwebhookconfigurations', mutatingwebhookconfigurations.data),
+        validatingwebhookconfigurations: getCount('validatingwebhookconfigurations', validatingwebhookconfigurations.data),
       };
     }
 
-    // Generic extraction for counts from a resource list query.
+    // Generic extraction for counts from a resource list.
     // K8s returns remainingItemCount when limit is set, so total = items.length + remaining.
-    const getDirectCount = (res: any) => {
-      const items = res.data?.items?.length ?? 0;
-      const remaining = res.data?.metadata?.remainingItemCount ?? 0;
-      const total = res.data?.metadata?.total;
+    const getDirectCount = (data: ResourceList<KubernetesResource> | undefined) => {
+      const items = data?.items?.length ?? 0;
+      const remaining = data?.metadata?.remainingItemCount ?? 0;
+      const total = data?.metadata?.total;
       return total ?? (items + remaining);
     };
 
     // Direct K8s fallback
     return {
-      pods: getDirectCount(pods),
-      deployments: getDirectCount(deployments),
-      services: getDirectCount(services),
-      nodes: getDirectCount(nodes),
-      namespaces: getDirectCount(namespaces),
-      statefulsets: getDirectCount(statefulsets),
-      daemonsets: getDirectCount(daemonsets),
-      jobs: getDirectCount(jobs),
-      cronjobs: getDirectCount(cronjobs),
-      ingresses: getDirectCount(ingresses),
-      configmaps: getDirectCount(configmaps),
-      secrets: getDirectCount(secrets),
-      persistentvolumeclaims: getDirectCount(persistentvolumeclaims),
-      replicasets: getDirectCount(replicasets),
-      podtemplates: getDirectCount(podtemplates),
-      controllerrevisions: getDirectCount(controllerrevisions),
-      resourceslices: getDirectCount(resourceslices),
-      deviceclasses: getDirectCount(deviceclasses),
-      ipaddresspools: getDirectCount(ipaddresspools),
-      bgppeers: getDirectCount(bgppeers),
-      ingressclasses: getDirectCount(ingressclasses),
-      endpoints: getDirectCount(endpoints),
-      endpointslices: getDirectCount(endpointslices),
-      networkpolicies: getDirectCount(networkpolicies),
-      persistentvolumes: getDirectCount(persistentvolumes),
-      storageclasses: getDirectCount(storageclasses),
-      volumeattachments: getDirectCount(volumeattachments),
-      volumesnapshots: getDirectCount(volumesnapshots),
-      volumesnapshotclasses: getDirectCount(volumesnapshotclasses),
-      volumesnapshotcontents: getDirectCount(volumesnapshotcontents),
-      apiservices: getDirectCount(apiservices),
-      leases: getDirectCount(leases),
-      serviceaccounts: getDirectCount(serviceaccounts),
-      roles: getDirectCount(roles),
-      clusterroles: getDirectCount(clusterroles),
-      rolebindings: getDirectCount(rolebindings),
-      clusterrolebindings: getDirectCount(clusterrolebindings),
-      priorityclasses: getDirectCount(priorityclasses),
-      resourcequotas: getDirectCount(resourcequotas),
-      limitranges: getDirectCount(limitranges),
-      horizontalpodautoscalers: getDirectCount(horizontalpodautoscalers),
-      verticalpodautoscalers: getDirectCount(verticalpodautoscalers),
-      poddisruptionbudgets: getDirectCount(poddisruptionbudgets),
-      customresourcedefinitions: getDirectCount(customresourcedefinitions),
-      mutatingwebhookconfigurations: getDirectCount(mutatingwebhookconfigurations),
-      validatingwebhookconfigurations: getDirectCount(validatingwebhookconfigurations),
+      pods: getDirectCount(pods.data),
+      deployments: getDirectCount(deployments.data),
+      services: getDirectCount(services.data),
+      nodes: getDirectCount(nodes.data),
+      namespaces: getDirectCount(namespaces.data),
+      statefulsets: getDirectCount(statefulsets.data),
+      daemonsets: getDirectCount(daemonsets.data),
+      jobs: getDirectCount(jobs.data),
+      cronjobs: getDirectCount(cronjobs.data),
+      ingresses: getDirectCount(ingresses.data),
+      configmaps: getDirectCount(configmaps.data),
+      secrets: getDirectCount(secrets.data),
+      persistentvolumeclaims: getDirectCount(persistentvolumeclaims.data),
+      replicasets: getDirectCount(replicasets.data),
+      podtemplates: getDirectCount(podtemplates.data),
+      controllerrevisions: getDirectCount(controllerrevisions.data),
+      resourceslices: getDirectCount(resourceslices.data),
+      deviceclasses: getDirectCount(deviceclasses.data),
+      ipaddresspools: getDirectCount(ipaddresspools.data),
+      bgppeers: getDirectCount(bgppeers.data),
+      ingressclasses: getDirectCount(ingressclasses.data),
+      endpoints: getDirectCount(endpoints.data),
+      endpointslices: getDirectCount(endpointslices.data),
+      networkpolicies: getDirectCount(networkpolicies.data),
+      persistentvolumes: getDirectCount(persistentvolumes.data),
+      storageclasses: getDirectCount(storageclasses.data),
+      volumeattachments: getDirectCount(volumeattachments.data),
+      volumesnapshots: getDirectCount(volumesnapshots.data),
+      volumesnapshotclasses: getDirectCount(volumesnapshotclasses.data),
+      volumesnapshotcontents: getDirectCount(volumesnapshotcontents.data),
+      apiservices: getDirectCount(apiservices.data),
+      leases: getDirectCount(leases.data),
+      serviceaccounts: getDirectCount(serviceaccounts.data),
+      roles: getDirectCount(roles.data),
+      clusterroles: getDirectCount(clusterroles.data),
+      rolebindings: getDirectCount(rolebindings.data),
+      clusterrolebindings: getDirectCount(clusterrolebindings.data),
+      priorityclasses: getDirectCount(priorityclasses.data),
+      resourcequotas: getDirectCount(resourcequotas.data),
+      limitranges: getDirectCount(limitranges.data),
+      horizontalpodautoscalers: getDirectCount(horizontalpodautoscalers.data),
+      verticalpodautoscalers: getDirectCount(verticalpodautoscalers.data),
+      poddisruptionbudgets: getDirectCount(poddisruptionbudgets.data),
+      customresourcedefinitions: getDirectCount(customresourcedefinitions.data),
+      mutatingwebhookconfigurations: getDirectCount(mutatingwebhookconfigurations.data),
+      validatingwebhookconfigurations: getDirectCount(validatingwebhookconfigurations.data),
     };
   }, [
     isConnected,
@@ -387,6 +387,7 @@ export function useResourceCounts(): { counts: ResourceCounts; isLoading: boolea
     verticalpodautoscalers.data, poddisruptionbudgets.data,
     customresourcedefinitions.data, mutatingwebhookconfigurations.data,
     validatingwebhookconfigurations.data,
+    isBackendConfigured,
   ]);
 
   // Cache real counts so they survive disconnection
@@ -419,7 +420,7 @@ export function useResourceCounts(): { counts: ResourceCounts; isLoading: boolea
 function useResourceCount(resourceType: keyof ResourceCounts) {
   const { isConnected } = useConnectionStatus();
   const { data, isLoading, isPlaceholderData } = useK8sResourceList<KubernetesResource>(
-    resourceType as any,
+    resourceType as ResourceType,
     undefined,
     {
       enabled: isConnected,

@@ -12,14 +12,14 @@ let mockIsConnected = false;
 let mockIsBackendConfigured = false;
 let mockCurrentClusterId: string | null = null;
 let mockSummaryData: Record<string, number> | null = null;
-let mockK8sData: Record<string, any> = {};
+let mockK8sData: Record<string, unknown> = {};
 
 vi.mock('@/hooks/useConnectionStatus', () => ({
   useConnectionStatus: () => ({ isConnected: mockIsConnected }),
 }));
 
 vi.mock('@/stores/backendConfigStore', () => ({
-  useBackendConfigStore: (selector: any) => {
+  useBackendConfigStore: (selector: (s: Record<string, unknown>) => unknown) => {
     const state = {
       isBackendConfigured: () => mockIsBackendConfigured,
       currentClusterId: mockCurrentClusterId,
@@ -37,7 +37,7 @@ vi.mock('@/hooks/useClusterSummary', () => ({
 }));
 
 vi.mock('@/hooks/useKubernetes', () => ({
-  useK8sResourceList: (resourceType: string, _ns: any, options: any) => {
+  useK8sResourceList: (resourceType: string, _ns: unknown, options: Record<string, unknown> | undefined) => {
     if (options?.enabled === false) {
       return { data: null, isLoading: false, isPlaceholderData: false };
     }

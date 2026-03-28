@@ -246,7 +246,7 @@ export default function DeploymentDetail() {
     staleTime: 10_000,
     refetchOnWindowFocus: true,
   });
-  const rolloutRevisions = rolloutHistoryQuery.data?.revisions ?? [];
+  const rolloutRevisions = useMemo(() => rolloutHistoryQuery.data?.revisions ?? [], [rolloutHistoryQuery.data?.revisions]);
 
   // Pods
   const { data: podsList } = useK8sResourceList<KubernetesResource & { metadata?: { name?: string; labels?: Record<string, string>; ownerReferences?: Array<{ kind?: string; name?: string }> }; status?: { phase?: string }; spec?: { nodeName?: string } }>(
@@ -295,7 +295,7 @@ export default function DeploymentDetail() {
       triggerFastPolling();
       setSearchParams({ tab: 'pods' });
       queryClient.invalidateQueries({ queryKey: ['backend', 'deployment-rollout-history', clusterId, namespace, name] });
-    } catch (err: any) {
+    } catch (err: unknown) {
       notifyError(err, { action: 'scale', resourceType: 'deployments', resourceName: name, namespace });
       throw err;
     }
@@ -313,7 +313,7 @@ export default function DeploymentDetail() {
       triggerFastPolling();
       setSearchParams({ tab: 'pods' });
       queryClient.invalidateQueries({ queryKey: ['backend', 'deployment-rollout-history', clusterId, namespace, name] });
-    } catch (err: any) {
+    } catch (err: unknown) {
       notifyError(err, { action: 'restart', resourceType: 'deployments', resourceName: name, namespace });
       throw err;
     }
@@ -524,7 +524,7 @@ export default function DeploymentDetail() {
         const deploymentPods = (podsList?.items ?? []).filter((pod) => {
           const labels = pod.metadata?.labels ?? {};
           if (!Object.entries(matchLabels).every(([k, v]) => labels[k] === v)) return false;
-          const owners = (pod.metadata as any)?.ownerReferences as Array<{ kind?: string; name?: string }> | undefined;
+          const owners = pod.metadata?.ownerReferences;
           if (!owners || owners.length === 0) return false;
           return owners.some((ref) => ref.kind === 'ReplicaSet' && ref.name?.startsWith(deploymentName + '-'));
         });
@@ -714,7 +714,7 @@ export default function DeploymentDetail() {
         const deploymentPods = (podsList?.items ?? []).filter((pod) => {
           const labels = pod.metadata?.labels ?? {};
           if (!Object.entries(matchLabels).every(([k, v]) => labels[k] === v)) return false;
-          const owners = (pod.metadata as any)?.ownerReferences as Array<{ kind?: string; name?: string }> | undefined;
+          const owners = pod.metadata?.ownerReferences;
           if (!owners || owners.length === 0) return false;
           return owners.some((ref) => ref.kind === 'ReplicaSet' && ref.name?.startsWith(deploymentName + '-'));
         });
@@ -769,13 +769,13 @@ export default function DeploymentDetail() {
         const deploymentPods = (podsList?.items ?? []).filter((pod) => {
           const labels = pod.metadata?.labels ?? {};
           if (!Object.entries(matchLabels).every(([k, v]) => labels[k] === v)) return false;
-          const owners = (pod.metadata as any)?.ownerReferences as Array<{ kind?: string; name?: string }> | undefined;
+          const owners = pod.metadata?.ownerReferences;
           if (!owners || owners.length === 0) return false;
           return owners.some((ref) => ref.kind === 'ReplicaSet' && ref.name?.startsWith(deploymentName + '-'));
         });
 
         const podTargets: PodTarget[] = deploymentPods.map((pod) => {
-          const containers = ((pod as any)?.spec?.containers as Array<{ name: string }> | undefined)?.map((c) => c.name)
+          const containers = ((pod.spec as Record<string, unknown> | undefined)?.containers as Array<{ name: string }> | undefined)?.map((c) => c.name)
             ?? (deployment.spec?.template?.spec?.containers || []).map((c) => c.name);
           return {
             name: pod.metadata?.name ?? '',
@@ -806,7 +806,7 @@ export default function DeploymentDetail() {
         const deploymentPods = (podsList?.items ?? []).filter((pod) => {
           const labels = pod.metadata?.labels ?? {};
           if (!Object.entries(matchLabels).every(([k, v]) => labels[k] === v)) return false;
-          const owners = (pod.metadata as any)?.ownerReferences as Array<{ kind?: string; name?: string }> | undefined;
+          const owners = pod.metadata?.ownerReferences;
           if (!owners || owners.length === 0) return false;
           return owners.some((ref) => ref.kind === 'ReplicaSet' && ref.name?.startsWith(deploymentName + '-'));
         });

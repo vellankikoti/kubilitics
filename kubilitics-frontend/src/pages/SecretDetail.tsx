@@ -122,14 +122,15 @@ function DataTab({ resource: s }: ResourceContext<SecretResource>) {
   }, []);
 
   const copyDecoded = useCallback((key: string) => {
-    const raw = data[key];
+    const d = s.data || {};
+    const raw = d[key];
     if (raw == null) return;
     const decoded = decodeValue(raw);
     navigator.clipboard.writeText(decoded).then(
       () => toast.success(`Copied value of "${key}"`),
       () => toast.error('Copy failed')
     );
-  }, [data, decodeValue]);
+  }, [s.data, decodeValue]);
 
   const decodedSize = useCallback((b64: string): number => Math.round((b64?.length ?? 0) * 0.75), []);
 

@@ -45,6 +45,27 @@ export const useKubernetesConfigStore = create<KubernetesConfigStore>()(
     }),
     {
       name: 'kubernetes-config',
+      // Version 1: strip token from persistence.
+      // The migrate function clears stale tokens from users who ran version 0.
+      version: 1,
+      migrate: (persisted: unknown) => {
+        const state = persisted as Record<string, unknown> | null;
+        if (state && typeof state === 'object') {
+          const config = (state as { config?: Record<string, unknown> }).config;
+          if (config && 'token' in config) {
+            delete config.token;
+          }
+        }
+        return state as ReturnType<typeof Object>;
+      },
+      partialize: (state) => ({
+        config: {
+          apiUrl: state.config.apiUrl,
+          isConnected: state.config.isConnected,
+          lastConnected: state.config.lastConnected,
+          // token is intentionally excluded from persistence — never store credentials in localStorage
+        },
+      }),
     }
   )
 );

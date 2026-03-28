@@ -185,21 +185,21 @@ describe('backendRequest', () => {
     expect(globalThis.fetch).toHaveBeenCalledOnce();
 
     // Verify URL construction
-    const calledUrl = (globalThis.fetch as any).mock.calls[0][0];
+    const calledUrl = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(calledUrl).toBe(`http://localhost:8190${API_PREFIX}/clusters`);
   });
 
   it('normalizes trailing slash on baseUrl', async () => {
     globalThis.fetch = mockFetchResponse({ ok: true });
     await backendRequest('http://localhost:8190/', 'health');
-    const calledUrl = (globalThis.fetch as any).mock.calls[0][0];
+    const calledUrl = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(calledUrl).toBe(`http://localhost:8190${API_PREFIX}/health`);
   });
 
   it('strips leading slash from path', async () => {
     globalThis.fetch = mockFetchResponse({ ok: true });
     await backendRequest('http://localhost:8190', '/clusters');
-    const calledUrl = (globalThis.fetch as any).mock.calls[0][0];
+    const calledUrl = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(calledUrl).toBe(`http://localhost:8190${API_PREFIX}/clusters`);
   });
 
@@ -218,11 +218,12 @@ describe('backendRequest', () => {
 
     try {
       await backendRequest('http://localhost:8190', 'clusters/bad2/pods');
-    } catch (e: any) {
+    } catch (e: unknown) {
       expect(e).toBeInstanceOf(BackendApiError);
-      expect(e.status).toBe(404);
-      expect(e.body).toBe('Not Found');
-      expect(e.requestId).toBe('req-123');
+      const err = e as BackendApiError;
+      expect(err.status).toBe(404);
+      expect(err.body).toBe('Not Found');
+      expect(err.requestId).toBe('req-123');
     }
   });
 
@@ -362,7 +363,7 @@ describe('getHealth', () => {
     expect(result).toEqual(health);
 
     // Verify URL — getHealth uses /health, NOT /api/v1/health
-    const calledUrl = (globalThis.fetch as any).mock.calls[0][0];
+    const calledUrl = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(calledUrl).toBe('http://localhost:8190/health');
   });
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -137,15 +136,21 @@ func (h *Handler) GetShellStream(w http.ResponseWriter, r *http.Request) {
 	// Write init commands to a temp rcfile so bash --rcfile sources them
 	// in the interactive shell itself (not a parent that gets replaced).
 	// This preserves aliases, PS1, and completions across the session.
-	rcfile := fmt.Sprintf("/tmp/kubilitics-shell-%d.rc", time.Now().UnixNano())
-	if err := os.WriteFile(rcfile, []byte(sb.String()), 0600); err != nil {
-		log.Printf("Terminal: failed to write rcfile: %v", err)
-		// Fallback: use bash -c with exec
-		cmd := exec.CommandContext(ctx, shell, "-c", sb.String()+"exec bash -i\n")
-		cmd.Env = env
-		cmd.Dir = workDir
-		_ = cmd // will be overwritten below
+	tmpFile, tmpErr := os.CreateTemp("", "kubilitics-shell-*.rc")
+	if tmpErr != nil {
+		log.Printf("Terminal: failed to create temp rcfile: %v", tmpErr)
+		sendErr("Failed to start shell")
+		return
 	}
+	rcfile := tmpFile.Name()
+	defer os.Remove(rcfile)
+	if _, err := tmpFile.Write([]byte(sb.String())); err != nil {
+		tmpFile.Close()
+		log.Printf("Terminal: failed to write rcfile: %v", err)
+		sendErr("Failed to start shell")
+		return
+	}
+	tmpFile.Close()
 
 	var cmd *exec.Cmd
 	if shell == "/bin/bash" {

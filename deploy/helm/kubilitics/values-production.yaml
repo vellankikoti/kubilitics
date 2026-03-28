@@ -1,0 +1,108 @@
+# Kubilitics Helm Chart — Production values
+# Usage:
+#   helm install kubilitics ./deploy/helm/kubilitics \
+#     -f deploy/helm/kubilitics/values-production.yaml \
+#     --set secret.authJWTSecret="$KUBILITICS_JWT_SECRET" \
+#     --set secret.authAdminPass="$KUBILITICS_ADMIN_PASS"
+#
+# NEVER put secrets in this file. Pass them via --set or external secret manager.
+#
+# Before deploying, you must:
+#   1. Create a TLS secret:  kubectl create secret tls kubilitics-tls --cert=tls.crt --key=tls.key
+#   2. Export secrets:        export KUBILITICS_JWT_SECRET=<your-jwt-secret>
+#                             export KUBILITICS_ADMIN_PASS=<your-admin-password>
+
+# --- Authentication (REQUIRED) ---
+config:
+  authMode: "required"          # Never deploy with "optional" or "disabled"
+  allowedOrigins: "https://kubilitics.com"
+
+  # TLS termination at backend level (in addition to Ingress TLS)
+  tlsEnabled: true
+  tlsCertPath: "/etc/tls/tls.crt"
+  tlsKeyPath: "/etc/tls/tls.key"
+
+  logLevel: "warn"              # Reduce log verbosity in production
+  requestTimeoutSec: 30
+  shutdownTimeoutSec: 15
+
+tls:
+  enabled: true
+  secretName: "kubilitics-tls"  # Must exist before deploy
+
+# --- Network Policies (REQUIRED) ---
+networkPolicy:
+  enabled: true
+  egress:
+    allowAll: false             # Restrict egress to only defined targets
+
+# --- Ingress with TLS ---
+ingress:
+  enabled: true
+  className: "nginx"
+  certManager:
+    enabled: true
+    clusterIssuer: "letsencrypt-prod"
+  hosts:
+    - host: kubilitics.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: kubilitics-tls-ingress
+      hosts:
+        - kubilitics.com
+
+# --- Database ---
+database:
+  type: postgresql              # SQLite is not suitable for production
+  postgresql:
+    sslMode: "require"          # Encrypt DB connections
+
+postgresql:
+  enabled: true
+
+# --- Persistence ---
+persistence:
+  enabled: true
+  size: 10Gi
+
+# --- Resources ---
+resources:
+  limits:
+    cpu: "1"
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# --- RBAC ---
+rbac:
+  enabled: true
+
+# --- Frontend ---
+frontend:
+  enabled: true
+  config:
+    authRequired: "true"
+
+# --- Autoscaling ---
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 75
+
+# --- AI Backend (disabled unless needed) ---
+ai:
+  enabled: false
+
+# --- Secrets (values injected via --set at deploy time, NEVER committed here) ---
+secret:
+  enabled: true
+  # authJWTSecret: passed via --set secret.authJWTSecret="..."
+  # authAdminPass: passed via --set secret.authAdminPass="..."
+
+# --- kcli ---
+kcli:
+  shellModeAllowed: false       # Disable interactive shell in production unless needed

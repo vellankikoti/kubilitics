@@ -32,15 +32,26 @@ echo "[entrypoint] KUBILITICS_AI_URL=${AI_URL:-<not set, using build defaults>}"
 # This creates a config.js that sets window.__KUBILITICS_CONFIG__
 CONFIG_FILE="${STATIC_DIR}/config.js"
 
+# Sanitize environment variables to prevent JavaScript injection.
+# Strip characters that could break out of a JS string literal.
+sanitize_js_string() {
+  printf '%s' "$1" | sed 's/[\\"\x27<>]//g' | tr -d '\n\r'
+}
+
+SAFE_BACKEND_URL=$(sanitize_js_string "${BACKEND_URL}")
+SAFE_WS_URL=$(sanitize_js_string "${WS_URL}")
+SAFE_AI_URL=$(sanitize_js_string "${AI_URL}")
+SAFE_AUTH_REQUIRED=$(sanitize_js_string "${KUBILITICS_AUTH_REQUIRED:-true}")
+
 cat > "${CONFIG_FILE}" <<CONFIGEOF
 // Runtime configuration — injected by docker-entrypoint.sh at container startup.
 // This file is loaded before the main bundle via a <script> tag in index.html.
 window.__KUBILITICS_CONFIG__ = {
-  BACKEND_URL: "${BACKEND_URL}",
-  WS_URL: "${WS_URL}",
-  AI_URL: "${AI_URL}",
+  BACKEND_URL: "${SAFE_BACKEND_URL}",
+  WS_URL: "${SAFE_WS_URL}",
+  AI_URL: "${SAFE_AI_URL}",
   IN_CLUSTER: "true",
-  AUTH_REQUIRED: "${KUBILITICS_AUTH_REQUIRED:-true}"
+  AUTH_REQUIRED: "${SAFE_AUTH_REQUIRED}"
 };
 CONFIGEOF
 

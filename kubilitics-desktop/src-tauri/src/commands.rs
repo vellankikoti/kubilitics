@@ -549,19 +549,56 @@ pub async fn load_encrypted_kubeconfig() -> Result<Option<String>, String> {
     }
 }
 
-#[command]
-pub async fn check_for_updates(_app_handle: tauri::AppHandle) -> Result<bool, String> {
-    // Tauri v2 updater plugin uses the app handle directly
-    // For now, return false (no update) - updater functionality can be implemented later
-    // The updater plugin handles updates automatically via the config
-    Ok(false)
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct UpdateInfo {
+    pub available: bool,
+    pub current_version: String,
+    pub latest_version: Option<String>,
+    pub release_url: Option<String>,
+    pub release_notes: Option<String>,
 }
 
 #[command]
-pub async fn install_update(_app_handle: tauri::AppHandle) -> Result<(), String> {
-    // Tauri v2 updater plugin handles updates automatically via the config
-    // Manual install is not needed - the plugin handles it
-    Err("Updates are handled automatically by the updater plugin".to_string())
+pub async fn check_for_updates(app_handle: tauri::AppHandle) -> Result<UpdateInfo, String> {
+    let current = app_handle.config().version.clone().unwrap_or_default();
+    let client = reqwest::Client::builder()
+        .user_agent("Kubilitics-Desktop")
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    let resp = client
+        .get("https://api.github.com/repos/kubilitics/kubilitics/releases/latest")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to check for updates: {}", e))?;
+
+    if !resp.status().is_success() {
+        return Ok(UpdateInfo {
+            available: false,
+            current_version: current,
+            latest_version: None,
+            release_url: None,
+            release_notes: None,
+        });
+    }
+
+    let release: Value = resp.json().await.map_err(|e| e.to_string())?;
+    let tag = release["tag_name"].as_str().unwrap_or("").trim_start_matches('v');
+    let available = !tag.is_empty() && tag != current;
+
+    Ok(UpdateInfo {
+        available,
+        current_version: current,
+        latest_version: if tag.is_empty() { None } else { Some(tag.to_string()) },
+        release_url: release["html_url"].as_str().map(|s| s.to_string()),
+        release_notes: release["body"].as_str().map(|s| s.to_string()),
+    })
+}
+
+#[command]
+pub async fn install_update() -> Result<(), String> {
+    Err("Please download the latest version from the GitHub Releases page.".to_string())
 }
 
 #[derive(Debug, Serialize, Deserialize)]

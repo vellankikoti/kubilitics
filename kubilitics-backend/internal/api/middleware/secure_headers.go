@@ -21,7 +21,7 @@ func SecureHeaders(cfg *config.Config) func(http.Handler) http.Handler {
 			
 			// Add HSTS header when TLS is enabled
 			if cfg != nil && cfg.TLSEnabled {
-				w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+				w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload")
 			}
 			
 			next.ServeHTTP(w, r)

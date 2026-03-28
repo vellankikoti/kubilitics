@@ -38,6 +38,7 @@ import (
 	"github.com/kubilitics/kubilitics-backend/internal/repository"
 	"github.com/kubilitics/kubilitics-backend/internal/service"
 	"github.com/kubilitics/kubilitics-backend/internal/topology"
+	"github.com/kubilitics/kubilitics-backend/internal/version"
 	dbmigrations "github.com/kubilitics/kubilitics-backend/migrations"
 )
 
@@ -388,7 +389,7 @@ func main() {
 		body := map[string]interface{}{
 			"status":         "healthy",
 			"service":        "kubilitics-backend",
-			"version":        "1.0.0",
+			"version":        version.Version,
 			"topology_kinds": topology.ResourceTopologyKinds,
 		}
 		if actualPort != 0 {
@@ -493,9 +494,13 @@ func main() {
 		shutdownTimeout = time.Duration(cfg.ShutdownTimeoutSec) * time.Second
 	}
 
-	// Bind strictly to configured port (default 8190) on all interfaces
-	// Phase 2: Enforce Proper Port Strategy - No port hunting, no random ports.
-	addr := fmt.Sprintf("0.0.0.0:%d", cfg.Port)
+	// Bind to configured address and port. Default is 127.0.0.1 (loopback only)
+	// for desktop security. In-cluster deployments set KUBILITICS_BIND_ADDRESS=0.0.0.0.
+	bindAddr := cfg.BindAddress
+	if bindAddr == "" {
+		bindAddr = "127.0.0.1"
+	}
+	addr := fmt.Sprintf("%s:%d", bindAddr, cfg.Port)
 	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		log.Error("Failed to listen", "address", addr, "error", err)
@@ -561,8 +566,9 @@ func main() {
 	// Start HTTP server in goroutine
 	go func() {
 		log.Info("Server starting",
+			"version", version.Version,
 			"protocol", protocol,
-			"address", fmt.Sprintf("0.0.0.0:%d", actualPort),
+			"address", addr,
 			"api", fmt.Sprintf("%s://localhost:%d/api/v1", protocol, actualPort),
 			"websocket", fmt.Sprintf("%s://localhost:%d/ws/resources", wsProtocol, actualPort),
 			"health", fmt.Sprintf("%s://localhost:%d/health", protocol, actualPort),

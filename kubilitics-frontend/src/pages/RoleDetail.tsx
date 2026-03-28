@@ -112,8 +112,7 @@ function OverviewTab({ resource, namespace }: ResourceContext<RoleResource>) {
 }
 
 function PermissionMatrixTab({ resource }: ResourceContext<RoleResource>) {
-  const rules = resource?.rules ?? [];
-  const permissionMatrix = useMemo(() => buildPermissionMatrix(rules), [rules]);
+  const permissionMatrix = useMemo(() => buildPermissionMatrix(resource?.rules ?? []), [resource?.rules]);
 
   return (
     <SectionCard icon={List} title="Resources x Verbs">

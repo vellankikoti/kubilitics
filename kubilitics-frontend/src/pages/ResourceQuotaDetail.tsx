@@ -47,13 +47,15 @@ function OverviewTab({ resource, age }: ResourceContext<ResourceQuotaResource>) 
   const resourcesTracked = Object.keys(hard).length;
 
   const overallPct = useMemo(() => {
+    const h = resource?.status?.hard || resource?.spec?.hard || {};
+    const u = resource?.status?.used || {};
     let maxPct: number | null = null;
-    for (const key of Object.keys(hard)) {
-      const pct = getUsagePercent(used[key] || '0', hard[key] || '');
+    for (const key of Object.keys(h)) {
+      const pct = getUsagePercent(u[key] || '0', h[key] || '');
       if (pct != null && (maxPct == null || pct > maxPct)) maxPct = pct;
     }
     return maxPct;
-  }, [hard, used]);
+  }, [resource?.status?.hard, resource?.spec?.hard, resource?.status?.used]);
 
   return (
     <div className="grid grid-cols-1 gap-6">
@@ -111,15 +113,17 @@ function UsageTab({ resource }: ResourceContext<ResourceQuotaResource>) {
   const used = resource?.status?.used || {};
 
   const usageRows = useMemo(() => {
-    return Object.keys(hard)
+    const h = resource?.status?.hard || resource?.spec?.hard || {};
+    const u = resource?.status?.used || {};
+    return Object.keys(h)
       .sort()
       .map((resource) => {
-        const hardVal = hard[resource] ?? '';
-        const usedVal = used[resource] ?? '0';
+        const hardVal = h[resource] ?? '';
+        const usedVal = u[resource] ?? '0';
         const percent = getUsagePercent(usedVal, hardVal);
         return { resource, used: usedVal, hard: hardVal, percent };
       });
-  }, [hard, used]);
+  }, [resource?.status?.hard, resource?.spec?.hard, resource?.status?.used]);
 
   const nearingLimitResources = useMemo(() => usageRows.filter((r) => r.percent != null && r.percent > 80), [usageRows]);
 

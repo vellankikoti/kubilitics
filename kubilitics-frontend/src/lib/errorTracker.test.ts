@@ -72,7 +72,7 @@ describe('ErrorTrackerService', () => {
     expect(errors).toHaveLength(1);
     expect(errors[0].id).toBe('test-uuid-1');
     expect(errors[0].level).toBe('error');
-    expect((errors[0].error as any).message).toBe('test error');
+    expect((errors[0].error as Error).message).toBe('test error');
   });
 
   it('captureException handles non-Error values', async () => {
@@ -114,9 +114,9 @@ describe('ErrorTrackerService', () => {
     const errors = tracker.getRecentErrors();
     expect(errors).toHaveLength(50);
     // The oldest entry should be error-10 (0..9 were evicted)
-    expect((errors[0].error as any).message).toBe('error-10');
+    expect((errors[0].error as Error).message).toBe('error-10');
     // The newest should be error-59
-    expect((errors[49].error as any).message).toBe('error-59');
+    expect((errors[49].error as Error).message).toBe('error-59');
   });
 
   it('merges context tags from setTag and captureException', async () => {

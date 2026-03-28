@@ -19,8 +19,8 @@ interface K8sVolumeSnapshotClass extends KubernetesResource {
 
 function OverviewTab({ resource: vsc, age }: ResourceContext<K8sVolumeSnapshotClass>) {
   const vscName = vsc?.metadata?.name ?? '';
-  const driver = (vsc as K8sVolumeSnapshotClass & { spec?: { driver?: string } })?.driver ?? (vsc as any)?.spec?.driver ?? '—';
-  const deletionPolicy = (vsc as K8sVolumeSnapshotClass & { spec?: { deletionPolicy?: string } })?.deletionPolicy ?? (vsc as any)?.spec?.deletionPolicy ?? 'Delete';
+  const driver = (vsc as K8sVolumeSnapshotClass & { spec?: { driver?: string } })?.driver ?? (vsc.spec as Record<string, unknown> | undefined)?.driver as string | undefined ?? '—';
+  const deletionPolicy = (vsc as K8sVolumeSnapshotClass & { spec?: { deletionPolicy?: string } })?.deletionPolicy ?? (vsc.spec as Record<string, unknown> | undefined)?.deletionPolicy as string | undefined ?? 'Delete';
   const isDefault = vsc?.metadata?.annotations?.['snapshot.storage.kubernetes.io/is-default-class'] === 'true';
 
   return (
@@ -68,8 +68,8 @@ export default function VolumeSnapshotClassDetail() {
       deriveStatus={() => 'Healthy'}
       buildStatusCards={(ctx) => {
         const vsc = ctx.resource;
-        const driver = (vsc as K8sVolumeSnapshotClass & { spec?: { driver?: string } })?.driver ?? (vsc as any)?.spec?.driver ?? '—';
-        const deletionPolicy = (vsc as K8sVolumeSnapshotClass & { spec?: { deletionPolicy?: string } })?.deletionPolicy ?? (vsc as any)?.spec?.deletionPolicy ?? 'Delete';
+        const driver = (vsc as K8sVolumeSnapshotClass & { spec?: { driver?: string } })?.driver ?? (vsc.spec as Record<string, unknown> | undefined)?.driver as string | undefined ?? '—';
+        const deletionPolicy = (vsc as K8sVolumeSnapshotClass & { spec?: { deletionPolicy?: string } })?.deletionPolicy ?? (vsc.spec as Record<string, unknown> | undefined)?.deletionPolicy as string | undefined ?? 'Delete';
         const isDefault = vsc?.metadata?.annotations?.['snapshot.storage.kubernetes.io/is-default-class'] === 'true';
 
         return [

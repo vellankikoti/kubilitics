@@ -3,9 +3,10 @@
 
 # Cask for Kubilitics Desktop App
 # Tap: kubilitics/homebrew-tap
+# NOTE: SHA256 is auto-updated by post-release.yml after each release.
 cask "kubilitics" do
-  version "1.0.0"
-  sha256 "PLACEHOLDER_SHA256_DMG"
+  version "0.1.0"
+  sha256 :no_check
 
   url "https://github.com/kubilitics/kubilitics/releases/download/v#{version}/Kubilitics-#{version}-universal.dmg"
   name "Kubilitics"
@@ -22,9 +23,9 @@ cask "kubilitics" do
   app "Kubilitics.app"
 
   zap trash: [
-    "~/Library/Application Support/com.kubilitics.app",
-    "~/Library/Caches/com.kubilitics.app",
-    "~/Library/Preferences/com.kubilitics.app.plist",
-    "~/Library/Saved Application State/com.kubilitics.app.savedState",
+    "~/Library/Application Support/com.kubilitics.desktop",
+    "~/Library/Caches/com.kubilitics.desktop",
+    "~/Library/Preferences/com.kubilitics.desktop.plist",
+    "~/Library/Saved Application State/com.kubilitics.desktop.savedState",
   ]
 end

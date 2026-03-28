@@ -78,20 +78,20 @@ function OverviewTab({ resource }: ResourceContext<HPAResource>) {
   const maxReplicas = resource?.spec?.maxReplicas ?? 1;
   const currentReplicas = resource?.status?.currentReplicas ?? 0;
   const desiredReplicas = resource?.status?.desiredReplicas ?? currentReplicas;
-  const metrics = resource?.spec?.metrics ?? [];
-  const currentMetrics = resource?.status?.currentMetrics ?? [];
   const conditions = resource?.status?.conditions ?? [];
   const labels = resource?.metadata?.labels ?? {};
   const annotations = resource?.metadata?.annotations ?? {};
 
   const currentMetricsWithTarget = useMemo(() => {
+    const metrics = resource?.spec?.metrics ?? [];
+    const currentMetrics = resource?.status?.currentMetrics ?? [];
     return currentMetrics.map((cm) => {
       const name = cm.resource?.name ?? 'resource';
       const current = cm.resource?.current?.averageUtilization;
       const target = metrics.find((m) => m.resource?.name === name)?.resource?.target?.averageUtilization;
       return { name, current, target };
     });
-  }, [currentMetrics, metrics]);
+  }, [resource?.spec?.metrics, resource?.status?.currentMetrics]);
 
   const targetLink = () => getDetailPath(targetKind, targetName, hpaNamespace) ?? '#';
 

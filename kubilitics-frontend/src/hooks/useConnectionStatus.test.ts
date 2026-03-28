@@ -12,7 +12,7 @@ let mockActiveCluster: { id: string; name: string } | null = null;
 let mockKubeIsConnected = false;
 
 vi.mock('@/stores/backendConfigStore', () => ({
-  useBackendConfigStore: (selector: any) => {
+  useBackendConfigStore: (selector: (s: Record<string, unknown>) => unknown) => {
     const state = {
       isBackendConfigured: () => mockIsBackendConfigured,
     };
@@ -21,7 +21,7 @@ vi.mock('@/stores/backendConfigStore', () => ({
 }));
 
 vi.mock('@/stores/clusterStore', () => ({
-  useClusterStore: (selector: any) => {
+  useClusterStore: (selector: (s: Record<string, unknown>) => unknown) => {
     const state = {
       activeCluster: mockActiveCluster,
     };

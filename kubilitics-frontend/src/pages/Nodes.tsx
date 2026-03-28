@@ -275,7 +275,7 @@ export default function Nodes() {
  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
  const allItems = (data?.allItems ?? []) as NodeResource[];
  const tableContainerRef = useRef<HTMLDivElement>(null);
- const nodes: Node[] = useMemo(() => (isConnected ? allItems.map(transformNodeResource) : []), [isConnected, allItems]);
+ const nodes: Node[] = useMemo(() => (isConnected ? ((data?.allItems ?? []) as NodeResource[]).map(transformNodeResource) : []), [isConnected, data?.allItems]);
 
  const podsListQuery = useK8sResourceList<KubernetesResource & { spec?: { nodeName?: string } }>('pods', undefined, { limit: 5000, enabled: isConnected });
  const podCountByNode = useMemo(() => {

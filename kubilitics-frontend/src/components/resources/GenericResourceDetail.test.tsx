@@ -3,15 +3,17 @@
  *
  * Covers: loading skeleton, error card, not-found card, custom tabs rendering.
  */
+
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import React from 'react';
 import { Settings } from 'lucide-react';
 
 // ---- Mock controls ----
-let mockResource: any = null;
+let mockResource: Record<string, unknown> | null = null;
 let mockIsLoading = false;
 let mockError: Error | null = null;
 let mockIsConnected = true;
@@ -37,7 +39,7 @@ vi.mock('@/hooks/useKubernetes', () => ({
 }));
 
 vi.mock('@/stores/clusterStore', () => ({
-  useClusterStore: (selector?: any) => {
+  useClusterStore: (selector?: (s: Record<string, unknown>) => unknown) => {
     const state = { activeCluster: { name: 'test-cluster' } };
     return selector ? selector(state) : state;
   },
@@ -48,7 +50,7 @@ vi.mock('@/hooks/useActiveClusterId', () => ({
 }));
 
 vi.mock('@/stores/backendConfigStore', () => ({
-  useBackendConfigStore: (selector: any) => {
+  useBackendConfigStore: (selector: (s: Record<string, unknown>) => unknown) => {
     const state = {
       isBackendConfigured: () => false,
       backendBaseUrl: 'http://localhost:8190',
@@ -59,7 +61,7 @@ vi.mock('@/stores/backendConfigStore', () => ({
 }));
 
 vi.mock('@/components/layout/Breadcrumbs', () => ({
-  Breadcrumbs: ({ segments }: any) => <div data-testid="breadcrumbs">{segments?.length ?? 0} segments</div>,
+  Breadcrumbs: ({ segments }: { segments?: unknown[] }) => <div data-testid="breadcrumbs">{segments?.length ?? 0} segments</div>,
   useDetailBreadcrumbs: () => [{ label: 'Test' }],
 }));
 
@@ -76,7 +78,7 @@ vi.mock('@/components/ui/sonner', () => ({
 }));
 
 vi.mock('@/lib/notificationFormatter', () => ({
-  normalizeError: (_err: any, _ctx: any) => ({
+  normalizeError: (_err: unknown, _ctx: unknown) => ({
     title: 'Error',
     description: 'Something went wrong',
     details: 'Technical details here',
@@ -98,25 +100,25 @@ vi.mock('@/services/backendApiClient', () => ({
 
 // Mock the heavy sub-components to keep tests light
 vi.mock('@/components/resources', () => ({
-  ResourceDetailLayout: ({ children, tabs, activeTab, name, resourceType, ...rest }: any) => (
+  ResourceDetailLayout: ({ children, tabs, activeTab, name, resourceType, ...rest }: { children?: React.ReactNode; tabs?: { id: string; label: string; content?: React.ReactNode }[]; activeTab?: string; name?: string; resourceType?: string; [key: string]: unknown }) => (
     <div data-testid="resource-detail-layout">
       <div data-testid="resource-name">{name}</div>
       <div data-testid="resource-type">{resourceType}</div>
       {children}
       <div data-testid="tabs">
-        {tabs?.map((t: any) => (
+        {tabs?.map((t: { id: string; label: string; content?: React.ReactNode }) => (
           <div key={t.id} data-testid={`tab-${t.id}`}>
             {t.label}
           </div>
         ))}
       </div>
       {/* Render active tab content */}
-      {tabs?.find((t: any) => t.id === activeTab)?.content}
+      {tabs?.find((t: { id: string; label: string; content?: React.ReactNode }) => t.id === activeTab)?.content}
     </div>
   ),
   YamlViewer: () => <div data-testid="yaml-viewer">YAML</div>,
   EventsSection: () => <div data-testid="events-section">Events</div>,
-  ActionsSection: ({ actions }: any) => (
+  ActionsSection: ({ actions }: { actions?: unknown[] }) => (
     <div data-testid="actions-section">{actions?.length} actions</div>
   ),
   DeleteConfirmDialog: () => <div data-testid="delete-dialog" />,
@@ -145,15 +147,21 @@ function renderWithParams(
     ...props,
   };
 
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+
   return render(
-    <MemoryRouter initialEntries={[entryPath]}>
-      <Routes>
-        <Route
-          path={routePath}
-          element={<GenericResourceDetail {...defaultProps} />}
-        />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[entryPath]}>
+        <Routes>
+          <Route
+            path={routePath}
+            element={<GenericResourceDetail {...defaultProps} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
 }
 
@@ -269,7 +277,7 @@ describe('GenericResourceDetail', () => {
 
     renderWithParams({
       customTabs,
-      resourceType: 'deployments' as any,
+      resourceType: 'deployments' as React.ComponentProps<typeof GenericResourceDetail>['resourceType'],
       kind: 'Deployment',
       pluralLabel: 'Deployments',
       listPath: '/deployments',
@@ -473,7 +481,7 @@ describe('GenericResourceDetail', () => {
 
     renderWithParams(
       {
-        resourceType: 'nodes' as any,
+        resourceType: 'nodes' as React.ComponentProps<typeof GenericResourceDetail>['resourceType'],
         kind: 'Node',
         pluralLabel: 'Nodes',
         listPath: '/nodes',

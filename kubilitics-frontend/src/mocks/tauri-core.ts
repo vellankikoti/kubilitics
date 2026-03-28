@@ -4,6 +4,23 @@
  * callers never crash on null.field access.
  */
 
+/** Stub for @tauri-apps/api/core Resource (used by plugin-updater). */
+export class Resource {
+    readonly rid: number;
+    constructor(rid?: number) {
+        this.rid = rid ?? 0;
+    }
+    close(): Promise<void> {
+        return Promise.resolve();
+    }
+}
+
+/** Stub for @tauri-apps/api/core Channel (used by plugin-updater). */
+export class Channel<T = unknown> {
+    id = 0;
+    onmessage: (response: T) => void = () => {};
+}
+
 export const invoke = async (cmd: string, _args?: unknown): Promise<unknown> => {
 
     switch (cmd) {

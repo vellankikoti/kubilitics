@@ -238,17 +238,17 @@ export function ClusterResourceIntelligence() {
 
     const nodes = nodesList.data?.items ?? [];
     for (const node of nodes) {
-      const allocatable = (node as any)?.status?.allocatable ?? {};
+      const allocatable = (node.status as Record<string, Record<string, string>> | undefined)?.allocatable ?? {};
       totalCpuCapacity += parseCpu(allocatable.cpu || "0");
       totalMemCapacity += parseMemory(allocatable.memory || "0");
     }
 
     const pods = podsList.data?.items ?? [];
     for (const pod of pods) {
-      const phase = (pod as any)?.status?.phase;
+      const phase = (pod.status as Record<string, unknown> | undefined)?.phase;
       if (phase === "Succeeded" || phase === "Failed") continue;
 
-      const containers = (pod as any)?.spec?.containers ?? [];
+      const containers = ((pod.spec as Record<string, unknown> | undefined)?.containers ?? []) as Array<{ resources?: { requests?: Record<string, string> } }>;
       let podCpu = 0;
       let podMem = 0;
       for (const c of containers) {
@@ -259,7 +259,7 @@ export function ClusterResourceIntelligence() {
       totalCpuRequests += podCpu;
       totalMemRequests += podMem;
 
-      const ns = (pod as any)?.metadata?.namespace ?? "default";
+      const ns = pod.metadata?.namespace ?? "default";
       if (!nsUsage[ns]) nsUsage[ns] = { cpu: 0, mem: 0 };
       nsUsage[ns].cpu += podCpu;
       nsUsage[ns].mem += podMem;

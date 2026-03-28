@@ -14,9 +14,9 @@ import React from 'react';
 let mockIsConnected = true;
 let mockIsBackendConfigured = false;
 let mockClusterId: string | null = null;
-let mockEventsData: any[] | null = null;
+let mockEventsData: Record<string, unknown>[] | null = null;
 let mockEventsLoading = false;
-let mockK8sEventsData: any = null;
+let mockK8sEventsData: Record<string, unknown> | null = null;
 let mockK8sEventsLoading = false;
 
 vi.mock('@/hooks/useConnectionStatus', () => ({
@@ -24,7 +24,7 @@ vi.mock('@/hooks/useConnectionStatus', () => ({
 }));
 
 vi.mock('@/stores/backendConfigStore', () => ({
-  useBackendConfigStore: (selector: any) => {
+  useBackendConfigStore: (selector: (s: Record<string, unknown>) => unknown) => {
     const state = {
       currentClusterId: mockClusterId,
       isBackendConfigured: () => mockIsBackendConfigured,
@@ -40,7 +40,7 @@ vi.mock('@/hooks/useClusterOverview', () => ({
 }));
 
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: (opts: any) => {
+  useQuery: (opts: { queryKey?: string[] }) => {
     if (opts.queryKey?.[1] === 'events') {
       return {
         data: mockEventsData,

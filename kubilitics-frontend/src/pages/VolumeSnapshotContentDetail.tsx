@@ -34,8 +34,8 @@ function OverviewTab({ resource: vsc, age }: ResourceContext<K8sVolumeSnapshotCo
   const sourceSpec = spec.source ?? {};
   const vsRef = spec.volumeSnapshotRef ?? {};
 
-  const driver = vsc?.spec?.driver ?? (vsc as any)?.driver ?? '—';
-  const deletionPolicy = vsc?.spec?.deletionPolicy ?? (vsc as any)?.deletionPolicy ?? 'Delete';
+  const driver = vsc?.spec?.driver ?? (vsc as unknown as Record<string, unknown>)?.driver as string ?? '—';
+  const deletionPolicy = vsc?.spec?.deletionPolicy ?? (vsc as unknown as Record<string, unknown>)?.deletionPolicy as string ?? 'Delete';
   const snapshotClass = spec.volumeSnapshotClassName ?? '—';
   const restoreSize = status.restoreSize ?? '—';
   const readyToUse = status.readyToUse === true;
@@ -114,7 +114,7 @@ export default function VolumeSnapshotContentDetail() {
         const restoreSize = status.restoreSize ?? '—';
         const readyToUse = status.readyToUse === true;
         const errorMsg = status.error?.message;
-        const deletionPolicy = vsc?.spec?.deletionPolicy ?? (vsc as any)?.deletionPolicy ?? 'Delete';
+        const deletionPolicy = vsc?.spec?.deletionPolicy ?? (vsc as unknown as Record<string, unknown>)?.deletionPolicy as string ?? 'Delete';
 
         let sourceLabel = '—';
         if (sourceSpec.snapshotHandle) sourceLabel = 'Pre-provisioned';

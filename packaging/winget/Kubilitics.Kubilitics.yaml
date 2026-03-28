@@ -1,7 +1,8 @@
 # winget manifest for Kubilitics Desktop App
 # Submit to: https://github.com/microsoft/winget-pkgs
+# NOTE: Version and SHA256 are auto-updated by post-release.yml after each release.
 PackageIdentifier: Kubilitics.Kubilitics
-PackageVersion: 1.0.0
+PackageVersion: 0.1.0
 PackageLocale: en-US
 Publisher: Kubilitics
 PublisherUrl: https://kubilitics.com
@@ -30,8 +31,8 @@ Tags:
 Installers:
   - Architecture: x64
     InstallerType: nsis
-    InstallerUrl: https://github.com/kubilitics/kubilitics/releases/download/v1.0.0/Kubilitics-1.0.0-x64-setup.exe
-    InstallerSha256: PLACEHOLDER_SHA256
+    InstallerUrl: https://github.com/kubilitics/kubilitics/releases/download/v0.1.0/Kubilitics_0.1.0_x64-setup.exe
+    InstallerSha256: "0000000000000000000000000000000000000000000000000000000000000000"
     UpgradeBehavior: install
 ManifestType: singleton
 ManifestVersion: 1.6.0

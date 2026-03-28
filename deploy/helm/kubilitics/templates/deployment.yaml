@@ -91,6 +91,8 @@ spec:
                   key: {{ $key }}
             {{- end }}
             {{- end }}
+            - name: KUBILITICS_BIND_ADDRESS
+              value: {{ .Values.config.bindAddress | default "0.0.0.0" | quote }}
             - name: KUBILITICS_PORT
               value: {{ .Values.config.port | quote }}
             - name: KUBILITICS_AUTH_MODE

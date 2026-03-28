@@ -51,6 +51,11 @@ export interface TopologyCanvasProps {
   simulatedFailureNodeId?: string | null;
 }
 
+// Traffic-related relationship types — highlighted in traffic view mode
+const TRAFFIC_EDGE_TYPES = new Set([
+  "selector", "endpoint_target", "ingress_backend", "endpoints",
+]);
+
 /** Semantic zoom — uses centralized thresholds from designTokens */
 function getNodeTypeForZoom(zoom: number): string {
   if (zoom < ZOOM_THRESHOLDS.minimal) return "minimal";
@@ -130,7 +135,7 @@ function TopologyCanvasInner({
       }, 150);
       return () => clearTimeout(t);
     }
-  }, [isLayouting, layoutFingerprint, reactFlow, nodeCount]);
+  }, [isLayouting, layoutFingerprint, reactFlow, nodeCount, elkNodes.length]);
 
   // Expose fitView to parent toolbar "Fit" button
   useEffect(() => {
@@ -138,7 +143,7 @@ function TopologyCanvasInner({
       fitViewRef.current = () =>
         reactFlow.fitView({ padding: 0.08, duration: 400, minZoom: fitViewMinZoom(nodeCount) });
     }
-  }, [reactFlow, fitViewRef]);
+  }, [reactFlow, fitViewRef, nodeCount]);
 
   // Expose centerOnNode to parent — zooms + pans to center a specific node
   useEffect(() => {
@@ -344,11 +349,6 @@ function TopologyCanvasInner({
       };
     });
   }, [nodes, selectedNodeId, highlightNodeIds, dimmedNodeIds, errorChainNodeIds, simulationAffectedNodes, simulatedFailureNodeId]);
-
-  // Traffic-related relationship types — highlighted in traffic view mode
-  const TRAFFIC_EDGE_TYPES = new Set([
-    "selector", "endpoint_target", "ingress_backend", "endpoints",
-  ]);
 
   // Edge styling — ALWAYS show edges, just hide labels at low zoom
   const styledEdges = useMemo(() => {

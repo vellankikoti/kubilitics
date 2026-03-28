@@ -664,15 +664,15 @@ export default function CronJobDetail() {
       toast.error(msg ?? 'Trigger failed');
       throw e;
     }
-  }, [isConnected, name, namespace]);
+  }, [isConnected, isBackendConfigured, name, namespace]);
 
   const handleToggleSuspend = useCallback(async (isSuspended: boolean) => {
     if (!isConnected || !name || !namespace) { toast.error('Connect cluster to suspend/resume CronJob'); return; }
     try {
       await patchCronJob.mutateAsync({ name, namespace, patch: { spec: { suspend: !isSuspended } } });
       toast.success(isSuspended ? `Resumed ${name}` : `Suspended ${name}`);
-    } catch (err: any) {
-      toast.error(err?.message ?? 'Failed to update');
+    } catch (err: unknown) {
+      toast.error((err instanceof Error ? err.message : null) ?? 'Failed to update');
       throw err;
     }
   }, [isConnected, name, namespace, patchCronJob]);

@@ -21,9 +21,8 @@ interface K8sResourceSlice extends KubernetesResource {
 }
 
 function formatCapacity(rs: K8sResourceSlice): string {
-  const raw = rs as any;
-  const named = raw.namedResources as { entries?: Array<{ capacity?: Record<string, string> }> } | undefined;
-  const structured = raw.structuredResources as { capacity?: Record<string, string> } | undefined;
+  const named = rs.namedResources as { entries?: Array<{ capacity?: Record<string, string> }> } | undefined;
+  const structured = rs.structuredResources as { capacity?: Record<string, string> } | undefined;
   if (named?.entries?.length) {
     const caps = named.entries.flatMap((e) => e.capacity ? Object.values(e.capacity) : []);
     return caps.length ? caps.join(', ') : '—';
@@ -35,10 +34,9 @@ function formatCapacity(rs: K8sResourceSlice): string {
 }
 
 function OverviewTab({ resource: rs, age }: ResourceContext<K8sResourceSlice>) {
-  const raw = rs as any;
-  const driver = raw.driver ?? raw.spec?.driver ?? '—';
-  const nodeName = raw.nodeName ?? raw.spec?.nodeName;
-  const pool = raw.pool ?? raw.spec?.pool;
+  const driver = rs.driver ?? (rs.spec as Record<string, unknown> | undefined)?.driver as string ?? '—';
+  const nodeName = rs.nodeName ?? (rs.spec as Record<string, unknown> | undefined)?.nodeName as string | undefined;
+  const pool = rs.pool ?? (rs.spec as Record<string, unknown> | undefined)?.pool as K8sResourceSlice['pool'];
   const poolName = pool?.name ?? '—';
   const node = nodeName ?? poolName ?? '—';
   const capacity = formatCapacity(rs as K8sResourceSlice);
@@ -83,10 +81,9 @@ export default function ResourceSliceDetail() {
       customTabs={customTabs}
       buildStatusCards={(ctx) => {
         const rs = ctx.resource;
-        const raw = rs as any;
-        const driver = raw.driver ?? raw.spec?.driver ?? '—';
-        const nodeName = raw.nodeName ?? raw.spec?.nodeName;
-        const pool = raw.pool ?? raw.spec?.pool;
+        const driver = rs.driver ?? (rs.spec as Record<string, unknown> | undefined)?.driver as string ?? '—';
+        const nodeName = rs.nodeName ?? (rs.spec as Record<string, unknown> | undefined)?.nodeName as string | undefined;
+        const pool = rs.pool ?? (rs.spec as Record<string, unknown> | undefined)?.pool as K8sResourceSlice['pool'];
         const poolName = pool?.name ?? '—';
         const node = nodeName ?? poolName ?? '—';
         const capacity = formatCapacity(rs as K8sResourceSlice);

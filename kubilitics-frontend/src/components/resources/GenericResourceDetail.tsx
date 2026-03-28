@@ -78,12 +78,12 @@ export interface CustomTab {
   id: string;
   label: string;
   icon?: LucideIcon;
-  badge?: number | string | ((ctx: ResourceContext<any>) => number | string | undefined);
+  badge?: number | string | ((ctx: ResourceContext<KubernetesResource>) => number | string | undefined);
   /**
    * Render function receiving the loaded resource and helpers so the
    * consumer can build kind-specific UI without re-fetching anything.
    */
-  render: (ctx: ResourceContext<any>) => ReactNode;
+  render: (ctx: ResourceContext<KubernetesResource>) => ReactNode;
 }
 
 /** Action item for the Actions tab — mirrors the existing ActionsSection API. */
