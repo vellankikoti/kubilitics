@@ -62,7 +62,7 @@ export function useBackendWebSocket(options: UseBackendWebSocketOptions = {}) {
 
   // connect is declared FIRST so reconnect can safely reference it
   const connect = useCallback(() => {
-    if (!isConfigured() || !enabled) return;
+    if (!isConfigured || !enabled) return;
 
     const protocol = backendBaseUrl?.startsWith('https') ? 'wss' : 'ws';
     const host = backendBaseUrl
@@ -184,7 +184,7 @@ export function useBackendWebSocket(options: UseBackendWebSocketOptions = {}) {
   }, []);
 
   useEffect(() => {
-    if (enabled && isConfigured() && backendBaseUrl) {
+    if (enabled && isConfigured && backendBaseUrl) {
       connect();
     }
     return () => disconnect();

@@ -116,7 +116,7 @@ export function useNodeTrafficImpact(
   const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   const parsed = nodeId ? parseNodeId(nodeId) : null;
-  const enabled = !!clusterId && !!parsed && isBackendConfigured();
+  const enabled = !!clusterId && !!parsed && isBackendConfigured;
 
   // Fetch traffic edges
   const trafficQuery = useQuery<TrafficEdge[], Error>({

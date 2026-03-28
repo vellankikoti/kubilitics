@@ -499,7 +499,7 @@ function usePodLogStream(
   const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const clusterId = useActiveClusterId();
   const { isConnected } = useConnectionStatus();
-  const useBackend = isBackendConfigured() && !!clusterId;
+  const useBackend = isBackendConfigured && !!clusterId;
   const abortRef = useRef<AbortController | null>(null);
   const activeRef = useRef(false);
 

@@ -142,7 +142,7 @@ export default function Events() {
  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
  const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
  const clusterId = currentClusterId ?? null;
- const useBackend = isBackendConfigured() && !!clusterId;
+ const useBackend = isBackendConfigured && !!clusterId;
 
  const [namespaceFilter, setNamespaceFilter] = useState<string>('all');
  const [searchQuery, setSearchQuery] = useState('');

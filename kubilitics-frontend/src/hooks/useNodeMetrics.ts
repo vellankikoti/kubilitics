@@ -18,7 +18,7 @@ export function useNodeMetrics(
 
   const enabled =
     (options?.enabled !== false) &&
-    !!isBackendConfigured() &&
+    !!isBackendConfigured &&
     !!clusterId &&
     !!nodeName;
 

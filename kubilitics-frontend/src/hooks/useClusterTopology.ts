@@ -24,7 +24,7 @@ export interface UseClusterTopologyResult {
 
 /**
  * Fetches cluster-wide topology from backend API.
- * Same pattern as useResourceTopology: enable when isBackendConfigured() and clusterId are set.
+ * Same pattern as useResourceTopology: enable when isBackendConfigured and clusterId are set.
  */
 export function useClusterTopology({
   clusterId,
@@ -43,7 +43,7 @@ export function useClusterTopology({
   const queryEnabled =
     enabled &&
     !!clusterId &&
-    isBackendConfigured();
+    isBackendConfigured;
 
   const {
     data: graph,

@@ -151,7 +151,7 @@ export default function ServiceAccounts() {
  const { data: tokenCounts } = useQuery({
  queryKey: ['backend', 'serviceaccount-token-counts', clusterId],
  queryFn: () => getServiceAccountTokenCounts(backendBaseUrl, clusterId!),
- enabled: !!(isBackendConfigured() && clusterId && isConnected),
+ enabled: !!(isBackendConfigured && clusterId && isConnected),
  staleTime: 30_000,
  });
 

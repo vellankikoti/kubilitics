@@ -240,7 +240,7 @@ export default function PersistentVolumeClaims() {
  queries: itemsOnPage.map((p) => ({
  queryKey: ['pvc-consumers', clusterId, p.namespace, p.name],
  queryFn: () => getPVCConsumers(backendBaseUrl!, clusterId!, p.namespace, p.name),
- enabled: !!(isBackendConfigured() && clusterId && p.name && p.namespace),
+ enabled: !!(isBackendConfigured && clusterId && p.name && p.namespace),
  staleTime: 60_000,
  })),
  });
@@ -443,7 +443,7 @@ export default function PersistentVolumeClaims() {
  </ResizableTableCell>
  <ResizableTableCell columnId="volumeMode"><Badge variant="secondary" className="font-normal">{item.volumeMode}</Badge></ResizableTableCell>
  <ResizableTableCell columnId="usedBy">
- {!isBackendConfigured() || !clusterId ? (
+ {!isBackendConfigured || !clusterId ? (
  <span className="text-muted-foreground">—</span>
  ) : consumersCountByKey[key] !== undefined ? (
  <Tooltip>

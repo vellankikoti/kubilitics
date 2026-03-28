@@ -219,7 +219,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
   const activeNamespace = useClusterStore((s) => s.activeNamespace);
 
   const clusterId = currentClusterId ?? activeCluster?.id ?? null;
-  const canSearchLive = isBackendConfigured() && !!clusterId && !!backendBaseUrl;
+  const canSearchLive = isBackendConfigured && !!clusterId && !!backendBaseUrl;
 
   // Debounce for backend search
   useEffect(() => {

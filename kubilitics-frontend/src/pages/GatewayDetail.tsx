@@ -121,7 +121,7 @@ function useGatewayRoutes(namespace: string, name: string) {
       }
     },
     refetchInterval: 15_000,
-    enabled: isBackendConfigured() && !!currentClusterId && !isDemo,
+    enabled: isBackendConfigured && !!currentClusterId && !isDemo,
   });
 
   return routesQuery.data ?? [];

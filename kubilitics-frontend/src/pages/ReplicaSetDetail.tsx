@@ -184,7 +184,7 @@ export default function ReplicaSetDetail() {
       toast.error('Connect cluster to scale ReplicaSet');
       return;
     }
-    if (!isBackendConfigured()) {
+    if (!isBackendConfigured) {
       toast.error('Connect to Kubilitics backend in Settings to scale.');
       return;
     }

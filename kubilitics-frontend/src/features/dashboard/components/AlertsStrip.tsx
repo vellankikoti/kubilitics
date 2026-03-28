@@ -79,11 +79,11 @@ export const AlertsStrip = () => {
   const eventsQuery = useQuery({
     queryKey: ["backend", "events", clusterId, "alerts"],
     queryFn: () => getEvents(backendBaseUrl, clusterId!, { limit: 200 }),
-    enabled: !!clusterId && isBackendConfigured(),
+    enabled: !!clusterId && isBackendConfigured,
     staleTime: 15000,
   });
   const k8sEvents = useK8sResourceList("events", "default", {
-    enabled: isConnected && !isBackendConfigured(),
+    enabled: isConnected && !isBackendConfigured,
     limit: 200,
   });
 
@@ -107,7 +107,7 @@ export const AlertsStrip = () => {
       };
     }
     let events: Array<BackendEvent | { type?: string; reason?: string; resource_kind?: string; resource_name?: string; namespace?: string; involvedObject?: { kind?: string; name?: string; namespace?: string } }> = [];
-    if (isBackendConfigured() && Array.isArray(eventsQuery.data) && eventsQuery.data.length > 0) {
+    if (isBackendConfigured && Array.isArray(eventsQuery.data) && eventsQuery.data.length > 0) {
       events = eventsQuery.data;
     } else {
       const items = (k8sEvents.data?.items ?? []) as Array<{ type?: string; reason?: string; involvedObject?: { kind?: string; name?: string; namespace?: string } }>;
@@ -139,7 +139,7 @@ export const AlertsStrip = () => {
     );
   }
 
-  const isLoading = (isBackendConfigured() && eventsQuery.isLoading) || (!isBackendConfigured() && k8sEvents.isLoading);
+  const isLoading = (isBackendConfigured && eventsQuery.isLoading) || (!isBackendConfigured && k8sEvents.isLoading);
   if (isLoading && overview.isLoading && !overview.data) {
     return (
       <section>

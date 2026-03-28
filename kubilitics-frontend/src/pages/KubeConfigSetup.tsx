@@ -43,7 +43,7 @@ import { cn } from '@/lib/utils';
  * Check if backend is effectively available.
  * In dev on localhost, backendBaseUrl is '' (Vite proxy) — that's valid.
  * In Tauri, backend is always available via sidecar.
- * isBackendConfigured() already handles both cases.
+ * isBackendConfigured already handles both cases.
  */
 function isEffectivelyConfigured(isConfigured: boolean): boolean {
   return isConfigured || isTauri();

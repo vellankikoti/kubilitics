@@ -542,7 +542,7 @@ function TemplateEditorDialog({
   }
 
   const handleApply = useCallback(async () => {
-    if (!clusterId || !isBackendConfigured()) {
+    if (!clusterId || !isBackendConfigured) {
       toast.error('No cluster connected', {
         description: 'Connect to a cluster in Settings before applying resources.',
       });

@@ -205,7 +205,7 @@ function useGatewayResources<T extends KubernetesResource>(
   return useQuery({
     queryKey: ['gateway-api', type, currentClusterId, namespace],
     queryFn: async () => {
-      if (!isBackendConfigured() || !currentClusterId || isDemo) {
+      if (!isBackendConfigured || !currentClusterId || isDemo) {
         return { items: [] as T[] };
       }
 
@@ -227,7 +227,7 @@ function useGatewayResources<T extends KubernetesResource>(
       }
     },
     refetchInterval: 15_000,
-    enabled: isBackendConfigured() && !!currentClusterId && !isDemo,
+    enabled: isBackendConfigured && !!currentClusterId && !isDemo,
   });
 }
 

@@ -55,7 +55,7 @@ export function useAggregateMetrics(
 
   const enabled =
     (options?.enabled !== false) &&
-    !!isBackendConfigured() &&
+    !!isBackendConfigured &&
     !!clusterId &&
     !!namespace &&
     !!name;

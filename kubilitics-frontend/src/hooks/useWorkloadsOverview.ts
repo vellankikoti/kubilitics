@@ -180,14 +180,14 @@ export function useWorkloadsOverview() {
   const backendQuery = useQuery({
     queryKey: ['backend', 'workloads', backendBaseUrl, clusterId],
     queryFn: () => getWorkloadsOverview(backendBaseUrl, clusterId!),
-    enabled: isBackendConfigured() && !!clusterId,
+    enabled: isBackendConfigured && !!clusterId,
     staleTime: 60_000,
     refetchInterval: 60_000,
   });
 
   // Fallback resource list queries: only fire when backend is NOT configured (direct K8s mode).
   // When backend is configured, the backendQuery handles data — avoid 6 × limit:5000 requests.
-  const fallbackEnabled = !isBackendConfigured() && !!(activeCluster || clusterId);
+  const fallbackEnabled = !isBackendConfigured && !!(activeCluster || clusterId);
   const deployments = useK8sResourceList('deployments', undefined, {
     enabled: fallbackEnabled,
     limit: 500,
@@ -266,8 +266,8 @@ export function useWorkloadsOverview() {
   ]);
 
   const isLoading =
-    (isBackendConfigured() && backendQuery.isLoading) ||
-    (!isBackendConfigured() &&
+    (isBackendConfigured && backendQuery.isLoading) ||
+    (!isBackendConfigured &&
       (deployments.isLoading ||
         statefulsets.isLoading ||
         daemonsets.isLoading ||
@@ -276,14 +276,14 @@ export function useWorkloadsOverview() {
         pods.isLoading));
 
   // Prefer backend when available; otherwise use aggregated fallback from resource lists
-  const data = isBackendConfigured() && backendQuery.data
+  const data = isBackendConfigured && backendQuery.data
     ? backendQuery.data
     : fallback ?? undefined;
 
   return {
     data,
     isLoading,
-    isError: isBackendConfigured() ? backendQuery.isError : false,
-    refetch: isBackendConfigured() ? backendQuery.refetch : () => {},
+    isError: isBackendConfigured ? backendQuery.isError : false,
+    refetch: isBackendConfigured ? backendQuery.refetch : () => {},
   };
 }

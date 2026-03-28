@@ -131,7 +131,7 @@ export default function StorageClasses() {
  const { data: pvCounts } = useQuery({
  queryKey: ['storageclass-pv-counts', clusterId],
  queryFn: () => getStorageClassPVCounts(backendBaseUrl!, clusterId!),
- enabled: !!(isBackendConfigured() && clusterId && backendBaseUrl),
+ enabled: !!(isBackendConfigured && clusterId && backendBaseUrl),
  staleTime: 60_000,
  });
 

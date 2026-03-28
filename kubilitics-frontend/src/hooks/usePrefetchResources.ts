@@ -56,7 +56,7 @@ export function usePrefetchResources() {
 
   useEffect(() => {
     // Only prefetch when we have a connected cluster
-    if (!isBackendConfigured() || !clusterId || !activeCluster) return;
+    if (!isBackendConfigured || !clusterId || !activeCluster) return;
 
     // Don't re-prefetch for the same cluster (prevent double prefetch on re-renders)
     if (prefetchedRef.current === clusterId) return;

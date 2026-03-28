@@ -260,7 +260,7 @@ export default function CustomResources() {
  }
 
  // Backend not configured — CRD instances require backend
- if (!isBackendConfigured()) {
+ if (!isBackendConfigured) {
  return (
  <div className="space-y-6">
  <div>

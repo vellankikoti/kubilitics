@@ -301,7 +301,7 @@ export default function Nodes() {
  queries: nodesToFetch.map((node) => ({
  queryKey: ['node-metrics', clusterId, node.name],
  queryFn: () => getNodeMetrics(backendBaseUrl, clusterId!, node.name),
- enabled: !!(isBackendConfigured() && clusterId),
+ enabled: !!(isBackendConfigured && clusterId),
  staleTime: 120_000,
  })),
  });
@@ -501,7 +501,7 @@ export default function Nodes() {
  }, [selectedNodes, data?.allItems]);
 
  const handleCordon = async (item: Node) => {
- if (!isBackendConfigured() || !clusterId || !backendBaseUrl) {
+ if (!isBackendConfigured || !clusterId || !backendBaseUrl) {
    toast.error('Connect to a cluster to cordon/uncordon nodes');
    return;
  }
@@ -516,7 +516,7 @@ export default function Nodes() {
  };
 
  const handleDrain = async (item: Node) => {
- if (!isBackendConfigured() || !clusterId || !backendBaseUrl) {
+ if (!isBackendConfigured || !clusterId || !backendBaseUrl) {
    toast.error('Connect to a cluster to drain nodes');
    return;
  }
@@ -569,7 +569,7 @@ export default function Nodes() {
  {selectedNodes.size > 0 && (
  <>
  <Button variant="outline" size="sm" className="press-effect gap-2" onClick={async () => {
- if (!isBackendConfigured() || !clusterId || !backendBaseUrl) { toast.error('Connect to a cluster to cordon nodes'); return; }
+ if (!isBackendConfigured || !clusterId || !backendBaseUrl) { toast.error('Connect to a cluster to cordon nodes'); return; }
  let succeeded = 0;
  for (const key of selectedNodes) {
    const nodeName = key.startsWith('_/') ? key.slice(2) : key;
@@ -581,7 +581,7 @@ export default function Nodes() {
  <Lock className="h-4 w-4" />Cordon ({selectedNodes.size})
  </Button>
  <Button variant="outline" size="sm" className="press-effect gap-2" onClick={async () => {
- if (!isBackendConfigured() || !clusterId || !backendBaseUrl) { toast.error('Connect to a cluster to uncordon nodes'); return; }
+ if (!isBackendConfigured || !clusterId || !backendBaseUrl) { toast.error('Connect to a cluster to uncordon nodes'); return; }
  let succeeded = 0;
  for (const key of selectedNodes) {
    const nodeName = key.startsWith('_/') ? key.slice(2) : key;

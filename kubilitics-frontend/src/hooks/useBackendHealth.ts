@@ -23,7 +23,7 @@ export function useBackendHealth(options?: {
   return useQuery({
     queryKey: ['backend', 'health', backendBaseUrl],
     queryFn: () => getHealth(backendBaseUrl),
-    enabled: isConfigured() && (options?.enabled !== false),
+    enabled: isConfigured && (options?.enabled !== false),
     refetchInterval: options?.refetchInterval ?? false,
     // Use exponential backoff retry: 3 retries with 1s, 2s, 4s delays
     retry: options?.retry ?? (gateOnHealth ? 0 : 3),

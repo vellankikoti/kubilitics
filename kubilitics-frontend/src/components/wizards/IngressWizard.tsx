@@ -350,7 +350,7 @@ ${rulesYaml || '    - http:\n        paths: []'}${tlsYaml}
   ];
 
   const handleSubmit = async () => {
-    if (!isBackendConfigured() || !clusterId) {
+    if (!isBackendConfigured || !clusterId) {
       toast.error('Connect to a cluster to create Ingress');
       onSubmit?.(yaml);
       onClose();

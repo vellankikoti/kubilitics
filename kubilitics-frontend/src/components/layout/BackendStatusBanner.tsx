@@ -39,7 +39,7 @@ export function BackendStatusBanner({ className }: { className?: string }) {
   // - Backend is reachable (healthy)
   // - User dismissed this occurrence
   // - Circuit breaker is open (CircuitBreakerBanner already shows — avoid duplicate)
-  if (!isConfigured()) return null;
+  if (!isConfigured) return null;
   if (backendReachable) return null;
   if (dismissed) return null;
   if (circuitOpen) return null;

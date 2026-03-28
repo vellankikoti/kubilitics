@@ -35,7 +35,7 @@ export function useMetricsSummary(
   const needsNamespace = resourceType !== 'node';
   const enabled =
     (options?.enabled !== false) &&
-    !!isBackendConfigured() &&
+    !!isBackendConfigured &&
     !!clusterId &&
     !!resourceName &&
     (!needsNamespace || !!namespace);

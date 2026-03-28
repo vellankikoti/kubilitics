@@ -19,7 +19,7 @@ export function usePodMetrics(
 
   const enabled =
     (options?.enabled !== false) &&
-    !!isBackendConfigured() &&
+    !!isBackendConfigured &&
     !!clusterId &&
     !!namespace &&
     !!podName;

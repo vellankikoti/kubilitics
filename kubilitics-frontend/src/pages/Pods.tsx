@@ -317,7 +317,7 @@ export default function Pods() {
  queries: podsForSortMetrics.map((pod) => ({
  queryKey: ['pod-metrics-sort', clusterId, pod.namespace, pod.name],
  queryFn: () => getPodMetrics(backendBaseUrl, clusterId!, pod.namespace, pod.name),
- enabled: !!(isBackendConfigured() && clusterId && podsForSortMetrics.length > 0),
+ enabled: !!(isBackendConfigured && clusterId && podsForSortMetrics.length > 0),
  staleTime: 60_000,
  })),
  });
@@ -509,7 +509,7 @@ export default function Pods() {
  queries: visiblePodsForMetrics.map((pod) => ({
  queryKey: ['pod-metrics', clusterId, pod.namespace, pod.name],
  queryFn: () => getPodMetrics(backendBaseUrl, clusterId!, pod.namespace, pod.name),
- enabled: !!(isBackendConfigured() && clusterId),
+ enabled: !!(isBackendConfigured && clusterId),
  staleTime: 120_000,
  })),
  });

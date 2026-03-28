@@ -61,7 +61,7 @@ function UsedByContent({ namespace, name }: { namespace?: string; name?: string 
   const consumersQuery = useQuery({
     queryKey: ['configmap-consumers', clusterId, namespace, name],
     queryFn: () => getConfigMapConsumers(baseUrl!, clusterId!, namespace ?? '', name!),
-    enabled: !!(isBackendConfigured() && clusterId && namespace && name),
+    enabled: !!(isBackendConfigured && clusterId && namespace && name),
     staleTime: 30_000,
   });
   const consumers = consumersQuery.data;
@@ -82,7 +82,7 @@ function UsedByContent({ namespace, name }: { namespace?: string; name?: string 
   }, [consumers]);
 
   if (!namespace || !name) return <p className="text-muted-foreground text-sm">No resource selected.</p>;
-  if (!isBackendConfigured() || !clusterId) return <p className="text-muted-foreground text-sm">Connect to Kubilitics backend to see which Pods and workloads use this ConfigMap.</p>;
+  if (!isBackendConfigured || !clusterId) return <p className="text-muted-foreground text-sm">Connect to Kubilitics backend to see which Pods and workloads use this ConfigMap.</p>;
   if (consumersQuery.isLoading) return <Skeleton className="h-32 w-full" />;
   if (consumers == null) return <p className="text-muted-foreground text-sm">Could not load consumers.</p>;
 

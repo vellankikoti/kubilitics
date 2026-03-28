@@ -46,7 +46,7 @@ export function useBlastRadius({
   const queryEnabled =
     enabled &&
     !!clusterId &&
-    isBackendConfigured() &&
+    isBackendConfigured &&
     !!kind &&
     !!normalizedName;
 

@@ -143,7 +143,7 @@ function useNotificationWebSocket(
 
   useBackendWebSocket({
     clusterId,
-    enabled: enabled && isConfigured(),
+    enabled: enabled && isConfigured,
     onMessage: handleMessage,
   });
 }

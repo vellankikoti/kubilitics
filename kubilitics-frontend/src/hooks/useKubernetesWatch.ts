@@ -179,7 +179,7 @@ export function useKubernetesWatch<T extends KubernetesResource = KubernetesReso
   // ── WebSocket Connection ───────────────────────────────────────────────────
 
   const connectWs = useCallback(() => {
-    if (!isBackendConfigured() || !currentClusterId || !backendBaseUrl || isDemo || disableWebSocket) {
+    if (!isBackendConfigured || !currentClusterId || !backendBaseUrl || isDemo || disableWebSocket) {
       return;
     }
 

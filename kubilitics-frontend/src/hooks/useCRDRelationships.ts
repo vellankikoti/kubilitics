@@ -65,7 +65,7 @@ export function useCRDRelationships(
   const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   const enabled = !!(
-    isConfigured() &&
+    isConfigured &&
     clusterId &&
     coreNodes.length > 0 &&
     (options?.enabled !== false)

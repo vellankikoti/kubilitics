@@ -225,7 +225,7 @@ function useRestoreClusterFromBackend() {
   const [restoreFailed, setRestoreFailed] = useState(false);
 
   useEffect(() => {
-    if (activeCluster != null || restoreAttempted || !currentClusterId || !isBackendConfigured()) {
+    if (activeCluster != null || restoreAttempted || !currentClusterId || !isBackendConfigured) {
       if (activeCluster == null && restoreAttempted && currentClusterId) setRestoreFailed(true);
       return;
     }
@@ -321,7 +321,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!isHydrated && !hydrationTimedOut) return <PageLoader />;
 
   // If we have a persisted cluster ID but no activeCluster yet, wait for restore (or show loader until it fails).
-  const canRestore = currentClusterId && isBackendConfigured();
+  const canRestore = currentClusterId && isBackendConfigured;
   if (!activeCluster && canRestore && !restoreFailed && !restoreTimedOut) {
     return <PageLoader />;
   }

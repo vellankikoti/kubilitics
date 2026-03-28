@@ -183,7 +183,7 @@ export default function ConfigMaps() {
  queries: allItemsMapped.slice(0, 100).map((cm) => ({
  queryKey: ['configmap-consumers-stats', clusterId, cm.namespace, cm.name],
  queryFn: () => getConfigMapConsumers(backendBaseUrl!, clusterId!, cm.namespace, cm.name),
- enabled: !!(isBackendConfigured() && clusterId && cm.name && cm.namespace),
+ enabled: !!(isBackendConfigured && clusterId && cm.name && cm.namespace),
  staleTime: 120_000,
  })),
  });
@@ -322,7 +322,7 @@ export default function ConfigMaps() {
  queries: itemsOnPage.map((cm) => ({
  queryKey: ['configmap-consumers', clusterId, cm.namespace, cm.name],
  queryFn: () => getConfigMapConsumers(backendBaseUrl!, clusterId!, cm.namespace, cm.name),
- enabled: !!(isBackendConfigured() && clusterId && cm.name && cm.namespace),
+ enabled: !!(isBackendConfigured && clusterId && cm.name && cm.namespace),
  staleTime: 60_000,
  })),
  });
@@ -777,7 +777,7 @@ data: {}
  const key = `${item.namespace}/${item.name}`;
  const usedByCount = consumersCountByKey[key];
  const usedByNode =
- !isBackendConfigured() || !clusterId ? (
+ !isBackendConfigured || !clusterId ? (
  <span className="text-muted-foreground">—</span>
  ) : usedByCount !== undefined ? (
  <Tooltip>
@@ -914,7 +914,7 @@ data: {}
  const key = `${item.namespace}/${item.name}`;
  const usedByCount = consumersCountByKey[key];
  const usedByNode =
- !isBackendConfigured() || !clusterId ? (
+ !isBackendConfigured || !clusterId ? (
  <span className="text-muted-foreground">—</span>
  ) : usedByCount !== undefined ? (
  <span className="font-mono text-sm">{usedByCount}</span>

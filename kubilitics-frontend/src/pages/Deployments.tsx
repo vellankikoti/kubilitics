@@ -246,7 +246,7 @@ export default function Deployments() {
  const rolloutHistoryQuery = useQuery({
  queryKey: ['backend', 'deployment-rollout-history', clusterId, rolloutDialogItem?.namespace, rolloutDialogItem?.name],
  queryFn: () => getDeploymentRolloutHistory(backendBaseUrl!, clusterId!, rolloutDialogItem!.namespace, rolloutDialogItem!.name),
- enabled: !!(rolloutDialog.open && rolloutDialogItem && isBackendConfigured() && clusterId),
+ enabled: !!(rolloutDialog.open && rolloutDialogItem && isBackendConfigured && clusterId),
  staleTime: 10_000,
  });
  const rolloutRevisionsForDialog = useMemo(() => {
@@ -263,7 +263,7 @@ export default function Deployments() {
  const eventsForScaleCount = useQuery({
  queryKey: ['backend', 'events', clusterId, selectedNamespace],
  queryFn: () => getEvents(backendBaseUrl!, clusterId!, { namespace: selectedNamespace === 'all' ? undefined : selectedNamespace, limit: 300 }),
- enabled: !!(isBackendConfigured() && clusterId && selectedNamespace !== 'all'),
+ enabled: !!(isBackendConfigured && clusterId && selectedNamespace !== 'all'),
  staleTime: 60_000,
  });
  const scaleEvents24h = useMemo(() => {
@@ -981,7 +981,7 @@ spec:
  disabled={!isConnected}
  onClick={async () => {
  if (!isConnected) return;
- if (isBackendConfigured() && clusterId) {
+ if (isBackendConfigured && clusterId) {
  await patchDeployment.mutateAsync({ name: item.name, namespace: item.namespace, patch: { spec: { paused: true } } });
  toast.success(`Deployment paused: ${item.name}`);
  refetch();
@@ -999,7 +999,7 @@ spec:
  disabled={!isConnected}
  onClick={async () => {
  if (!isConnected) return;
- if (isBackendConfigured() && clusterId) {
+ if (isBackendConfigured && clusterId) {
  await patchDeployment.mutateAsync({ name: item.name, namespace: item.namespace, patch: { spec: { paused: false } } });
  toast.success(`Deployment resumed: ${item.name}`);
  refetch();
@@ -1097,7 +1097,7 @@ spec:
  disabled={!isConnected}
  onClick={async () => {
  if (!isConnected) return;
- if (isBackendConfigured() && clusterId) {
+ if (isBackendConfigured && clusterId) {
  await patchDeployment.mutateAsync({ name: item.name, namespace: item.namespace, patch: { spec: { paused: true } } });
  toast.success(`Deployment paused: ${item.name}`);
  refetch();
@@ -1115,7 +1115,7 @@ spec:
  disabled={!isConnected}
  onClick={async () => {
  if (!isConnected) return;
- if (isBackendConfigured() && clusterId) {
+ if (isBackendConfigured && clusterId) {
  await patchDeployment.mutateAsync({ name: item.name, namespace: item.namespace, patch: { spec: { paused: false } } });
  toast.success(`Deployment resumed: ${item.name}`);
  refetch();
@@ -1166,7 +1166,7 @@ spec:
  toast.error('Connect cluster to scale');
  return;
  }
- if (isBackendConfigured() && clusterId) {
+ if (isBackendConfigured && clusterId) {
  await patchDeployment.mutateAsync({
  name: scaleDialog.item!.name,
  namespace: scaleDialog.item!.namespace,
@@ -1174,7 +1174,7 @@ spec:
  });
  toast.success(`Scaled ${scaleDialog.item?.name} to ${r} replicas`);
  } else {
- if (!isBackendConfigured()) {
+ if (!isBackendConfigured) {
  toast.error('Connect to Kubilitics backend in Settings to scale.');
  } else {
  toast.error('Select a cluster from the cluster list to perform this action.');
@@ -1198,7 +1198,7 @@ spec:
  toast.error('Connect cluster to restart');
  return;
  }
- if (isBackendConfigured() && clusterId) {
+ if (isBackendConfigured && clusterId) {
  const restartedAt = new Date().toISOString();
  await patchDeployment.mutateAsync({
  name: rolloutDialog.item!.name,
@@ -1215,7 +1215,7 @@ spec:
  });
  toast.success(`Restarted ${rolloutDialog.item?.name}`);
  } else {
- if (!isBackendConfigured()) {
+ if (!isBackendConfigured) {
  toast.error('Connect to Kubilitics backend in Settings to restart.');
  } else {
  toast.error('Select a cluster from the cluster list to perform this action.');
@@ -1229,7 +1229,7 @@ spec:
  toast.error('Connect cluster to rollback');
  return;
  }
- if (!isBackendConfigured() || !clusterId) {
+ if (!isBackendConfigured || !clusterId) {
  toast.error('Connect to Kubilitics backend and select a cluster to rollback.');
  return;
  }

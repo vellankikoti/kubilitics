@@ -306,7 +306,7 @@ export default function NodeDetail() {
   const nodeMetricsQuery = useQuery({
     queryKey: ['node-metrics', clusterId, name],
     queryFn: () => getNodeMetrics(backendBaseUrl, clusterId!, name!),
-    enabled: !!(isBackendConfigured() && clusterId && name),
+    enabled: !!(isBackendConfigured && clusterId && name),
     staleTime: 15_000,
   });
 
@@ -315,7 +315,7 @@ export default function NodeDetail() {
     queries: runningPodsBase.slice(0, 50).map((pod) => ({
       queryKey: ['pod-metrics-node', clusterId, pod.namespace, pod.name],
       queryFn: () => getPodMetrics(backendBaseUrl, clusterId!, pod.namespace, pod.name),
-      enabled: !!(isBackendConfigured() && clusterId && pod.namespace && pod.name),
+      enabled: !!(isBackendConfigured && clusterId && pod.namespace && pod.name),
       staleTime: 15_000,
     })),
   });
@@ -352,7 +352,7 @@ export default function NodeDetail() {
     queries: pvcKeys.map(({ ns, name }) => ({
       queryKey: ['pvc-detail', clusterId, ns, name],
       queryFn: () => getResource(backendBaseUrl, clusterId!, 'persistentvolumeclaims', ns, name) as Promise<{ spec?: { volumeName?: string } }>,
-      enabled: !!(isBackendConfigured() && clusterId && name),
+      enabled: !!(isBackendConfigured && clusterId && name),
       staleTime: 60_000,
     })),
   });
@@ -389,7 +389,7 @@ export default function NodeDetail() {
       queryFn: () => getResource(backendBaseUrl, clusterId!, 'replicasets', ns, name) as Promise<{
         metadata?: { ownerReferences?: Array<{ kind?: string; name?: string }> };
       }>,
-      enabled: !!(isBackendConfigured() && clusterId && name),
+      enabled: !!(isBackendConfigured && clusterId && name),
       staleTime: 60_000,
     })),
   });

@@ -24,7 +24,7 @@ export function useMetricsHistory(
   const needsNamespace = resourceType !== 'node';
   const enabled =
     (options?.enabled !== false) &&
-    !!isBackendConfigured() &&
+    !!isBackendConfigured &&
     !!clusterId &&
     !!resourceName &&
     (!needsNamespace || !!namespace);

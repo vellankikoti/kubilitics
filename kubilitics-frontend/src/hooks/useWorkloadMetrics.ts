@@ -39,7 +39,7 @@ export function useWorkloadMetrics(
 
   const enabled =
     (options?.enabled !== false) &&
-    !!isBackendConfigured() &&
+    !!isBackendConfigured &&
     !!clusterId &&
     !!namespace &&
     !!name;

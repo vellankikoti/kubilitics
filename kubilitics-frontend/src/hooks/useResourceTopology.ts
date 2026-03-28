@@ -29,7 +29,7 @@ export interface UseResourceTopologyResult {
 /**
  * Fetches resource-scoped topology from backend API.
  * Follows the same enabled-check pattern as useClustersFromBackend, useBackendHealth, etc.:
- * relies on isBackendConfigured() (which handles '' proxy URL in dev) and does NOT
+ * relies on isBackendConfigured (which handles '' proxy URL in dev) and does NOT
  * check !!effectiveBaseUrl (which is '' in dev and would be falsy).
  */
 export function useResourceTopology({
@@ -49,12 +49,12 @@ export function useResourceTopology({
   const normalizedNamespace = namespace ?? '';
   const normalizedName = name ?? '';
 
-  // Match the pattern used by every other hook: isBackendConfigured() handles the
+  // Match the pattern used by every other hook: isBackendConfigured handles the
   // dev-proxy case where effectiveBaseUrl is '' (empty string, which is valid).
   const queryEnabled =
     enabled &&
     !!clusterId &&
-    isBackendConfigured() &&
+    isBackendConfigured &&
     !!normalizedKind &&
     !!normalizedName;
 

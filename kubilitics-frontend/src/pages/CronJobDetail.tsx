@@ -646,7 +646,7 @@ export default function CronJobDetail() {
 
   const handleTriggerNow = useCallback(async () => {
     if (!isConnected || !name || !namespace) { toast.error('Connect cluster to trigger CronJob'); return; }
-    if (!isBackendConfigured()) {
+    if (!isBackendConfigured) {
       toast.error('Connect to Kubilitics backend and select a cluster to trigger CronJob.');
       return;
     }

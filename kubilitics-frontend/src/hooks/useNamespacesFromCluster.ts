@@ -20,7 +20,7 @@ export function useNamespacesFromCluster(clusterId: string | null) {
                 return metadata?.name;
             }).filter(Boolean) as string[];
         },
-        enabled: isBackendConfigured() && !!clusterId,
+        enabled: isBackendConfigured && !!clusterId,
         staleTime: 60_000,
     });
 }

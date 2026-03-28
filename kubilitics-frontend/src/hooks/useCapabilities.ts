@@ -24,7 +24,7 @@ export function useCapabilities(): UseCapabilitiesResult {
   } = useQuery({
     queryKey: ['backend-capabilities'],
     queryFn: () => getCapabilities(effectiveBaseUrl),
-    enabled: isBackendConfigured(),
+    enabled: isBackendConfigured,
     staleTime: 5 * 60 * 1000, // 5 minutes
     retry: 1,
   });

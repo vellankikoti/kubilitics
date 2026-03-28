@@ -93,7 +93,7 @@ export function useHoverPrefetch() {
 
   const prefetchRoute = useCallback(
     (path: string) => {
-      if (!isBackendConfigured() || !clusterId || !activeCluster) return;
+      if (!isBackendConfigured || !clusterId || !activeCluster) return;
 
       const resourceTypes = ROUTE_RESOURCE_MAP[path];
       if (!resourceTypes) return;

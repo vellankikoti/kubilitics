@@ -44,7 +44,7 @@ export function useCriticalityScores(namespace?: string) {
       }
       return map;
     },
-    enabled: !!clusterId && isBackendConfigured(),
+    enabled: !!clusterId && isBackendConfigured,
     staleTime: 60_000,
     retry: 1,
   });

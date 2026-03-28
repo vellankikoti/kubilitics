@@ -22,7 +22,7 @@ export function useDeploymentMetrics(
 
   const enabled =
     (options?.enabled !== false) &&
-    !!isBackendConfigured() &&
+    !!isBackendConfigured &&
     !!clusterId &&
     !!namespace &&
     !!deploymentName;

@@ -117,19 +117,19 @@ export function ActivityFeed() {
   const backendEventsQuery = useQuery({
     queryKey: ['backend', 'events', currentClusterId, 'feed'],
     queryFn: () => getEvents(backendBaseUrl, currentClusterId!, { namespace: 'default', limit: 30 }),
-    enabled: !!currentClusterId && isBackendConfigured(),
+    enabled: !!currentClusterId && isBackendConfigured,
     staleTime: 10000,
     refetchInterval: 20000,
   });
 
   const k8sEventsList = useK8sResourceList('events', 'default', {
-    enabled: !!activeCluster && !isBackendConfigured() && config.isConnected,
+    enabled: !!activeCluster && !isBackendConfigured && config.isConnected,
     limit: 50,
     refetchInterval: 20000,
   });
 
   const normalizedEvents = useMemo((): NormalizedEvent[] => {
-    if (isBackendConfigured() && backendEventsQuery.data?.length) {
+    if (isBackendConfigured && backendEventsQuery.data?.length) {
       return backendEventsQuery.data.slice(0, 25).map((e) => normalizeBackendEvent(e as Record<string, unknown>));
     }
     const raw = k8sEventsList.data?.items ?? [];
@@ -248,7 +248,7 @@ export function ActivityFeed() {
 
       {/* Rich timeline */}
       <div className="flex-1 max-h-[260px] overflow-auto min-h-0">
-        {(isBackendConfigured() ? backendEventsQuery.isLoading : k8sEventsList.isLoading) ? (
+        {(isBackendConfigured ? backendEventsQuery.isLoading : k8sEventsList.isLoading) ? (
           <div className="flex flex-col items-center justify-center py-12 gap-2">
             <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--ring))]" aria-hidden />
             <span className="text-xs text-muted-foreground">Loading events...</span>

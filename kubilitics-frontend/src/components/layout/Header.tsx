@@ -262,7 +262,7 @@ export function Header() {
 
   // Determine backend status: healthy or unreachable (no intermediate "warning" — avoids flicker)
   const backendStatus =
-    !isBackendConfigured() ? null :
+    !isBackendConfigured ? null :
       backendReachable ? 'healthy' : 'error';
 
   const handleWizardSubmit = (_yaml: string) => {

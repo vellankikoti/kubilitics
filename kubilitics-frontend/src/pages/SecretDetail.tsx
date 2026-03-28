@@ -106,7 +106,7 @@ function DataTab({ resource: s }: ResourceContext<SecretResource>) {
   const tlsInfoQuery = useQuery({
     queryKey: ['secret-tls-info', clusterId, namespace, name],
     queryFn: () => getSecretTLSInfo(baseUrl!, clusterId!, namespace, name),
-    enabled: !!(isBackendConfigured() && clusterId && namespace && name && (secretType === 'kubernetes.io/tls')),
+    enabled: !!(isBackendConfigured && clusterId && namespace && name && (secretType === 'kubernetes.io/tls')),
     staleTime: 60_000,
   });
   const tlsInfo = tlsInfoQuery.data;
@@ -243,13 +243,13 @@ function UsedByTab({ namespace, name }: { namespace?: string; name?: string }) {
   const consumersQuery = useQuery({
     queryKey: ['secret-consumers', clusterId, namespace, name],
     queryFn: () => getSecretConsumers(baseUrl!, clusterId!, namespace ?? '', name!),
-    enabled: !!(isBackendConfigured() && clusterId && namespace && name),
+    enabled: !!(isBackendConfigured && clusterId && namespace && name),
     staleTime: 30_000,
   });
   const consumers = consumersQuery.data;
 
   if (!namespace || !name) return <p className="text-muted-foreground text-sm">No resource selected.</p>;
-  if (!isBackendConfigured() || !clusterId) return <p className="text-muted-foreground text-sm">Connect to Kubilitics backend to see which Pods and workloads use this Secret.</p>;
+  if (!isBackendConfigured || !clusterId) return <p className="text-muted-foreground text-sm">Connect to Kubilitics backend to see which Pods and workloads use this Secret.</p>;
   if (consumersQuery.isLoading) return <Skeleton className="h-32 w-full" />;
 
   if (consumers) {
@@ -301,7 +301,7 @@ export default function SecretDetail() {
   const consumersQuery = useQuery({
     queryKey: ['secret-consumers', clusterId, namespace, name],
     queryFn: () => getSecretConsumers(baseUrl!, clusterId!, namespace ?? '', name!),
-    enabled: !!(isBackendConfigured() && clusterId && namespace && name),
+    enabled: !!(isBackendConfigured && clusterId && namespace && name),
     staleTime: 30_000,
   });
   const consumers = consumersQuery.data;

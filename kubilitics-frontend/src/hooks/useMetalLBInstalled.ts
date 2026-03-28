@@ -21,19 +21,19 @@ export function useMetalLBInstalled(): { installed: boolean; isLoading: boolean 
   const backendQuery = useQuery({
     queryKey: ['cluster-feature-metallb', clusterId ?? ''],
     queryFn: () => getClusterFeatureMetallb(backendBaseUrl!, clusterId!),
-    enabled: !!(isBackendConfigured() && clusterId && isConnected),
+    enabled: !!(isBackendConfigured && clusterId && isConnected),
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
   // Direct K8s: try listing ipaddresspools; success (even empty) = installed
   const k8sList = useK8sResourceList('ipaddresspools', undefined, {
-    enabled: isConnected && !isBackendConfigured(),
+    enabled: isConnected && !isBackendConfigured,
     limit: 1,
     refetchInterval: 0,
   });
 
-  if (isBackendConfigured() && clusterId && isConnected) {
+  if (isBackendConfigured && clusterId && isConnected) {
     return {
       installed: backendQuery.data?.installed ?? false,
       isLoading: backendQuery.isLoading,
@@ -41,7 +41,7 @@ export function useMetalLBInstalled(): { installed: boolean; isLoading: boolean 
   }
 
   // Direct K8s: if we got data (even empty list), MetalLB is installed; 404/error = not installed
-  if (isConnected && !isBackendConfigured()) {
+  if (isConnected && !isBackendConfigured) {
     const hasData = k8sList.data != null;
     const isError = k8sList.isError;
     const is404 = isError && (k8sList.error as Error)?.message?.includes('404');

@@ -150,7 +150,7 @@ export function useResourceRelationships({
   const queryEnabled =
     enabled &&
     !!clusterId &&
-    isBackendConfigured() &&
+    isBackendConfigured &&
     !!normalizedKind &&
     !!name;
 

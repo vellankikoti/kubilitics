@@ -138,7 +138,7 @@ export function useResourceCounts(): { counts: ResourceCounts; isLoading: boolea
 
   // Backend path: single summary request (project-scoped when activeProject is set)
   const summaryQuery = useClusterSummaryWithProject(
-    isBackendConfigured() && currentClusterId ? currentClusterId : undefined
+    isBackendConfigured && currentClusterId ? currentClusterId : undefined
   );
 
   // Direct K8s path: enabled when K8s is connected.
@@ -147,7 +147,7 @@ export function useResourceCounts(): { counts: ResourceCounts; isLoading: boolea
   // jobs, cronjobs). For all OTHER resource types we still need direct K8s queries.
   // We use two option sets: one for types covered by the summary (disabled when backend
   // is configured), and one for types NOT covered (always enabled when connected).
-  const backendCovers = isBackendConfigured();
+  const backendCovers = isBackendConfigured;
   // When backend is configured, the summary endpoint now covers ALL resource types.
   // Direct K8s queries only fire when backend is NOT configured (direct K8s mode).
   const directK8sEnabled = isConnected && !backendCovers;
@@ -213,7 +213,7 @@ export function useResourceCounts(): { counts: ResourceCounts; isLoading: boolea
       return lastRealCountsRef.current ?? zeroCounts;
     }
 
-    if (isBackendConfigured() && summaryQuery.data) {
+    if (isBackendConfigured && summaryQuery.data) {
       // Use the single summary response for key counts; for the rest, use the fetched counts
       const s = summaryQuery.data;
       const getCount = (key: keyof ResourceCounts, res: any) => {

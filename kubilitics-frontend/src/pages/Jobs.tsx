@@ -343,7 +343,7 @@ export default function Jobs() {
  toast.error('Connect cluster to retry Job');
  return;
  }
- if (!isBackendConfigured()) {
+ if (!isBackendConfigured) {
  toast.error('Connect to Kubilitics backend in Settings to retry Job.');
  return;
  }

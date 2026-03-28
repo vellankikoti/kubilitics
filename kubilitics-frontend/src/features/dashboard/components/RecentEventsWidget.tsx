@@ -129,18 +129,18 @@ export const RecentEventsWidget = () => {
   const backendQuery = useQuery({
     queryKey: ["backend", "events", currentClusterId, "dashboard-recent"],
     queryFn: () => getEvents(backendBaseUrl, currentClusterId!, { limit: 100 }),
-    enabled: !!currentClusterId && isBackendConfigured(),
+    enabled: !!currentClusterId && isBackendConfigured,
     staleTime: 15000,
   });
 
   const k8sEvents = useK8sResourceList("events", "default", {
-    enabled: !!activeCluster && !isBackendConfigured(),
+    enabled: !!activeCluster && !isBackendConfigured,
     limit: 100,
   });
 
   const warningEvents = useMemo((): NormalizedEvent[] => {
     let all: NormalizedEvent[] = [];
-    if (isBackendConfigured() && Array.isArray(backendQuery.data) && backendQuery.data.length > 0) {
+    if (isBackendConfigured && Array.isArray(backendQuery.data) && backendQuery.data.length > 0) {
       all = backendQuery.data.map((e) => backendToNormalized(e));
     } else {
       const items = (k8sEvents.data?.items ?? []) as Parameters<typeof k8sToNormalized>[0][];
@@ -154,8 +154,8 @@ export const RecentEventsWidget = () => {
   }, [isBackendConfigured, backendQuery.data, k8sEvents.data?.items]);
 
   const isLoading =
-    (isBackendConfigured() && backendQuery.isLoading) ||
-    (!isBackendConfigured() && k8sEvents.isLoading);
+    (isBackendConfigured && backendQuery.isLoading) ||
+    (!isBackendConfigured && k8sEvents.isLoading);
 
   return (
     <Card className="min-h-[20rem] flex flex-col border-none glass-panel overflow-hidden relative">

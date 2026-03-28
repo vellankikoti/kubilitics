@@ -31,7 +31,7 @@ export function useCRDInstances(
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const clusterId = currentClusterId ?? null;
 
-  const enabled = !!(isBackendConfigured() && clusterId && crdName && (options?.enabled !== false));
+  const enabled = !!(isBackendConfigured && clusterId && crdName && (options?.enabled !== false));
 
   const query = useQuery({
     queryKey: ['crd-instances', clusterId ?? '', crdName ?? '', namespace ?? '', options?.limit ?? 5000],

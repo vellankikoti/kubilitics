@@ -152,7 +152,7 @@ export default function Namespaces() {
  const { data: backendNsCounts } = useQuery({
  queryKey: ['backend', 'namespace-counts', clusterId],
  queryFn: () => getNamespaceCounts(backendBaseUrl, clusterId!),
- enabled: !!(isBackendConfigured() && clusterId && isConnected),
+ enabled: !!(isBackendConfigured && clusterId && isConnected),
  staleTime: 30_000,
  });
 

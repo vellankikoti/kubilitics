@@ -77,7 +77,7 @@ export function useInsights(): { insights: Insight[]; isLoading: boolean } {
   const eventsQuery = useQuery({
     queryKey: ['backend', 'events', currentClusterId, 'insights'],
     queryFn: () => getEvents(backendBaseUrl, currentClusterId!, { namespace: 'default', limit: 100 }),
-    enabled: !!currentClusterId && isBackendConfigured(),
+    enabled: !!currentClusterId && isBackendConfigured,
     staleTime: 15000,
   });
 

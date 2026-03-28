@@ -14,7 +14,7 @@ export function useConnectionStatus(): { isConnected: boolean } {
   const { config } = useKubernetesConfigStore();
 
   const isConnected =
-    (isBackendConfigured() && !!activeCluster) || config.isConnected;
+    (isBackendConfigured && !!activeCluster) || config.isConnected;
 
   return { isConnected };
 }

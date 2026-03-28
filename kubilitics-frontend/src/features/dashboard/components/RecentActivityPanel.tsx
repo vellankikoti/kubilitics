@@ -96,14 +96,14 @@ export const RecentActivityPanel = () => {
   const eventsQuery = useQuery({
     queryKey: ["backend", "events", clusterId, "recentActivity"],
     queryFn: () => getEvents(backendBaseUrl, clusterId!, { limit: 50 }),
-    enabled: !!clusterId && isBackendConfigured(),
+    enabled: !!clusterId && isBackendConfigured,
     staleTime: 15_000,
     refetchInterval: 30_000,
   });
 
   // Direct K8s fallback
   const k8sEvents = useK8sResourceList("events", undefined, {
-    enabled: isConnected && !isBackendConfigured(),
+    enabled: isConnected && !isBackendConfigured,
     limit: 50,
     staleTime: 15_000,
   });
@@ -111,7 +111,7 @@ export const RecentActivityPanel = () => {
   const events = useMemo<EventDisplay[]>(() => {
     let rawEvents: EventDisplay[] = [];
 
-    if (isBackendConfigured() && Array.isArray(eventsQuery.data)) {
+    if (isBackendConfigured && Array.isArray(eventsQuery.data)) {
       rawEvents = eventsQuery.data.map((e) => ({
         id: e.id || `${e.resource_kind}-${e.resource_name}-${e.reason}`,
         type: (e.type as EventDisplay["type"]) || "Normal",
@@ -149,7 +149,7 @@ export const RecentActivityPanel = () => {
       .slice(0, MAX_EVENTS);
   }, [eventsQuery.data, k8sEvents.data, isBackendConfigured]);
 
-  const isLoading = (isBackendConfigured() && eventsQuery.isLoading) || (!isBackendConfigured() && k8sEvents.isLoading);
+  const isLoading = (isBackendConfigured && eventsQuery.isLoading) || (!isBackendConfigured && k8sEvents.isLoading);
 
   if (!isConnected) {
     return (

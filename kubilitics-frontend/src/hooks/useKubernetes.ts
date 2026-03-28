@@ -231,7 +231,7 @@ export function useK8sResourceList<T extends KubernetesResource>(
     ? `${apiBase}/${resourceType}`
     : `${apiBase}/namespaces/${namespace}/${resourceType}`;
 
-  const useBackend = isBackendConfigured() && !!clusterId;
+  const useBackend = isBackendConfigured && !!clusterId;
   const limit = options?.limit;
   const fieldSelector = options?.fieldSelector;
   const labelSelector = options?.labelSelector;
@@ -321,7 +321,7 @@ export function useK8sResourceListPaginated<T extends KubernetesResource>(
     ? `${apiBase}/${resourceType}`
     : `${apiBase}/namespaces/${namespace}/${resourceType}`;
 
-  const useBackend = isBackendConfigured() && !!clusterId;
+  const useBackend = isBackendConfigured && !!clusterId;
   const limit = options?.limit ?? DEFAULT_PAGE_SIZE;
   const continueToken = options?.continue;
 
@@ -384,7 +384,7 @@ export function usePaginatedResourceList<T extends KubernetesResource>(
   // P0-D: Use currentClusterId exclusively. activeCluster.id may hold a stale or demo
   // ID (e.g. '__demo__cluster-alpha') which corrupts all resource API URLs.
   const clusterId = currentClusterId;
-  const useBackend = isBackendConfigured() && !!clusterId;
+  const useBackend = isBackendConfigured && !!clusterId;
   const pageSize = Math.max(1, Math.min(100, options?.pageSize ?? DEFAULT_PAGE_SIZE));
   const [clientPageIndex, setClientPageIndex] = useState(0);
 
@@ -471,7 +471,7 @@ export function useK8sResource<T extends KubernetesResource>(
     ? `${apiBase}/${resourceType}/${name}`
     : `${apiBase}/namespaces/${namespace}/${resourceType}/${name}`;
 
-  const useBackend = isBackendConfigured() && !!clusterId;
+  const useBackend = isBackendConfigured && !!clusterId;
   const nsForBackend = isClusterScoped ? '' : (namespace ?? '');
 
   return useQuery({
@@ -501,7 +501,7 @@ export function useCreateK8sResource(resourceType: ResourceType) {
 
   return useMutation({
     mutationFn: async ({ yaml, namespace }: { yaml: string; namespace?: string }) => {
-      if (isBackendConfigured() && clusterId) {
+      if (isBackendConfigured && clusterId) {
         return applyManifest(backendBaseUrl, clusterId, yaml);
       }
 
@@ -544,7 +544,7 @@ export function useUpdateK8sResource(resourceType: ResourceType) {
 
   return useMutation({
     mutationFn: async ({ name, yaml, namespace }: { name: string; yaml: string; namespace?: string }) => {
-      if (isBackendConfigured() && clusterId) {
+      if (isBackendConfigured && clusterId) {
         return applyManifest(backendBaseUrl, clusterId, yaml);
       }
       const path = namespace
@@ -599,7 +599,7 @@ export function usePatchK8sResource(resourceType: ResourceType) {
       namespace?: string;
       patch: Record<string, unknown>;
     }) => {
-      if (!isBackendConfigured() || !clusterId) {
+      if (!isBackendConfigured || !clusterId) {
         throw new Error('Backend not configured');
       }
       const ns = CLUSTER_SCOPED_KINDS.includes(resourceType) ? '' : (namespace ?? '');
@@ -707,7 +707,7 @@ export function useDeleteK8sResource(resourceType: ResourceType) {
       const isClusterScoped = CLUSTER_SCOPED_KINDS.includes(resourceType);
       const ns = isClusterScoped ? '' : (namespace ?? '');
 
-      if (isBackendConfigured() && clusterId) {
+      if (isBackendConfigured && clusterId) {
         return deleteResource(backendBaseUrl, clusterId, resourceType, ns, name);
       }
 
@@ -848,7 +848,7 @@ export function useK8sPodLogs(
   // P0-D: Use currentClusterId exclusively. activeCluster.id may hold a stale or demo
   // ID (e.g. '__demo__cluster-alpha') which corrupts all resource API URLs.
   const clusterId = currentClusterId;
-  const useBackend = isBackendConfigured() && !!clusterId;
+  const useBackend = isBackendConfigured && !!clusterId;
 
   const queryParams = new URLSearchParams();
   if (containerName) queryParams.set('container', containerName);
@@ -938,7 +938,7 @@ export function useCronJobChildJobs(namespace: string, name: string, enabled: bo
   // P0-D: Use currentClusterId exclusively. activeCluster.id may hold a stale or demo
   // ID (e.g. '__demo__cluster-alpha') which corrupts all resource API URLs.
   const clusterId = currentClusterId;
-  const useBackend = isBackendConfigured() && !!clusterId;
+  const useBackend = isBackendConfigured && !!clusterId;
 
   return useQuery({
     queryKey: ['cronjob-child-jobs', clusterId ?? 'direct', namespace, name],

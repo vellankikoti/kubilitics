@@ -415,7 +415,7 @@ spec:
  }, [selectedItems, data?.items]);
  const handleTriggerNow = async (item: CronJob) => {
  if (!isConnected) { toast.error('Connect cluster to trigger CronJob'); return; }
- if (!isBackendConfigured()) {
+ if (!isBackendConfigured) {
  toast.error('Connect to Kubilitics backend and select a cluster to trigger CronJob.');
  return;
  }

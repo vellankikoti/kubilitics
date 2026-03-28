@@ -123,7 +123,7 @@ export function usePodEvents(namespace: string | undefined, podName: string | un
   const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const clusterId = currentClusterId ?? null;
-  const enabled = !!(isBackendConfigured() && clusterId && namespace && podName);
+  const enabled = !!(isBackendConfigured && clusterId && namespace && podName);
 
   const query = useQuery({
     queryKey: ['backend', 'resource-events', clusterId, namespace, 'Pod', podName],

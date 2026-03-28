@@ -67,7 +67,7 @@ export function useOfflineMode(): OfflineModeState {
 
   // Backend health check with exponential backoff (Headlamp pattern)
   const checkHealth = useCallback(async () => {
-    if (!isConfigured()) return;
+    if (!isConfigured) return;
 
     const baseUrl = getEffectiveBackendBaseUrl(storedUrl);
     // Use /health — the legacy endpoint that always returns 200 with {"status":"healthy"}.
@@ -130,7 +130,7 @@ export function useOfflineMode(): OfflineModeState {
 
   // Run health check periodically when online
   useEffect(() => {
-    if (isOffline || !isConfigured()) return;
+    if (isOffline || !isConfigured) return;
 
     checkHealth();
     const interval = setInterval(checkHealth, HEALTHY_POLL_INTERVAL_MS);

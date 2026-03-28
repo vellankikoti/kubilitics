@@ -242,7 +242,7 @@ export default function DeploymentDetail() {
   const rolloutHistoryQuery = useQuery({
     queryKey: ['backend', 'deployment-rollout-history', clusterId, namespace, name],
     queryFn: () => getDeploymentRolloutHistory(backendBaseUrl!, clusterId!, namespace!, name!),
-    enabled: !!(isBackendConfigured() && clusterId && namespace && name),
+    enabled: !!(isBackendConfigured && clusterId && namespace && name),
     staleTime: 10_000,
     refetchOnWindowFocus: true,
   });
@@ -271,7 +271,7 @@ export default function DeploymentDetail() {
   const scalingEventsQuery = useQuery({
     queryKey: ['backend', 'resource-events', clusterId, namespace, 'Deployment', name],
     queryFn: () => getResourceEvents(backendBaseUrl!, clusterId!, namespace!, 'Deployment', name!, 100),
-    enabled: !!(isBackendConfigured() && backendBaseUrl && clusterId && namespace && name),
+    enabled: !!(isBackendConfigured && backendBaseUrl && clusterId && namespace && name),
     staleTime: 30_000,
   });
 
@@ -279,7 +279,7 @@ export default function DeploymentDetail() {
   const deploymentMetricsQuery = useQuery({
     queryKey: ['backend', 'deployment-metrics', clusterId, namespace, name],
     queryFn: () => getDeploymentMetrics(backendBaseUrl!, clusterId!, namespace!, name!),
-    enabled: !!(isBackendConfigured() && backendBaseUrl && clusterId && namespace && name),
+    enabled: !!(isBackendConfigured && backendBaseUrl && clusterId && namespace && name),
     staleTime: 15_000,
   });
 
@@ -287,7 +287,7 @@ export default function DeploymentDetail() {
   const handleScale = useCallback(async (replicas: number) => {
     if (!isConnected) { toast.error('Connect cluster to scale deployment'); return; }
     if (!name || !namespace) return;
-    if (!isBackendConfigured()) { toast.error('Connect to Kubilitics backend in Settings to scale, restart, or rollback.'); return; }
+    if (!isBackendConfigured) { toast.error('Connect to Kubilitics backend in Settings to scale, restart, or rollback.'); return; }
     if (!clusterId) { toast.error('Select a cluster from the cluster list to perform this action.'); return; }
     try {
       await patchDeployment.mutateAsync({ name, namespace, patch: { spec: { replicas } } });
@@ -304,7 +304,7 @@ export default function DeploymentDetail() {
   const handleRestart = useCallback(async () => {
     if (!isConnected) { toast.error('Connect cluster to restart deployment'); return; }
     if (!name || !namespace) return;
-    if (!isBackendConfigured()) { toast.error('Connect to Kubilitics backend in Settings to scale, restart, or rollback.'); return; }
+    if (!isBackendConfigured) { toast.error('Connect to Kubilitics backend in Settings to scale, restart, or rollback.'); return; }
     if (!clusterId) { toast.error('Select a cluster from the cluster list to perform this action.'); return; }
     try {
       const patch = { spec: { template: { metadata: { annotations: { 'kubectl.kubernetes.io/restartedAt': new Date().toISOString() } } } } };
@@ -322,7 +322,7 @@ export default function DeploymentDetail() {
   const handleRollback = useCallback(async (revision: number) => {
     if (!isConnected) { toast.error('Connect cluster to rollback deployment'); return; }
     if (!name || !namespace) return;
-    if (!isBackendConfigured()) { toast.error('Connect to Kubilitics backend in Settings to scale, restart, or rollback.'); return; }
+    if (!isBackendConfigured) { toast.error('Connect to Kubilitics backend in Settings to scale, restart, or rollback.'); return; }
     if (!clusterId) { toast.error('Select a cluster from the cluster list to perform this action.'); return; }
     const backendBase = getEffectiveBackendBaseUrl(useBackendConfigStore.getState().backendBaseUrl);
     try {
@@ -406,7 +406,7 @@ export default function DeploymentDetail() {
                     Try again
                   </Button>
                 </div>
-              ) : !isBackendConfigured() || !clusterId ? (
+              ) : !isBackendConfigured || !clusterId ? (
                 <p className="text-sm text-muted-foreground">Rollout History is provided by the Kubilitics backend. Configure the backend (Settings → Connect) and select this cluster to view revisions and rollback.</p>
               ) : rolloutRevisions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No revision history yet, or no ReplicaSets owned by this deployment.</p>
@@ -647,7 +647,7 @@ export default function DeploymentDetail() {
                 <div className="space-y-2">
                   <h4 className="text-sm font-semibold text-foreground">Scaling history</h4>
                   <p className="text-xs text-muted-foreground">Replica scale events for this deployment (from cluster events).</p>
-                  {!isBackendConfigured() || !clusterId ? (
+                  {!isBackendConfigured || !clusterId ? (
                     <p className="text-sm text-muted-foreground">Configure the backend and select a cluster to load scaling history.</p>
                   ) : scalingEventsQuery.isLoading ? (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading events…</div>

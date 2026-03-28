@@ -214,7 +214,7 @@ export default function JobDetail() {
   const jobMetricsQuery = useQuery({
     queryKey: ['backend', 'job-metrics', clusterId, namespace, name],
     queryFn: () => getJobMetrics(backendBaseUrl!, clusterId!, namespace!, name!),
-    enabled: !!(isBackendConfigured() && backendBaseUrl && clusterId && namespace && name),
+    enabled: !!(isBackendConfigured && backendBaseUrl && clusterId && namespace && name),
     staleTime: 15_000,
   });
   const podMetricsByName = useMemo(() => {
@@ -229,7 +229,7 @@ export default function JobDetail() {
       toast.error('Connect cluster to retry Job');
       return;
     }
-    if (!isBackendConfigured()) {
+    if (!isBackendConfigured) {
       toast.error('Connect to Kubilitics backend in Settings to retry Job.');
       return;
     }

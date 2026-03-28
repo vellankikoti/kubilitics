@@ -210,7 +210,7 @@ export default function DaemonSetDetail() {
   const dsMetricsQuery = useQuery({
     queryKey: ['backend', 'daemonset-metrics', clusterId, namespace, name],
     queryFn: () => getDaemonSetMetrics(backendBaseUrl!, clusterId!, namespace!, name!),
-    enabled: !!(isBackendConfigured() && backendBaseUrl && clusterId && namespace && name),
+    enabled: !!(isBackendConfigured && backendBaseUrl && clusterId && namespace && name),
     staleTime: 15_000,
   });
   const podMetricsByName = useMemo(() => {

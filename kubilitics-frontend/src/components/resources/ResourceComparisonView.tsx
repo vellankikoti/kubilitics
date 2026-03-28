@@ -684,8 +684,8 @@ export function ResourceComparisonView({
 
     const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
     // List available resources: works via backend OR direct K8s connection
-    const canList = Boolean(isConnected || (clusterId && isBackendConfigured() && backendBaseUrl));
-    const canFetch = Boolean(isConnected || (clusterId && isBackendConfigured()));
+    const canList = Boolean(isConnected || (clusterId && isBackendConfigured && backendBaseUrl));
+    const canFetch = Boolean(isConnected || (clusterId && isBackendConfigured));
 
     // Fetch namespaces for the namespace selector
     const { data: nsListData } = useK8sResourceList<KubernetesResource>('namespaces', undefined, {

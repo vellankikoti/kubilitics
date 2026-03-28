@@ -288,7 +288,7 @@ ${policyTypes.map((t) => `  - ${t}`).join('\n')}${ingressYaml}${egressYaml}
   ];
 
   const handleSubmit = async () => {
-    if (!isBackendConfigured() || !clusterId) {
+    if (!isBackendConfigured || !clusterId) {
       toast.error('Connect to a cluster to create NetworkPolicy');
       onSubmit?.(yaml);
       onClose();

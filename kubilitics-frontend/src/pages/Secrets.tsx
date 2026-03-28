@@ -310,7 +310,7 @@ export default function Secrets() {
  queries: itemsOnPage.map((s) => ({
  queryKey: ['secret-consumers', clusterId, s.namespace, s.name],
  queryFn: () => getSecretConsumers(backendBaseUrl!, clusterId!, s.namespace, s.name),
- enabled: !!(isBackendConfigured() && clusterId && s.name && s.namespace),
+ enabled: !!(isBackendConfigured && clusterId && s.name && s.namespace),
  staleTime: 60_000,
  })),
  });
@@ -320,7 +320,7 @@ export default function Secrets() {
  queries: tlsSecretsOnPage.map((s) => ({
  queryKey: ['secret-tls-info', clusterId, s.namespace, s.name],
  queryFn: () => getSecretTLSInfo(backendBaseUrl!, clusterId!, s.namespace, s.name),
- enabled: !!(isBackendConfigured() && clusterId && s.name && s.namespace),
+ enabled: !!(isBackendConfigured && clusterId && s.name && s.namespace),
  staleTime: 60_000,
  })),
  });
@@ -726,7 +726,7 @@ data: {}
  const key = `${item.namespace}/${item.name}`;
  const usedByCount = consumersCountByKey[key];
  const usedByNode =
- !isBackendConfigured() || !clusterId ? (
+ !isBackendConfigured || !clusterId ? (
  <span className="text-muted-foreground">—</span>
  ) : usedByCount !== undefined ? (
  <Tooltip>
@@ -844,7 +844,7 @@ data: {}
  const key = `${item.namespace}/${item.name}`;
  const usedByCount = consumersCountByKey[key];
  const usedByNode =
- !isBackendConfigured() || !clusterId ? (
+ !isBackendConfigured || !clusterId ? (
  <span className="text-muted-foreground">—</span>
  ) : usedByCount !== undefined ? (
  <span className="font-mono text-sm">{usedByCount}</span>

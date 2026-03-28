@@ -47,7 +47,7 @@ export function useWorkloadMetricsMap(
 
   const baseEnabled =
     (options?.enabled !== false) &&
-    !!isBackendConfigured() &&
+    !!isBackendConfigured &&
     !!clusterId &&
     boundedEntries.length > 0;
 

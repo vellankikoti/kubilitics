@@ -180,7 +180,7 @@ export function DetailPodTable({
     queries: page.slice(0, 50).map((pod) => ({
       queryKey: ['pod-metrics-detail', clusterId, pod.metadata?.namespace ?? namespace, pod.metadata?.name],
       queryFn: () => getPodMetrics(backendBaseUrl!, clusterId!, pod.metadata?.namespace ?? namespace, pod.metadata?.name ?? ''),
-      enabled: !!(isBackendConfigured() && clusterId && pod.metadata?.name),
+      enabled: !!(isBackendConfigured && clusterId && pod.metadata?.name),
       staleTime: 15_000,
       refetchInterval: 60_000,
     })),

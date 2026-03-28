@@ -18,7 +18,7 @@ export function useBackendClient() {
   const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   const client = useMemo(() => {
-    if (!isConfigured()) return null;
+    if (!isConfigured) return null;
     return createBackendApiClient(backendBaseUrl);
   }, [backendBaseUrl, isConfigured]);
 
@@ -26,11 +26,11 @@ export function useBackendClient() {
     client,
     backendBaseUrl,
     isBackendConfigured: isConfigured,
-    getClusters: isConfigured() ? () => getClusters(backendBaseUrl) : null,
-    getTopology: isConfigured()
+    getClusters: isConfigured ? () => getClusters(backendBaseUrl) : null,
+    getTopology: isConfigured
       ? (clusterId: string, params?: { namespace?: string; resource_types?: string[] }) =>
         getTopology(backendBaseUrl, clusterId, params)
       : null,
-    getHealth: isConfigured() ? () => getHealth(backendBaseUrl) : null,
+    getHealth: isConfigured ? () => getHealth(backendBaseUrl) : null,
   };
 }

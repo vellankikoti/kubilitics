@@ -80,7 +80,7 @@ export function ResourceTopologyV2View({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [expandedFullScreen]);
 
-  const backendConfigured = isBackendConfigured();
+  const backendConfigured = isBackendConfigured;
   const hasClusterId = !!clusterId;
   const hasKind = !!kind;
   const hasName = !!name;
