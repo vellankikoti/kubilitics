@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="kubilitics-frontend/public/kubilitics-logo.svg" alt="Kubilitics" height="80" />
+  <img src="kubilitics-frontend/public/brand/logo-transparent.png" alt="Kubilitics" height="80" />
 </p>
 
 <h1 align="center">Kubilitics</h1>
