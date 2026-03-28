@@ -85,7 +85,7 @@ const WORKLOAD_PATHS = ['/workloads', '/pods', '/deployments', '/replicasets', '
 const NETWORKING_PATHS = ['/networking', '/services', '/ingresses', '/ingressclasses', '/endpoints', '/endpointslices', '/networkpolicies', '/ipaddresspools', '/bgppeers'];
 const STORAGE_PATHS = ['/storage', '/configmaps', '/secrets', '/persistentvolumes', '/persistentvolumeclaims', '/storageclasses', '/volumeattachments', '/volumesnapshots', '/volumesnapshotclasses', '/volumesnapshotcontents'];
 const CLUSTER_PATHS = ['/cluster', '/cluster-overview', '/nodes', '/namespaces', '/events', '/apiservices', '/leases'];
-const SECURITY_PATHS = ['/serviceaccounts', '/roles', '/clusterroles', '/rolebindings', '/clusterrolebindings', '/priorityclasses'];
+const SECURITY_PATHS = ['/serviceaccounts', '/roles', '/clusterroles', '/rolebindings', '/clusterrolebindings', '/priorityclasses', '/rbac-analyzer'];
 const RESOURCES_PATHS = ['/resources', '/resourcequotas', '/limitranges', '/resourceslices', '/deviceclasses'];
 const SCALING_PATHS = ['/scaling', '/horizontalpodautoscalers', '/verticalpodautoscalers', '/poddisruptionbudgets'];
 const CRD_PATHS = ['/crds', '/customresourcedefinitions', '/customresources'];
@@ -581,6 +581,7 @@ function useResourceCategories(metallbInstalled: boolean): ResourceCategory[] {
           { to: '/rolebindings', icon: K8sRoleBindingIcon, label: 'Role Bindings', countKey: 'rolebindings' },
           { to: '/clusterrolebindings', icon: K8sClusterRoleBindingIcon, label: 'Cluster Role Bindings', countKey: 'clusterrolebindings' },
           { to: '/priorityclasses', icon: K8sLimitRangeIcon, label: 'Priority Classes', countKey: 'priorityclasses' },
+          { to: '/rbac-analyzer', icon: ShieldCheck, label: 'RBAC Analyzer' },
         ],
       },
       {

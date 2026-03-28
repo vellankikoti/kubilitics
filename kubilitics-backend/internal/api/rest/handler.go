@@ -450,6 +450,10 @@ func SetupRoutes(router *mux.Router, h *Handler) {
 	// Download kubeconfig for a cluster - BE-AUTHZ-001: viewer can read kubeconfig
 	router.Handle("/clusters/{clusterId}/kubeconfig", h.wrapWithRBAC(h.GetKubeconfig, auth.RoleViewer)).Methods("GET")
 
+	// Fleet (cross-cluster) routes — aggregated overview and search across all clusters
+	router.Handle("/fleet/overview", h.wrapWithRBAC(h.GetFleetOverview, auth.RoleViewer)).Methods("GET")
+	router.Handle("/fleet/search", h.wrapWithRBAC(h.GetFleetSearch, auth.RoleViewer)).Methods("GET")
+
 	// Health check
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})

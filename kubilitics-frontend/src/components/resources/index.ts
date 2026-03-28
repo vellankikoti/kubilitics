@@ -29,6 +29,7 @@ export { UsageBar, parseCpu, parseMemory, calculatePodResourceMax, type UsageBar
 export { MetricBar } from './MetricBar';
 export { DetailPodTable, type DetailPodTableProps } from './DetailPodTable';
 export { FileTransferDialog, type FileTransferDialogProps } from './FileTransferDialog';
+export { PVCFileBrowser, type PVCFileBrowserProps } from './PVCFileBrowser';
 export { ResourceComparisonView } from './ResourceComparisonView';
 export { BulkActionBar, executeBulkOperation, type BulkActionBarProps, type BulkOperationResult, type BulkOperationProgress, type BulkResourceType } from './BulkActionBar';
 export { LabelManagerDialog, type LabelManagerDialogProps } from './LabelManagerDialog';

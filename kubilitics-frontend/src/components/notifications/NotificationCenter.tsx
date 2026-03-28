@@ -12,7 +12,8 @@
  *
  * @module NotificationCenter
  */
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Bell,
@@ -27,7 +28,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, isToday, isYesterday } from 'date-fns';
 import {
   useNotificationStore,
   type Notification,
@@ -196,6 +197,53 @@ function formatEventDescription(data: BackendWebSocketMessage): string {
   return parts.join(' ') || '';
 }
 
+// ─── Time Grouping ──────────────────────────────────────────────────────────
+
+type TimeGroup = 'Today' | 'Yesterday' | 'Older';
+
+function getTimeGroup(timestamp: string): TimeGroup {
+  try {
+    const date = new Date(timestamp);
+    if (isToday(date)) return 'Today';
+    if (isYesterday(date)) return 'Yesterday';
+    return 'Older';
+  } catch {
+    return 'Older';
+  }
+}
+
+/** Groups notifications by Today / Yesterday / Older, preserving order within each group. */
+function groupNotificationsByTime(
+  notifications: Notification[],
+): Array<{ group: TimeGroup; items: Notification[] }> {
+  const groups: Record<TimeGroup, Notification[]> = {
+    Today: [],
+    Yesterday: [],
+    Older: [],
+  };
+  for (const n of notifications) {
+    groups[getTimeGroup(n.timestamp)].push(n);
+  }
+  const result: Array<{ group: TimeGroup; items: Notification[] }> = [];
+  for (const group of ['Today', 'Yesterday', 'Older'] as TimeGroup[]) {
+    if (groups[group].length > 0) {
+      result.push({ group, items: groups[group] });
+    }
+  }
+  return result;
+}
+
+/** Section header for time-grouped notifications. */
+function TimeGroupLabel({ label }: { label: string }) {
+  return (
+    <div className="sticky top-0 z-10 px-4 py-1.5 bg-slate-50/90 dark:bg-slate-800/90 backdrop-blur-sm border-b border-slate-100 dark:border-slate-800/60">
+      <span className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest">
+        {label}
+      </span>
+    </div>
+  );
+}
+
 // ─── Notification Item ──────────────────────────────────────────────────────
 
 /** Individual notification row in the dropdown panel. */
@@ -203,10 +251,12 @@ function NotificationItem({
   notification,
   onMarkRead,
   onDismiss,
+  onNavigate,
 }: {
   notification: Notification;
   onMarkRead: (id: string) => void;
   onDismiss: (id: string) => void;
+  onNavigate?: (link: string) => void;
 }) {
   const SeverityIcon = SEVERITY_ICONS[notification.severity];
   const timeAgo = (() => {
@@ -217,16 +267,27 @@ function NotificationItem({
     }
   })();
 
+  const hasLink = !!(notification.resourceLink && onNavigate);
+
+  const handleClick = useCallback(() => {
+    if (hasLink) {
+      if (!notification.read) onMarkRead(notification.id);
+      onNavigate!(notification.resourceLink!);
+    }
+  }, [hasLink, notification.read, notification.id, notification.resourceLink, onMarkRead, onNavigate]);
+
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, x: 30, transition: { duration: 0.2 } }}
+      onClick={handleClick}
       className={cn(
         'group relative px-4 py-3 border-b border-slate-100 dark:border-slate-800/60 last:border-b-0',
         'hover:bg-slate-50/60 dark:hover:bg-slate-800/30 transition-colors duration-150',
         !notification.read && 'bg-primary/[0.02] dark:bg-primary/[0.03]',
+        hasLink && 'cursor-pointer',
       )}
     >
       <div className="flex items-start gap-3">
@@ -327,6 +388,7 @@ export function NotificationCenter({ className, clusterId }: NotificationCenterP
   const [activeFilter, setActiveFilter] = useState<NotificationCategory | 'all'>('all');
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const navigate = useNavigate();
 
   const {
     notifications,
@@ -349,7 +411,22 @@ export function NotificationCenter({ className, clusterId }: NotificationCenterP
       ? notifications
       : notifications.filter((n) => n.category === activeFilter);
 
+  // Group by time period
+  const groupedNotifications = useMemo(
+    () => groupNotificationsByTime(filteredNotifications),
+    [filteredNotifications],
+  );
+
   const currentUnreadCount = unreadCount();
+
+  // Navigate to resource and close panel
+  const handleNavigate = useCallback(
+    (link: string) => {
+      setPanelOpen(false);
+      navigate(link);
+    },
+    [navigate, setPanelOpen],
+  );
 
   // Close panel on click outside
   useEffect(() => {
@@ -523,13 +600,19 @@ export function NotificationCenter({ className, clusterId }: NotificationCenterP
                     </p>
                   </motion.div>
                 ) : (
-                  filteredNotifications.map((notification) => (
-                    <NotificationItem
-                      key={notification.id}
-                      notification={notification}
-                      onMarkRead={markAsRead}
-                      onDismiss={dismiss}
-                    />
+                  groupedNotifications.map(({ group, items }) => (
+                    <div key={group}>
+                      <TimeGroupLabel label={group} />
+                      {items.map((notification) => (
+                        <NotificationItem
+                          key={notification.id}
+                          notification={notification}
+                          onMarkRead={markAsRead}
+                          onDismiss={dismiss}
+                          onNavigate={handleNavigate}
+                        />
+                      ))}
+                    </div>
                   ))
                 )}
               </AnimatePresence>

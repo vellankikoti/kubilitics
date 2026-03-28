@@ -148,7 +148,7 @@ export const useNotificationStore = create<NotificationState>()(
       name: 'kubilitics-notifications',
       storage: createJSONStorage(() => safeLocalStorage),
       partialize: (state) => ({
-        notifications: state.notifications.slice(0, 50), // Persist at most 50
+        notifications: state.notifications.slice(0, 100), // Persist at most 100
       }),
     },
   ),

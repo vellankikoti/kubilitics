@@ -7,9 +7,10 @@
  * Shows all connected clusters as cards in a responsive grid with
  * aggregate metrics, health-coded status badges, and click-to-navigate.
  */
-import { useState } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { formatDistanceToNow } from 'date-fns';
 import {
   Server,
   Box,
@@ -24,10 +25,15 @@ import {
   Star,
   Tag,
   MoreVertical,
+  Search,
+  Rocket,
+  Clock,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/ui/status-badge';
 import {
@@ -42,8 +48,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useFleetOverview } from '@/hooks/useFleetOverview';
 import type { FleetCluster, FleetAggregates } from '@/hooks/useFleetOverview';
-import { useBackendConfigStore } from '@/stores/backendConfigStore';
+import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { useClusterStore } from '@/stores/clusterStore';
+import { searchResources } from '@/services/backendApiClient';
+import type { SearchResultItem } from '@/services/backendApiClient';
 import {
   useClusterOrganizationStore,
   ENV_DOT_COLORS,
@@ -104,8 +112,8 @@ function AggregateCard({
 function AggregateStrip({ aggregates, isLoading }: { aggregates: FleetAggregates; isLoading: boolean }) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        {Array.from({ length: 7 }).map((_, i) => (
           <Card key={i} className="border-0 shadow-sm">
             <CardContent className="p-4 flex items-center gap-3">
               <Skeleton className="w-10 h-10 rounded-xl" />
@@ -121,7 +129,7 @@ function AggregateStrip({ aggregates, isLoading }: { aggregates: FleetAggregates
   }
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
       <AggregateCard
         label="Total Clusters"
         value={aggregates.totalClusters}
@@ -142,6 +150,13 @@ function AggregateStrip({ aggregates, isLoading }: { aggregates: FleetAggregates
         icon={Box}
         iconClass="text-violet-600 dark:text-violet-400"
         bgClass="bg-violet-100 dark:bg-violet-950/50"
+      />
+      <AggregateCard
+        label="Total Deploys"
+        value={aggregates.totalDeployments}
+        icon={Rocket}
+        iconClass="text-indigo-600 dark:text-indigo-400"
+        bgClass="bg-indigo-100 dark:bg-indigo-950/50"
       />
       <AggregateCard
         label="Healthy"
@@ -373,9 +388,17 @@ function ClusterCard({ cluster, onClick }: { cluster: FleetCluster; onClick: () 
           </div>
         </div>
 
-        {/* Footer: Provider + Version + Arrow */}
+        {/* Footer: Provider + Version + Last Connected + Arrow */}
         <div className="flex items-center justify-between border-t border-border/50 pt-3">
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {/* Health indicator dot */}
+            <span
+              className={cn(
+                'block w-2 h-2 rounded-full shrink-0',
+                cfg.indicatorClass,
+              )}
+              aria-label={cfg.label}
+            />
             {cluster.provider && (
               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/50 font-medium">
                 <Globe className="h-3 w-3" aria-hidden />
@@ -384,6 +407,12 @@ function ClusterCard({ cluster, onClick }: { cluster: FleetCluster; onClick: () 
             )}
             {cluster.version && (
               <span className="font-mono">{cluster.version}</span>
+            )}
+            {cluster.lastConnected && (
+              <span className="inline-flex items-center gap-1 text-muted-foreground/70">
+                <Clock className="h-3 w-3" aria-hidden />
+                {formatDistanceToNow(new Date(cluster.lastConnected), { addSuffix: true })}
+              </span>
             )}
           </div>
           <ArrowRight
@@ -445,6 +474,205 @@ function EmptyState() {
       <Button onClick={() => navigate('/connect?addCluster=true')} variant="default" size="sm">
         Connect Cluster
       </Button>
+    </div>
+  );
+}
+
+// ─── Cross-Cluster Search Result ─────────────────────────────────────────────
+
+interface FleetSearchResult extends SearchResultItem {
+  clusterId: string;
+  clusterName: string;
+}
+
+const SEARCH_DEBOUNCE_MS = 300;
+
+function CrossClusterSearch({
+  clusters,
+}: {
+  clusters: FleetCluster[];
+}) {
+  const navigate = useNavigate();
+  const stored = useBackendConfigStore((s) => s.backendBaseUrl);
+  const backendBaseUrl = getEffectiveBackendBaseUrl(stored);
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+  const { setActiveCluster, clusters: storeClusters } = useClusterStore();
+  const setCurrentClusterId = useBackendConfigStore((s) => s.setCurrentClusterId);
+  const queryClient = useQueryClient();
+
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<FleetSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close results on outside click
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsFocused(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const performSearch = useCallback(
+    async (q: string) => {
+      if (!q.trim() || !isConfigured || clusters.length === 0) {
+        setResults([]);
+        setIsSearching(false);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        // Search across all clusters in parallel
+        const searchPromises = clusters.map(async (cluster) => {
+          try {
+            const resp = await searchResources(backendBaseUrl, cluster.id, q, 10);
+            return resp.results.map((item) => ({
+              ...item,
+              clusterId: cluster.id,
+              clusterName: cluster.name,
+            }));
+          } catch {
+            // If one cluster fails, don't break the whole search
+            return [] as FleetSearchResult[];
+          }
+        });
+
+        const allResults = await Promise.all(searchPromises);
+        setResults(allResults.flat().slice(0, 25));
+      } catch {
+        setResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [backendBaseUrl, clusters, isConfigured],
+  );
+
+  const handleInputChange = useCallback(
+    (value: string) => {
+      setQuery(value);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (!value.trim()) {
+        setResults([]);
+        setIsSearching(false);
+        return;
+      }
+      setIsSearching(true);
+      debounceRef.current = setTimeout(() => {
+        performSearch(value);
+      }, SEARCH_DEBOUNCE_MS);
+    },
+    [performSearch],
+  );
+
+  const handleResultClick = useCallback(
+    (result: FleetSearchResult) => {
+      // Switch to the cluster context first
+      setCurrentClusterId(result.clusterId);
+      const storeCluster = storeClusters.find((c) => c.id === result.clusterId);
+      if (storeCluster) setActiveCluster(storeCluster);
+
+      // Clear stale queries
+      queryClient.removeQueries({ queryKey: ['k8s'] });
+      queryClient.removeQueries({ queryKey: ['backend', 'resources'] });
+      queryClient.removeQueries({ queryKey: ['backend', 'resource'] });
+
+      // Navigate to the resource detail page
+      navigate(result.path);
+      setQuery('');
+      setResults([]);
+      setIsFocused(false);
+    },
+    [navigate, setCurrentClusterId, setActiveCluster, storeClusters, queryClient],
+  );
+
+  const showResults = isFocused && query.trim().length > 0;
+
+  return (
+    <div ref={containerRef} className="relative w-full max-w-2xl">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" aria-hidden />
+        <Input
+          type="text"
+          placeholder="Search across all clusters..."
+          value={query}
+          onChange={(e) => handleInputChange(e.target.value)}
+          onFocus={() => setIsFocused(true)}
+          className="pl-9 pr-9 h-10 bg-muted/40 border-muted-foreground/15 focus-visible:bg-background"
+          aria-label="Cross-cluster search"
+        />
+        {query && (
+          <button
+            onClick={() => { setQuery(''); setResults([]); }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-muted transition-colors"
+            aria-label="Clear search"
+          >
+            <X className="h-3.5 w-3.5 text-muted-foreground" />
+          </button>
+        )}
+      </div>
+
+      {/* Search Results Dropdown */}
+      <AnimatePresence>
+        {showResults && (
+          <motion.div
+            initial={{ opacity: 0, y: -4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -4 }}
+            transition={{ duration: 0.15 }}
+            className="absolute z-50 top-full mt-1.5 w-full rounded-lg border bg-popover shadow-lg overflow-hidden"
+          >
+            {isSearching ? (
+              <div className="flex items-center justify-center gap-2 p-4 text-sm text-muted-foreground">
+                <Activity className="h-4 w-4 animate-spin" aria-hidden />
+                Searching across {clusters.length} cluster{clusters.length !== 1 ? 's' : ''}...
+              </div>
+            ) : results.length === 0 ? (
+              <div className="p-4 text-center text-sm text-muted-foreground">
+                No resources found matching &ldquo;{query}&rdquo;
+              </div>
+            ) : (
+              <div className="max-h-80 overflow-y-auto divide-y divide-border/50">
+                {results.map((result, i) => (
+                  <button
+                    key={`${result.clusterId}-${result.kind}-${result.namespace}-${result.name}-${i}`}
+                    onClick={() => handleResultClick(result)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-center w-7 h-7 rounded-md bg-muted/70 shrink-0">
+                      <Box className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-foreground truncate">{result.name}</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                          {result.kind}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                        <span className="font-medium text-primary/80">{result.clusterName}</span>
+                        {result.namespace && (
+                          <>
+                            <span className="text-muted-foreground/40">/</span>
+                            <span>{result.namespace}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" aria-hidden />
+                  </button>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -553,6 +781,13 @@ export default function FleetDashboard() {
         <motion.div variants={item}>
           <AggregateStrip aggregates={aggregates} isLoading={isLoading} />
         </motion.div>
+
+        {/* Cross-Cluster Search */}
+        {clusters.length > 0 && (
+          <motion.div variants={item} className="flex justify-center">
+            <CrossClusterSearch clusters={clusters} />
+          </motion.div>
+        )}
 
         {/* Error Banner */}
         {isError && error && (

@@ -141,6 +141,7 @@ const ClusterRoleBindings = lazy(() => import("./pages/ClusterRoleBindings"));
 const ClusterRoleBindingDetail = lazy(() => import("./pages/ClusterRoleBindingDetail"));
 const PodSecurityPolicies = lazy(() => import("./pages/PodSecurityPolicies"));
 const PodSecurityPolicyDetail = lazy(() => import("./pages/PodSecurityPolicyDetail"));
+const RBACAnalyzer = lazy(() => import("./pages/RBACAnalyzer"));
 
 // Autoscaling & Resource Management
 const HorizontalPodAutoscalers = lazy(() => import("./pages/HorizontalPodAutoscalers"));
@@ -801,6 +802,7 @@ const App = () => (
                         <Route path="/clusterrolebindings/:name" element={<ClusterRoleBindingDetail />} />
                         <Route path="/podsecuritypolicies" element={<PodSecurityPolicies />} />
                         <Route path="/podsecuritypolicies/:name" element={<PodSecurityPolicyDetail />} />
+                        <Route path="/rbac-analyzer" element={<RBACAnalyzer />} />
 
                         {/* Autoscaling & Resource Management */}
                         <Route path="/resources" element={<ResourcesOverview />} />

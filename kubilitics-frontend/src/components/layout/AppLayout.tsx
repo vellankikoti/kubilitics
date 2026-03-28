@@ -21,10 +21,13 @@ import { ProductionBanner } from './ProductionBanner';
 import { KeyboardShortcutsOverlay } from '@/components/KeyboardShortcutsOverlay';
 import { useKeyboardShortcuts, type KeyboardShortcut } from '@/hooks/useKeyboardShortcuts';
 import { UpdateChecker } from '@/components/UpdateChecker';
+import { useClusterWatcher } from '@/hooks/useClusterWatcher';
 
 export function AppLayout() {
   useRecentlyVisited();
   useDocumentTitle(); // Auto-set page title from route
+  // Poll cluster resources every 30s and create notifications on state changes
+  useClusterWatcher();
   // PERF: Prefetch critical K8s resources on cluster connect so every page loads instantly from cache
   usePrefetchResources();
   // PERF Area 7: Monitor memory and trim stale caches during long sessions

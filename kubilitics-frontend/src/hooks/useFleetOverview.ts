@@ -36,6 +36,7 @@ export interface FleetAggregates {
   totalClusters: number;
   totalNodes: number;
   totalPods: number;
+  totalDeployments: number;
   healthyClusters: number;
   degradedClusters: number;
   failedClusters: number;
@@ -98,6 +99,7 @@ function computeAggregates(clusters: FleetCluster[]): FleetAggregates {
     totalClusters: clusters.length,
     totalNodes: clusters.reduce((sum, c) => sum + c.nodeCount, 0),
     totalPods: clusters.reduce((sum, c) => sum + c.podCount, 0),
+    totalDeployments: clusters.reduce((sum, c) => sum + c.deploymentCount, 0),
     healthyClusters: clusters.filter((c) => c.status === 'healthy').length,
     degradedClusters: clusters.filter((c) => c.status === 'warning').length,
     failedClusters: clusters.filter((c) => c.status === 'error').length,
