@@ -74,7 +74,7 @@ jobs:
           config: /tmp/kind-config.yaml
 
       - name: Install Helm
-        uses: azure/setup-helm@v4
+        uses: azure/setup-helm@v4.3.0
 
       - name: Load images into Kind
         run: |
