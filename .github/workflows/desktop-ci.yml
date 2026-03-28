@@ -3,11 +3,6 @@ name: Desktop CI
 # Runs only when Tauri/Rust desktop code changes.
 # Full cross-platform builds happen in release.yml on version tags.
 on:
-  push:
-    branches: [ main, develop ]
-    paths:
-      - 'kubilitics-desktop/src-tauri/**'
-      - '.github/workflows/desktop-ci.yml'
   pull_request:
     branches: [ main, develop ]
     paths:

@@ -2,11 +2,6 @@
 name: Frontend CI
 
 on:
-  push:
-    branches: [main, develop]
-    paths:
-      - 'kubilitics-frontend/**'
-      - '.github/workflows/frontend-ci.yml'
   pull_request:
     branches: [main, develop]
     paths:

@@ -1,18 +1,6 @@
 name: Docker Build and Push
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-    paths:
-      - 'kubilitics-backend/**'
-      - 'kubilitics-frontend/**'
-      - 'kubilitics-backend/Dockerfile'
-      - 'kubilitics-frontend/Dockerfile'
-      - '.github/workflows/docker-build.yml'
-    # NOTE: No tags trigger here. Version-tagged Docker images are built and
-    # pushed exclusively by release.yml to avoid duplicate image pushes.
   pull_request:
     branches:
       - main

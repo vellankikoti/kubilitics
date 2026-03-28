@@ -1,14 +1,6 @@
 name: Contract Testing
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-    paths:
-      - 'kubilitics-backend/api/swagger.yaml'
-      - 'kubilitics-frontend/src/types/api/**'
-      - '.github/workflows/contract-test.yml'
   pull_request:
     branches:
       - main

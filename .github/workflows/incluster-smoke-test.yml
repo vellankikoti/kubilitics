@@ -1,14 +1,6 @@
 name: In-Cluster Smoke Test
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'deploy/**'
-      - 'kubilitics-backend/**'
-      - 'kubilitics-frontend/**'
-      - '.github/workflows/incluster-smoke-test.yml'
-      - 'scripts/incluster-e2e-test.sh'
   pull_request:
     branches: [main]
     paths:

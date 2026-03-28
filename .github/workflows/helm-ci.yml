@@ -1,13 +1,6 @@
 name: Helm Chart CI
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-    paths:
-      - 'deploy/helm/kubilitics/**'
-      - '.github/workflows/helm-ci.yml'
   pull_request:
     branches:
       - main
