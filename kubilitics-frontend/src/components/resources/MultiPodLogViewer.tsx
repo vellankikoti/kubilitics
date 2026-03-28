@@ -40,6 +40,7 @@ import { cn } from '@/lib/utils';
 import { parseLogLine, detectLevel, type LogEntry } from '@/lib/logParser';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
+import { useKubernetesConfigStore } from '@/stores/kubernetesConfigStore';
 import { useActiveClusterId } from '@/hooks/useActiveClusterId';
 import { getPodLogsUrl } from '@/services/backendApiClient';
 import { useTheme } from '@/hooks/useTheme';
@@ -498,11 +499,15 @@ function usePodLogStream(
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
   const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
   const clusterId = useActiveClusterId();
+  const { config } = useKubernetesConfigStore();
+  const useBackend = isBackendConfigured() && !!clusterId;
   const abortRef = useRef<AbortController | null>(null);
   const activeRef = useRef(false);
 
   useEffect(() => {
-    if (!enabled || !clusterId || !isBackendConfigured() || !pod.name || !pod.namespace) return;
+    if (!enabled || !pod.name || !pod.namespace) return;
+    // Need either backend or direct K8s connection
+    if (!useBackend && !config.isConnected) return;
 
     // Abort previous stream
     if (abortRef.current) abortRef.current.abort();
@@ -510,15 +515,27 @@ function usePodLogStream(
     abortRef.current = controller;
     activeRef.current = true;
 
-    const url = getPodLogsUrl(backendBaseUrl, clusterId, pod.namespace, pod.name, {
-      container,
-      tail: tailLines,
-      follow,
-    });
+    // Build log URL: backend mode or direct K8s proxy mode
+    let url: string;
+    let headers: Record<string, string> = {};
+    if (useBackend && clusterId) {
+      url = getPodLogsUrl(backendBaseUrl, clusterId, pod.namespace, pod.name, {
+        container,
+        tail: tailLines,
+        follow,
+      });
+    } else {
+      const params = new URLSearchParams();
+      if (container) params.set('container', container);
+      if (tailLines) params.set('tailLines', String(tailLines));
+      if (follow) params.set('follow', 'true');
+      url = `${config.apiUrl}/api/v1/namespaces/${pod.namespace}/pods/${pod.name}/log?${params.toString()}`;
+      if (config.token) headers = { Authorization: `Bearer ${config.token}` };
+    }
 
     (async () => {
       try {
-        const response = await fetch(url, { signal: controller.signal });
+        const response = await fetch(url, { signal: controller.signal, headers });
         if (!response.ok || !response.body) return;
 
         const reader = response.body.getReader();
