@@ -853,7 +853,14 @@ export function Sidebar() {
 
   const fullContent = (
     <div className="flex flex-col flex-1 min-h-0 bg-slate-50/10 dark:bg-transparent">
-      <div className="flex-1 min-h-0 overflow-y-auto px-5 py-6 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-300 dark:hover:scrollbar-thumb-slate-600">
+      {/* Sidebar brand header — always visible, not scrollable */}
+      <div className="shrink-0 px-5 pt-5 pb-3 border-b border-slate-100/60 dark:border-slate-800/60">
+        <NavLink to="/dashboard" className="flex items-center gap-3 group">
+          <BrandLogo mark height={36} className="shrink-0 rounded-[10px] shadow-sm" />
+          <span className="text-[15px] font-bold tracking-[0.06em] text-slate-800 dark:text-slate-200 select-none">KUBILITICS</span>
+        </NavLink>
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-300 dark:hover:scrollbar-thumb-slate-600">
         <SidebarContent counts={counts} isLoading={isLoading} isInitialLoad={isInitialLoad} metallbInstalled={metallbInstalled} />
       </div>
 

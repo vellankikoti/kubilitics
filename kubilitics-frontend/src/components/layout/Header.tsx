@@ -246,13 +246,11 @@ export function Header() {
             >
               <BrandLogo
                 mark
-                height={40}
+                height={collapsed ? 36 : 32}
                 className="shrink-0 rounded-[10px] shadow-sm group-hover:shadow-md group-hover:scale-[1.04] transition-all duration-300"
               />
-              {!collapsed && (
-                <span className="text-[15px] font-semibold tracking-[0.08em] text-slate-700 dark:text-slate-200 whitespace-nowrap select-none transition-opacity duration-300">
-                  KUBILITICS
-                </span>
+              {collapsed && (
+                <span className="sr-only">KUBILITICS</span>
               )}
             </button>
           </div>
