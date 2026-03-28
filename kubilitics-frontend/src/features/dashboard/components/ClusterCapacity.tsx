@@ -20,6 +20,7 @@ import { useClusterUtilization } from "@/hooks/useClusterUtilization";
 import { useK8sResourceList } from "@/hooks/useKubernetes";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { Loader2, Server, Cpu, MemoryStick, Hexagon, Info, Layers } from "lucide-react";
+import { EmptyNoClusters } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -354,9 +355,11 @@ export const ClusterCapacity = () => {
             <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
           </div>
         ) : !hasData ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3">
-            <Server className="h-9 w-9 text-muted-foreground/25" />
-            <p className="text-sm text-muted-foreground">No node data available</p>
+          <div className="flex-1 flex items-center justify-center">
+            <EmptyNoClusters
+              size="sm"
+              primaryAction={{ label: "Connect Cluster", href: "/connect?addCluster=true" }}
+            />
           </div>
         ) : (
           <>

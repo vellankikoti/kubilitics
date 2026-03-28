@@ -13,7 +13,7 @@ import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/back
 import { useK8sResourceList, type KubernetesResource } from './useKubernetes';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useClusterSummaryWithProject } from '@/hooks/useClusterSummary';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 // Mock counts for demo mode
 const mockCounts: Record<string, number> = {
@@ -203,9 +203,14 @@ export function useResourceCounts(): { counts: ResourceCounts; isLoading: boolea
   const mutatingwebhookconfigurations = useK8sResourceList<KubernetesResource>('mutatingwebhookconfigurations', undefined, directK8sOptions);
   const validatingwebhookconfigurations = useK8sResourceList<KubernetesResource>('validatingwebhookconfigurations', undefined, directK8sOptions);
 
+  // Keep a ref of the last real (non-mock) counts so when cluster disconnects
+  // we show the last-known real values instead of hardcoded mocks.
+  const lastRealCountsRef = useRef<ResourceCounts | null>(null);
+
   const counts = useMemo<ResourceCounts>(() => {
     if (!isConnected) {
-      return { ...mockCounts } as unknown as ResourceCounts;
+      // Prefer last-cached real counts over hardcoded mocks
+      return lastRealCountsRef.current ?? ({ ...mockCounts } as unknown as ResourceCounts);
     }
 
     if (isBackendConfigured() && summaryQuery.data) {
@@ -376,6 +381,11 @@ export function useResourceCounts(): { counts: ResourceCounts; isLoading: boolea
     customresourcedefinitions.data, mutatingwebhookconfigurations.data,
     validatingwebhookconfigurations.data,
   ]);
+
+  // Cache real counts so they survive disconnection
+  if (isConnected && counts) {
+    lastRealCountsRef.current = counts;
+  }
 
   const allQueries = [
     pods, deployments, services, nodes, namespaces, statefulsets, daemonsets, jobs, cronjobs,

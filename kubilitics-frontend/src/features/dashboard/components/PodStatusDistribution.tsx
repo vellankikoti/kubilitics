@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useClusterStore } from "@/stores/clusterStore";
 import { useResourceCounts } from "@/hooks/useResourceCounts";
 import { useK8sResourceList } from "@/hooks/useKubernetes";
-import { Loader2, TrendingUp, AlertTriangle, CheckCircle2, ChevronRight } from "lucide-react";
+import { Loader2, TrendingUp, AlertTriangle, CheckCircle2, ChevronRight, Hexagon } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -123,8 +124,14 @@ export const PodStatusDistribution = () => {
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
                 ) : !hasAnyPods ? (
-                    <div className="flex-1 flex items-center justify-center min-h-[220px] text-sm text-muted-foreground">
-                        No pod data yet
+                    <div className="flex-1 flex items-center justify-center min-h-[220px]">
+                        <EmptyState
+                            icon={Hexagon}
+                            title="No pods found"
+                            description="Deploy a workload to see pod status distribution here."
+                            size="sm"
+                            primaryAction={{ label: "View Deployments", href: "/deployments" }}
+                        />
                     </div>
                 ) : (
                     <>

@@ -5,7 +5,9 @@ import {
   Database,
   Search,
   ArrowUpRight,
+  HardDrive,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import { motion } from 'framer-motion';
 import { useStorageOverview } from '@/hooks/useStorageOverview';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -256,8 +258,14 @@ export default function StorageOverview() {
               })}
               {itemsOnPage.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400">
-                    {searchQuery ? 'No resources match your search.' : 'No storage resources found.'}
+                  <td colSpan={7} className="px-6 py-16 text-center">
+                    <EmptyState
+                      icon={HardDrive}
+                      title={searchQuery ? "No resources match your search" : "No storage resources found"}
+                      description={searchQuery ? "Try adjusting your search terms." : "Persistent volumes and claims will appear here once provisioned."}
+                      size="sm"
+                      primaryAction={searchQuery ? { label: "Clear search", onClick: () => setSearchQuery('') } : { label: "View PVCs", href: "/persistent-volume-claims" }}
+                    />
                   </td>
                 </tr>
               )}

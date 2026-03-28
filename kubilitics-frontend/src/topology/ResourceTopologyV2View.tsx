@@ -249,24 +249,24 @@ export function ResourceTopologyV2View({
 
   return (
     <div
-      className="relative w-full bg-white rounded-lg border border-gray-200 shadow-sm"
+      className="relative w-full bg-white dark:bg-slate-900 rounded-lg border border-gray-200 dark:border-slate-700 shadow-sm"
       style={{ height: presentationMode ? "100vh" : "calc(100vh - 18rem)", minHeight: "500px", ...(presentationMode ? { position: "fixed", inset: 0, zIndex: 200, borderRadius: 0 } : {}) }}
       data-topology-container
     >
       {/* Header Bar — hidden in presentation mode */}
-      {!presentationMode && <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-white rounded-t-lg">
+      {!presentationMode && <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 rounded-t-lg">
         {/* Left Section */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center">
-              <Network className="h-4 w-4 text-blue-600" />
+            <div className="w-8 h-8 rounded bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center">
+              <Network className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             </div>
-            <h3 className="text-sm font-semibold text-gray-900">Resource Topology</h3>
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Resource Topology</h3>
           </div>
           <Button
             variant="outline"
             size="sm"
-            className="h-7 px-2.5 text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+            className="h-7 px-2.5 text-xs text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-blue-950/40"
             onClick={() => navigate("/topology")}
           >
             <MapIcon className="h-3.5 w-3.5 mr-1" />
@@ -300,16 +300,16 @@ export function ResourceTopologyV2View({
           <Separator orientation="vertical" className="h-6" />
 
           {/* Toolbar icons — compact, tooltip-only */}
-          <Button variant="ghost" size="sm" onClick={handleFitView} className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900" title="Fit to view">
+          <Button variant="ghost" size="sm" onClick={handleFitView} className="h-8 w-8 p-0 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100" title="Fit to view">
             <Maximize className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleCenterOnFocus} className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50" title={`Center on ${name}`}>
+          <Button variant="ghost" size="sm" onClick={handleCenterOnFocus} className="h-8 w-8 p-0 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-950/40" title={`Center on ${name}`}>
             <Crosshair className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setExpandedFullScreen(true)} className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900" title="Expand full screen">
+          <Button variant="ghost" size="sm" onClick={() => setExpandedFullScreen(true)} className="h-8 w-8 p-0 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100" title="Expand full screen">
             <ExternalLink className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching} className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900" title="Refresh">
+          <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching} className="h-8 w-8 p-0 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100" title="Refresh">
             <RefreshCw className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`} />
           </Button>
 
@@ -317,7 +317,7 @@ export function ResourceTopologyV2View({
 
           {/* View Level */}
           <div className="flex items-center gap-2">
-            <GitBranch className="h-3.5 w-3.5 text-gray-500" />
+            <GitBranch className="h-3.5 w-3.5 text-gray-500 dark:text-gray-400" />
             <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
               {(['direct', 'extended', 'full'] as const).map((level) => (
                 <button
@@ -338,7 +338,7 @@ export function ResourceTopologyV2View({
 
           <Separator orientation="vertical" className="h-6" />
 
-          <Button variant="ghost" size="sm" onClick={() => setPresentationMode(true)} className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900" title="Presentation mode">
+          <Button variant="ghost" size="sm" onClick={() => setPresentationMode(true)} className="h-8 w-8 p-0 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100" title="Presentation mode">
             <Monitor className="h-4 w-4" />
           </Button>
         </div>
@@ -363,8 +363,8 @@ export function ResourceTopologyV2View({
           />
 
           {/* Resource Count Badge */}
-          <div className="absolute bottom-4 right-4 z-50 bg-gray-100 border border-gray-200 rounded-md px-2.5 py-1">
-            <span className="text-xs font-medium text-gray-700">
+          <div className="absolute bottom-4 right-4 z-50 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-md px-2.5 py-1">
+            <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
               {topology.nodes.length} Resources &middot; {topology.edges.length} Connections
             </span>
           </div>
@@ -374,7 +374,7 @@ export function ResourceTopologyV2View({
             <button
               type="button"
               onClick={() => setPresentationMode(false)}
-              className="absolute top-4 right-4 z-50 flex items-center gap-1.5 rounded-lg border border-white/20 bg-white/80 backdrop-blur-md px-3 py-1.5 text-xs font-medium text-gray-700 shadow-md hover:bg-white transition-colors"
+              className="absolute top-4 right-4 z-50 flex items-center gap-1.5 rounded-lg border border-white/20 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 shadow-md hover:bg-white dark:hover:bg-slate-800 transition-colors"
             >
               <X className="h-3.5 w-3.5" />
               Exit
@@ -396,7 +396,7 @@ export function ResourceTopologyV2View({
       {/* Full-screen expand — triggered by Expand button, works for any mode */}
       {expandedFullScreen && createPortal(
         <div className="fixed inset-0 pt-20 z-[200] flex flex-col bg-white dark:bg-slate-950">
-          <div className="flex items-center justify-between px-5 py-2.5 border-b border-gray-200 bg-white dark:bg-slate-900 shrink-0">
+          <div className="flex items-center justify-between px-5 py-2.5 border-b border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 shrink-0">
             <div className="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
               <Layers className="h-4 w-4 text-blue-600" />
               {name} ({kind}) — {viewLevel === 'direct' ? 'Direct' : viewLevel === 'extended' ? 'Extended' : 'Full'}

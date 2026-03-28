@@ -6,6 +6,7 @@ import {
   Search,
   ArrowUpRight,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import { motion } from 'framer-motion';
 import { useCRDOverview } from '@/hooks/useCRDOverview';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -101,9 +102,9 @@ export default function CRDsOverview() {
 
       {/* Hero: CRD Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <Card className="lg:col-span-8 overflow-hidden border-slate-200/80 shadow-sm bg-white">
+        <Card className="lg:col-span-8 overflow-hidden border-slate-200/80 dark:border-slate-700/80 shadow-sm bg-white dark:bg-slate-900">
           <CardHeader className="pt-8 px-8 pb-4">
-            <CardTitle className="text-xl font-bold tracking-tight text-slate-900">API Extensions</CardTitle>
+            <CardTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">API Extensions</CardTitle>
             <p className="text-sm text-slate-500 mt-1">Custom resource definitions registered in your cluster</p>
           </CardHeader>
           <CardContent className="pb-8 px-8">
@@ -124,8 +125,8 @@ export default function CRDsOverview() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-4 border-slate-200/80 shadow-sm bg-white flex flex-col p-8 overflow-hidden">
-          <h3 className="text-sm font-bold text-slate-900 mb-2">Quick Actions</h3>
+        <Card className="lg:col-span-4 border-slate-200/80 dark:border-slate-700/80 shadow-sm bg-white dark:bg-slate-900 flex flex-col p-8 overflow-hidden">
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-2">Quick Actions</h3>
           <p className="text-xs text-slate-500 mb-6">Browse and manage custom API extensions.</p>
 
           <div className="flex-1 space-y-3">
@@ -140,8 +141,8 @@ export default function CRDsOverview() {
       </div>
 
       {/* Resources Table */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
-        <div className="p-6 border-b border-slate-100">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl overflow-hidden shadow-sm">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h3 className="text-lg font-bold tracking-tight text-slate-900">Custom Resource Definitions</h3>
@@ -216,8 +217,14 @@ export default function CRDsOverview() {
               })}
               {itemsOnPage.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">
-                    {searchQuery ? 'No definitions match your search.' : 'No custom resource definitions found.'}
+                  <td colSpan={5} className="px-6 py-16 text-center">
+                    <EmptyState
+                      icon={FileCode}
+                      title={searchQuery ? "No definitions match your search" : "No custom resource definitions found"}
+                      description={searchQuery ? "Try adjusting your search terms." : "CRDs extending the Kubernetes API will appear here once registered."}
+                      size="sm"
+                      primaryAction={searchQuery ? { label: "Clear search", onClick: () => setSearchQuery('') } : undefined}
+                    />
                   </td>
                 </tr>
               )}

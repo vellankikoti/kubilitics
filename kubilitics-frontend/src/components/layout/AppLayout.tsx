@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useScrollRestoration } from './KeepAlive';
 import { motion } from 'framer-motion';
@@ -6,11 +6,10 @@ import { useReducedMotion } from 'framer-motion';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
+import { ConnectionLostBanner } from '@/components/ConnectionLostBanner';
 import { useClusterStore } from '@/stores/clusterStore';
-import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useRecentlyVisited } from '@/hooks/useRecentlyVisited';
 import { analyticsService } from '@/services/analyticsService';
-import { cn } from '@/lib/utils';
 import { isTauri } from '@/lib/tauri';
 import { RouteErrorBoundary } from '@/components/GlobalErrorBoundary';
 import { useSidebarAutoCollapse, useUIStore } from '@/stores/uiStore';
@@ -19,6 +18,8 @@ import { RouteAnnouncer } from '@/components/a11y/RouteAnnouncer';
 import { usePrefetchResources } from '@/hooks/usePrefetchResources';
 import { useMemoryMonitor } from '@/hooks/useMemoryMonitor';
 import { ProductionBanner } from './ProductionBanner';
+import { KeyboardShortcutsOverlay } from '@/components/KeyboardShortcutsOverlay';
+import { useKeyboardShortcuts, type KeyboardShortcut } from '@/hooks/useKeyboardShortcuts';
 
 export function AppLayout() {
   useRecentlyVisited();
@@ -33,14 +34,30 @@ export function AppLayout() {
   const location = useLocation();
   const reduceMotion = useReducedMotion();
   const isDemo = useClusterStore((s) => s.isDemo);
-  const { isConnected } = useConnectionStatus();
-  const gPendingRef = useRef(false);
-  const gTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // PERF Area 2: Restore scroll position when navigating back to a previously visited page
   const mainRef = useRef<HTMLElement>(null);
   useScrollRestoration(mainRef);
   const isShellOpen = useUIStore((s) => s.isShellOpen);
   const shellHeightPx = useUIStore((s) => s.shellHeightPx);
+
+  // -- Global keyboard shortcuts overlay --
+  const [shortcutsOverlayOpen, setShortcutsOverlayOpen] = useState(false);
+  const openShortcutsOverlay = useCallback(() => setShortcutsOverlayOpen(true), []);
+  const closeShortcutsOverlay = useCallback(() => setShortcutsOverlayOpen(false), []);
+
+  // Register global shortcuts via the central registry (supports two-key sequences like "g d").
+  // This replaces the old manual keydown handler for g+p, g+n, / — they now go through
+  // useKeyboardShortcuts which already handles sequence detection and input filtering.
+  const globalShortcuts = useMemo<KeyboardShortcut[]>(() => [
+    { id: 'global-help', keys: '?', description: 'Show keyboard shortcuts', handler: openShortcutsOverlay, group: 'General' },
+    { id: 'go-dashboard', keys: 'g d', description: 'Go to Dashboard', handler: () => navigate('/dashboard'), group: 'Navigation' },
+    { id: 'go-topology', keys: 'g t', description: 'Go to Topology', handler: () => navigate('/topology'), group: 'Navigation' },
+    { id: 'go-pods', keys: 'g p', description: 'Go to Pods', handler: () => navigate('/pods'), group: 'Navigation' },
+    { id: 'go-nodes', keys: 'g n', description: 'Go to Nodes', handler: () => navigate('/nodes'), group: 'Navigation' },
+    { id: 'go-settings', keys: 'g s', description: 'Go to Settings', handler: () => navigate('/settings'), group: 'Navigation' },
+    { id: 'focus-search', keys: '/', description: 'Focus search', handler: () => window.dispatchEvent(new CustomEvent('openGlobalSearch')), group: 'Navigation' },
+  ], [navigate, openShortcutsOverlay]);
+  useKeyboardShortcuts(globalShortcuts);
 
   // Track app start
   useEffect(() => {
@@ -49,47 +66,12 @@ export function AppLayout() {
     }
   }, []);
 
+  // Listen for the sidebar "Keyboard Shortcuts" button click
   useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      const inInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
-      if (inInput) return;
-
-      // Don't intercept keys when the shell/terminal panel has focus (xterm.js canvas)
-      if (target.closest('[data-shell-panel]') || target.closest('.xterm')) return;
-
-      if (e.key === 'g' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        gPendingRef.current = true;
-        if (gTimeoutRef.current) clearTimeout(gTimeoutRef.current);
-        gTimeoutRef.current = setTimeout(() => {
-          gPendingRef.current = false;
-          gTimeoutRef.current = null;
-        }, 800);
-        return;
-      }
-      if (e.key === 'p' && gPendingRef.current) {
-        e.preventDefault();
-        gPendingRef.current = false;
-        navigate('/pods');
-        return;
-      }
-      if (e.key === 'n' && gPendingRef.current) {
-        e.preventDefault();
-        gPendingRef.current = false;
-        navigate('/nodes');
-        return;
-      }
-      if (e.key === '/' && !e.metaKey && !e.ctrlKey) {
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent('openGlobalSearch'));
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-      if (gTimeoutRef.current) clearTimeout(gTimeoutRef.current);
-    };
-  }, [navigate]);
+    const handler = () => setShortcutsOverlayOpen(true);
+    window.addEventListener('openKeyboardShortcuts', handler);
+    return () => window.removeEventListener('openKeyboardShortcuts', handler);
+  }, []);
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-hidden">
@@ -128,29 +110,10 @@ export function AppLayout() {
           aria-label="Main content"
         >
           <OfflineIndicator />
-          {/* ConnectionRequiredBanner removed — the "Not connected to cluster" overlay
-              below already covers this case. Having both creates a redundant double-banner. */}
+          <ConnectionLostBanner />
           <div
-            className={cn(
-              'flex flex-col gap-4 min-h-0 flex-1 transition-opacity duration-200',
-              !isConnected && 'opacity-50 pointer-events-none select-none relative'
-            )}
-            aria-hidden={!isConnected}
+            className="flex flex-col gap-4 min-h-0 flex-1"
           >
-            {!isConnected && (
-              <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-auto">
-                <div className="bg-background/95 backdrop-blur-sm border border-border rounded-lg p-6 shadow-lg text-center max-w-md">
-                  <p className="text-sm font-medium text-foreground mb-2">Not connected to cluster</p>
-                  <p className="text-xs text-muted-foreground mb-4">Please connect to a cluster to view content.</p>
-                  <Link
-                    to="/connect"
-                    className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-                  >
-                    Connect Cluster
-                  </Link>
-                </div>
-              </div>
-            )}
             <motion.div
               key={location.pathname}
               initial={reduceMotion ? false : { opacity: 0, y: 8 }}
@@ -168,6 +131,9 @@ export function AppLayout() {
           </div>
         </main>
       </div>
+
+      {/* Global keyboard shortcuts overlay — triggered by pressing ? */}
+      <KeyboardShortcutsOverlay visible={shortcutsOverlayOpen} onClose={closeShortcutsOverlay} />
     </div>
   );
 }

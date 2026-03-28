@@ -5,7 +5,9 @@ import {
   Globe,
   Search,
   ArrowUpRight,
+  Network,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import { motion } from 'framer-motion';
 import { useNetworkingOverview } from '@/hooks/useNetworkingOverview';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -257,8 +259,14 @@ export default function NetworkingOverview() {
               })}
               {itemsOnPage.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400">
-                    {searchQuery ? 'No resources match your search.' : 'No network resources found.'}
+                  <td colSpan={7} className="px-6 py-16 text-center">
+                    <EmptyState
+                      icon={Network}
+                      title={searchQuery ? "No resources match your search" : "No network resources found"}
+                      description={searchQuery ? "Try adjusting your search terms." : "Services, ingress rules, and network policies will appear here once created."}
+                      size="sm"
+                      primaryAction={searchQuery ? { label: "Clear search", onClick: () => setSearchQuery('') } : { label: "View Services", href: "/services" }}
+                    />
                   </td>
                 </tr>
               )}

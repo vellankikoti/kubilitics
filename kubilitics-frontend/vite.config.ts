@@ -152,9 +152,10 @@ export default defineConfig(({ mode }) => ({
     target: "esnext",
     minify: "esbuild",
     sourcemap: mode !== "production",
-    // Only split Monaco Editor into its own chunk — it's ~3.8MB and self-contained
-    // (no React internals). General manualChunks are disabled because they caused
-    // cross-chunk React import failures (useLayoutEffect, createContext undefined).
+    // Split heavy vendor libraries into dedicated chunks. Only libraries that are
+    // self-contained (no React internals at init time) are safe to separate.
+    // React/Radix are NOT split here — that caused cross-chunk useLayoutEffect/
+    // createContext failures. Vite's natural code-splitting handles those correctly.
     rollupOptions: {
       output: {
         manualChunks(id) {
@@ -165,6 +166,26 @@ export default defineConfig(({ mode }) => ({
           // Monaco React wrapper (~15KB) — thin wrapper, safe to separate
           if (id.includes('@monaco-editor/react')) {
             return 'vendor-monaco-react';
+          }
+          // xterm terminal emulator (~150KB) — no React dependency
+          if (id.includes('@xterm/xterm') || id.includes('@xterm/addon-fit')) {
+            return 'vendor-terminal';
+          }
+          // recharts (~200KB) — isolate so list pages don't pay chart cost
+          if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) {
+            return 'vendor-charts';
+          }
+          // elkjs layout engine (~200KB) — only used by topology
+          if (id.includes('elkjs')) {
+            return 'vendor-elk';
+          }
+          // jsPDF (~100KB) — only used for PDF export
+          if (id.includes('jspdf')) {
+            return 'vendor-pdf';
+          }
+          // CodeMirror (~90KB) — YAML editor alternative
+          if (id.includes('@codemirror') || id.includes('@lezer')) {
+            return 'vendor-codemirror';
           }
         },
       },

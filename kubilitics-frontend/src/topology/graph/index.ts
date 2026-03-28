@@ -26,4 +26,4 @@ export { getConnectedComponent, getUpstreamChain, getDownstreamChain } from './c
 export { adaptTopologyGraph, validateTopologyGraph } from './utils/topologyAdapter';
 
 // Export utilities
-export { downloadFile } from './utils/exportUtils';
+export { downloadFile, downloadJSON, downloadCSVSummary, generateTestGraph } from './utils/exportUtils';

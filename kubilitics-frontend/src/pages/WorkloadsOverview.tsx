@@ -39,8 +39,10 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Info,
-  ArrowUpRight
+  ArrowUpRight,
+  Boxes,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
@@ -423,17 +425,13 @@ export default function WorkloadsOverview() {
                 {itemsOnPage.length === 0 && (
                   <tr>
                     <td colSpan={7} className="px-6 py-16 text-center">
-                      <div className="flex flex-col items-center gap-2">
-                        <Container className="h-8 w-8 text-muted-foreground/40" />
-                        <p className="text-sm font-medium text-muted-foreground">
-                          {searchQuery ? 'No workloads match your search.' : 'No workloads found in the cluster.'}
-                        </p>
-                        {searchQuery && (
-                          <Button variant="ghost" size="sm" onClick={() => setSearchQuery('')} className="mt-1 text-xs">
-                            Clear search
-                          </Button>
-                        )}
-                      </div>
+                      <EmptyState
+                        icon={Boxes}
+                        title={searchQuery ? "No workloads match your search" : "No workloads found"}
+                        description={searchQuery ? "Try adjusting your search terms." : "Deployments, stateful sets, and other controllers will appear here once deployed."}
+                        size="sm"
+                        primaryAction={searchQuery ? { label: "Clear search", onClick: () => setSearchQuery('') } : { label: "View Deployments", href: "/deployments" }}
+                      />
                     </td>
                   </tr>
                 )}

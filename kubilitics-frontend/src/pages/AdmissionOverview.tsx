@@ -7,6 +7,7 @@ import {
   ArrowUpRight,
   ShieldCheck,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import { motion } from 'framer-motion';
 import { useAdmissionOverview } from '@/hooks/useAdmissionOverview';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -259,8 +260,14 @@ export default function AdmissionOverview() {
               })}
               {itemsOnPage.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-sm text-slate-400">
-                    {searchQuery ? 'No webhooks match your search.' : 'No admission webhooks found.'}
+                  <td colSpan={5} className="px-6 py-16 text-center">
+                    <EmptyState
+                      icon={Webhook}
+                      title={searchQuery ? "No webhooks match your search" : "No admission webhooks found"}
+                      description={searchQuery ? "Try adjusting your search terms." : "Mutating and validating webhooks will appear here once configured."}
+                      size="sm"
+                      primaryAction={searchQuery ? { label: "Clear search", onClick: () => setSearchQuery('') } : { label: "View Webhooks", href: "/mutating-webhooks" }}
+                    />
                   </td>
                 </tr>
               )}

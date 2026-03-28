@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Bell, Search, RefreshCw, MoreHorizontal, Loader2, WifiOff, ChevronDown, CheckCircle2, AlertTriangle, XCircle, ExternalLink } from 'lucide-react';
+import { Bell, Search, RefreshCw, MoreHorizontal, Loader2, WifiOff, ChevronDown, CheckCircle2, AlertTriangle, XCircle, ExternalLink, CalendarClock } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -409,6 +410,15 @@ export default function Events() {
  data={paginatedRows}
  tableContainerRef={tableContainerRef}
  rowHeight={48}
+ emptyState={
+  <EmptyState
+   icon={CalendarClock}
+   title={searchQuery ? "No events match your search" : "No events found"}
+   description={searchQuery ? "Try adjusting your search terms or clearing filters." : "Kubernetes events will appear here when the cluster reports changes or warnings."}
+   size="sm"
+   primaryAction={searchQuery ? { label: "Clear search", onClick: () => setSearchQuery('') } : undefined}
+  />
+ }
  renderRow={(ev) => {
  const config = typeConfig[ev.type];
  const EventIcon = config.icon;

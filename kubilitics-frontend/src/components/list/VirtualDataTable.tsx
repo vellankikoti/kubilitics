@@ -11,6 +11,8 @@ interface VirtualTableBodyProps<T> {
     renderRow: (item: T) => React.ReactNode;
     rowHeight?: number;
     tableContainerRef: React.RefObject<HTMLDivElement>;
+    /** Custom empty state to render when data is empty. Falls back to "No results." */
+    emptyState?: React.ReactNode;
 }
 
 export function VirtualTableBody<T>({
@@ -18,6 +20,7 @@ export function VirtualTableBody<T>({
     renderRow,
     rowHeight = 48,
     tableContainerRef,
+    emptyState,
 }: VirtualTableBodyProps<T>) {
     const virtualizer = useVirtualizer({
         count: data.length,
@@ -36,8 +39,8 @@ export function VirtualTableBody<T>({
     if (data.length === 0) return (
         <TableBody>
             <TableRow>
-                <TableCell colSpan={100} className="h-24 text-center">
-                    No results.
+                <TableCell colSpan={100} className="h-40 text-center">
+                    {emptyState ?? <span className="text-sm text-muted-foreground">No results.</span>}
                 </TableCell>
             </TableRow>
         </TableBody>

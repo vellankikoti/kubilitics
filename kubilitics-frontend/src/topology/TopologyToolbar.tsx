@@ -170,7 +170,7 @@ export function TopologyToolbar({
     : `${availableEdgeCategories.length - hiddenEdgeCategories.size}/${availableEdgeCategories.length} categories`;
 
   return (
-    <div className="border-b border-gray-200/80 bg-gradient-to-r from-white via-gray-50/30 to-white">
+    <div className="border-b border-gray-200/80 dark:border-slate-700/80 bg-gradient-to-r from-white via-gray-50/30 to-white dark:from-slate-900 dark:via-slate-900/80 dark:to-slate-900">
       {/* Main toolbar row */}
       <div className="flex items-center gap-3 px-4 py-2.5">
 
@@ -178,8 +178,8 @@ export function TopologyToolbar({
         <ViewModeSelect value={viewMode} onChange={onViewModeChange} />
 
         {/* ── Depth Selector (progressive disclosure) ── */}
-        <div className="h-7 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent" />
-        <div className="flex items-center rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div className="h-7 w-px bg-gradient-to-b from-transparent via-gray-300 dark:via-slate-600 to-transparent" />
+        <div className="flex items-center rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm overflow-hidden">
           {([0, 1, 2, 3] as DepthLevel[]).map((d) => {
             const isActive = depth === d;
             const Icon = d === 0 ? LayoutDashboard : d === 1 ? Box : d === 2 ? Settings : Network;
@@ -191,8 +191,8 @@ export function TopologyToolbar({
                 className={`flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold transition-all ${
                   isActive
                     ? "bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-inner"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                } ${d > 0 ? "border-l border-gray-200" : ""}`}
+                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-slate-700"
+                } ${d > 0 ? "border-l border-gray-200 dark:border-slate-700" : ""}`}
                 onClick={() => onDepthChange?.(d)}
               >
                 <Icon className="h-3 w-3" />
@@ -205,7 +205,7 @@ export function TopologyToolbar({
 
         {/* Separator + Namespace Filter — only for namespace-aware views */}
         {viewMode === "namespace" && (<>
-        <div className="h-7 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent" />
+        <div className="h-7 w-px bg-gradient-to-b from-transparent via-gray-300 dark:via-slate-600 to-transparent" />
 
         {/* ── Namespace Filter ── */}
         <Popover>
@@ -214,8 +214,8 @@ export function TopologyToolbar({
               type="button"
               className={`group flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 border ${
                 hasNamespaceFilter
-                  ? "bg-gradient-to-r from-indigo-50 to-blue-50 text-indigo-700 border-indigo-200 ring-1 ring-indigo-100 shadow-sm"
-                  : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50 shadow-sm"
+                  ? "bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800 ring-1 ring-indigo-100 dark:ring-indigo-800 shadow-sm"
+                  : "bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 shadow-sm"
               }`}
             >
               <Filter className={`h-3.5 w-3.5 ${hasNamespaceFilter ? "text-indigo-500" : "text-gray-600 dark:text-gray-400 group-hover:text-gray-500"}`} />
@@ -228,14 +228,14 @@ export function TopologyToolbar({
               )}
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-80 p-0 rounded-xl shadow-xl border-gray-200" sideOffset={6}>
-            <div className="p-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white rounded-t-xl">
+          <PopoverContent align="start" className="w-80 p-0 rounded-xl shadow-xl border-gray-200 dark:border-slate-700 dark:bg-slate-900" sideOffset={6}>
+            <div className="p-3 border-b border-gray-100 dark:border-slate-700 bg-gradient-to-r from-gray-50 dark:from-slate-800 to-white dark:to-slate-900 rounded-t-xl">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center justify-center h-6 w-6 rounded-md bg-indigo-100">
-                    <Filter className="h-3.5 w-3.5 text-indigo-600" />
+                  <div className="flex items-center justify-center h-6 w-6 rounded-md bg-indigo-100 dark:bg-indigo-900/50">
+                    <Filter className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                   </div>
-                  <p className="text-xs font-bold text-gray-700">Namespace Filter</p>
+                  <p className="text-xs font-bold text-gray-700 dark:text-gray-200">Namespace Filter</p>
                 </div>
                 {selectedNamespaces.size > 1 && (
                   <button
@@ -253,7 +253,7 @@ export function TopologyToolbar({
                   className={`flex-1 h-7 rounded-md text-[11px] font-semibold transition-all border ${
                     selectedNamespaces.size === 1 && selectedNamespaces.has("default")
                       ? "bg-indigo-500 text-white border-indigo-500 shadow-sm"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-indigo-200 hover:text-indigo-600"
+                      : "bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:border-indigo-200 dark:hover:border-indigo-700 hover:text-indigo-600 dark:hover:text-indigo-400"
                   }`}
                   onClick={() => onNamespaceSelectionChange?.(new Set(["default"]))}
                 >
@@ -261,14 +261,14 @@ export function TopologyToolbar({
                 </button>
                 <button
                   type="button"
-                  className="flex-1 h-7 rounded-md text-[11px] font-semibold transition-all border bg-white text-gray-600 border-gray-200 hover:border-emerald-200 hover:text-emerald-600"
+                  className="flex-1 h-7 rounded-md text-[11px] font-semibold transition-all border bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:border-emerald-200 dark:hover:border-emerald-700 hover:text-emerald-600 dark:hover:text-emerald-400"
                   onClick={() => onNamespaceSelectionChange?.(new Set(userNamespaces))}
                 >
                   User Only
                 </button>
                 <button
                   type="button"
-                  className="flex-1 h-7 rounded-md text-[11px] font-semibold transition-all border bg-white text-gray-600 border-gray-200 hover:border-orange-200 hover:text-orange-600"
+                  className="flex-1 h-7 rounded-md text-[11px] font-semibold transition-all border bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:border-orange-200 dark:hover:border-orange-700 hover:text-orange-600 dark:hover:text-orange-400"
                   onClick={() => onNamespaceSelectionChange?.(new Set(systemNamespaces))}
                 >
                   System Only
@@ -289,13 +289,13 @@ export function TopologyToolbar({
                         return (
                         <div key={ns} role="button" tabIndex={0} onClick={() => toggleNamespace(ns)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNamespace(ns); } }} className={`flex items-center gap-2.5 cursor-pointer rounded-lg px-2.5 py-2 transition-all ${
                           isChecked
-                            ? "bg-indigo-50/80 border border-indigo-100"
-                            : "hover:bg-gray-50 border border-transparent"
+                            ? "bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800"
+                            : "hover:bg-gray-50 dark:hover:bg-slate-800 border border-transparent"
                         }`}>
-                          <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors ${isChecked ? "border-indigo-600 bg-indigo-600 text-white" : "border-gray-300 bg-white"}`}>
+                          <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors ${isChecked ? "border-indigo-600 bg-indigo-600 text-white" : "border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800"}`}>
                             {isChecked && <Check className="h-3 w-3" />}
                           </div>
-                          <span className={`text-sm font-medium ${isChecked ? "text-indigo-700" : "text-gray-700"}`}>{ns}</span>
+                          <span className={`text-sm font-medium ${isChecked ? "text-indigo-700 dark:text-indigo-300" : "text-gray-700 dark:text-gray-300"}`}>{ns}</span>
                         </div>
                         );
                       })}
@@ -314,13 +314,13 @@ export function TopologyToolbar({
                         return (
                         <div key={ns} role="button" tabIndex={0} onClick={() => toggleNamespace(ns)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleNamespace(ns); } }} className={`flex items-center gap-2.5 cursor-pointer rounded-lg px-2.5 py-2 transition-all ${
                           isChecked
-                            ? "bg-indigo-50/80 border border-indigo-100"
-                            : "hover:bg-gray-50 border border-transparent"
+                            ? "bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-800"
+                            : "hover:bg-gray-50 dark:hover:bg-slate-800 border border-transparent"
                         }`}>
-                          <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors ${isChecked ? "border-indigo-600 bg-indigo-600 text-white" : "border-gray-300 bg-white"}`}>
+                          <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors ${isChecked ? "border-indigo-600 bg-indigo-600 text-white" : "border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800"}`}>
                             {isChecked && <Check className="h-3 w-3" />}
                           </div>
-                          <span className={`text-sm font-medium ${isChecked ? "text-indigo-700" : "text-gray-500"}`}>{ns}</span>
+                          <span className={`text-sm font-medium ${isChecked ? "text-indigo-700 dark:text-indigo-300" : "text-gray-500 dark:text-gray-400"}`}>{ns}</span>
                         </div>
                         );
                       })}
@@ -336,7 +336,7 @@ export function TopologyToolbar({
         {selectedNamespaces.size > 0 && selectedNamespaces.size <= 3 && (
           <div className="flex items-center gap-1.5">
             {Array.from(selectedNamespaces).map((ns) => (
-              <span key={ns} className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-indigo-50 to-blue-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 border border-indigo-200 shadow-sm">
+              <span key={ns} className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/40 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shadow-sm">
                 <Layers className="h-3 w-3 text-indigo-400" />
                 {ns}
                 <button type="button" className="ml-0.5 hover:bg-indigo-100 rounded-full p-0.5 transition-colors" onClick={() => toggleNamespace(ns)}>
@@ -350,15 +350,15 @@ export function TopologyToolbar({
 
         {/* ── Kind Filter ── */}
         {availableKinds.length > 0 && (<>
-        <div className="h-7 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent" />
+        <div className="h-7 w-px bg-gradient-to-b from-transparent via-gray-300 dark:via-slate-600 to-transparent" />
         <Popover>
           <PopoverTrigger asChild>
             <button
               type="button"
               className={`group flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 border ${
                 hasKindFilter
-                  ? "bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 border-emerald-200 ring-1 ring-emerald-100 shadow-sm"
-                  : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50 shadow-sm"
+                  ? "bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-950/40 dark:to-teal-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 ring-1 ring-emerald-100 dark:ring-emerald-800 shadow-sm"
+                  : "bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 shadow-sm"
               }`}
             >
               <Box className={`h-3.5 w-3.5 ${hasKindFilter ? "text-emerald-500" : "text-gray-600 dark:text-gray-400 group-hover:text-gray-500"}`} />
@@ -371,14 +371,14 @@ export function TopologyToolbar({
               )}
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 p-0 rounded-xl shadow-xl border-gray-200" sideOffset={6}>
-            <div className="p-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white rounded-t-xl">
+          <PopoverContent align="start" className="w-72 p-0 rounded-xl shadow-xl border-gray-200 dark:border-slate-700 dark:bg-slate-900" sideOffset={6}>
+            <div className="p-3 border-b border-gray-100 dark:border-slate-700 bg-gradient-to-r from-gray-50 dark:from-slate-800 to-white dark:to-slate-900 rounded-t-xl">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center justify-center h-6 w-6 rounded-md bg-emerald-100">
-                    <Box className="h-3.5 w-3.5 text-emerald-600" />
+                  <div className="flex items-center justify-center h-6 w-6 rounded-md bg-emerald-100 dark:bg-emerald-900/50">
+                    <Box className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <p className="text-xs font-bold text-gray-700">Kind Filter</p>
+                  <p className="text-xs font-bold text-gray-700 dark:text-gray-200">Kind Filter</p>
                 </div>
                 {hasKindFilter && (
                   <button
@@ -396,7 +396,7 @@ export function TopologyToolbar({
                   className={`flex-1 h-7 rounded-md text-[11px] font-semibold transition-all border ${
                     !hasKindFilter
                       ? "bg-emerald-500 text-white border-emerald-500 shadow-sm"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-emerald-200 hover:text-emerald-600"
+                      : "bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:border-emerald-200 dark:hover:border-emerald-700 hover:text-emerald-600 dark:hover:text-emerald-400"
                   }`}
                   onClick={() => onKindSelectionChange?.(new Set())}
                 >
@@ -404,14 +404,14 @@ export function TopologyToolbar({
                 </button>
                 <button
                   type="button"
-                  className="flex-1 h-7 rounded-md text-[11px] font-semibold transition-all border bg-white text-gray-600 border-gray-200 hover:border-emerald-200 hover:text-emerald-600"
+                  className="flex-1 h-7 rounded-md text-[11px] font-semibold transition-all border bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:border-emerald-200 dark:hover:border-emerald-700 hover:text-emerald-600 dark:hover:text-emerald-400"
                   onClick={() => onKindSelectionChange?.(new Set(["Pod", "Deployment", "ReplicaSet", "Service"]))}
                 >
                   Workloads
                 </button>
                 <button
                   type="button"
-                  className="flex-1 h-7 rounded-md text-[11px] font-semibold transition-all border bg-white text-gray-600 border-gray-200 hover:border-emerald-200 hover:text-emerald-600"
+                  className="flex-1 h-7 rounded-md text-[11px] font-semibold transition-all border bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:border-emerald-200 dark:hover:border-emerald-700 hover:text-emerald-600 dark:hover:text-emerald-400"
                   onClick={() => onKindSelectionChange?.(new Set(["ConfigMap", "Secret"]))}
                 >
                   Config
@@ -433,14 +433,14 @@ export function TopologyToolbar({
                       }
                     }} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!hasKindFilter) { const allExcept = new Set(availableKinds.filter((k) => k !== kind)); onKindSelectionChange?.(allExcept); } else { toggleKind(kind); } } }} className={`flex items-center gap-2.5 cursor-pointer rounded-lg px-2.5 py-2 transition-all ${
                       isChecked
-                        ? "bg-emerald-50/80 border border-emerald-100"
-                        : "hover:bg-gray-50 border border-transparent"
+                        ? "bg-emerald-50/80 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800"
+                        : "hover:bg-gray-50 dark:hover:bg-slate-800 border border-transparent"
                     }`}>
-                      <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors ${isChecked ? "border-emerald-600 bg-emerald-600 text-white" : "border-gray-300 bg-white"}`}>
+                      <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors ${isChecked ? "border-emerald-600 bg-emerald-600 text-white" : "border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800"}`}>
                         {isChecked && <Check className="h-3 w-3" />}
                       </div>
                       <K8sIcon kind={kind} size={16} className="shrink-0" />
-                      <span className={`text-sm font-medium ${isChecked ? "text-emerald-700" : "text-gray-700"}`}>{kind}</span>
+                      <span className={`text-sm font-medium ${isChecked ? "text-emerald-700 dark:text-emerald-300" : "text-gray-700 dark:text-gray-300"}`}>{kind}</span>
                     </div>
                   );
                 })}
@@ -452,15 +452,15 @@ export function TopologyToolbar({
 
         {/* ── Edge Type Filter ── */}
         {availableEdgeCategories.length > 0 && (<>
-        <div className="h-7 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent" />
+        <div className="h-7 w-px bg-gradient-to-b from-transparent via-gray-300 dark:via-slate-600 to-transparent" />
         <Popover>
           <PopoverTrigger asChild>
             <button
               type="button"
               className={`group flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all duration-200 border ${
                 hasEdgeFilter
-                  ? "bg-gradient-to-r from-purple-50 to-violet-50 text-purple-700 border-purple-200 ring-1 ring-purple-100 shadow-sm"
-                  : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50 shadow-sm"
+                  ? "bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-950/40 dark:to-violet-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800 ring-1 ring-purple-100 dark:ring-purple-800 shadow-sm"
+                  : "bg-white dark:bg-slate-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-slate-700 hover:border-gray-300 dark:hover:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-700 shadow-sm"
               }`}
             >
               <Route className={`h-3.5 w-3.5 ${hasEdgeFilter ? "text-purple-500" : "text-gray-600 dark:text-gray-400 group-hover:text-gray-500"}`} />
@@ -473,14 +473,14 @@ export function TopologyToolbar({
               )}
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 p-0 rounded-xl shadow-xl border-gray-200" sideOffset={6}>
-            <div className="p-3 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white rounded-t-xl">
+          <PopoverContent align="start" className="w-72 p-0 rounded-xl shadow-xl border-gray-200 dark:border-slate-700 dark:bg-slate-900" sideOffset={6}>
+            <div className="p-3 border-b border-gray-100 dark:border-slate-700 bg-gradient-to-r from-gray-50 dark:from-slate-800 to-white dark:to-slate-900 rounded-t-xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center justify-center h-6 w-6 rounded-md bg-purple-100">
-                    <Route className="h-3.5 w-3.5 text-purple-600" />
+                  <div className="flex items-center justify-center h-6 w-6 rounded-md bg-purple-100 dark:bg-purple-900/50">
+                    <Route className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
                   </div>
-                  <p className="text-xs font-bold text-gray-700">Edge Relationships</p>
+                  <p className="text-xs font-bold text-gray-700 dark:text-gray-200">Edge Relationships</p>
                 </div>
                 {hasEdgeFilter && (
                   <button
@@ -500,13 +500,13 @@ export function TopologyToolbar({
                   return (
                     <div key={cat} role="button" tabIndex={0} onClick={() => toggleEdgeCategory(cat)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleEdgeCategory(cat); } }} className={`flex items-center gap-2.5 cursor-pointer rounded-lg px-2.5 py-2 transition-all ${
                       isVisible
-                        ? "bg-purple-50/80 border border-purple-100"
-                        : "hover:bg-gray-50 border border-transparent"
+                        ? "bg-purple-50/80 dark:bg-purple-950/40 border border-purple-100 dark:border-purple-800"
+                        : "hover:bg-gray-50 dark:hover:bg-slate-800 border border-transparent"
                     }`}>
-                      <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors ${isVisible ? "border-purple-600 bg-purple-600 text-white" : "border-gray-300 bg-white"}`}>
+                      <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border transition-colors ${isVisible ? "border-purple-600 bg-purple-600 text-white" : "border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800"}`}>
                         {isVisible && <Check className="h-3 w-3" />}
                       </div>
-                      <span className={`text-sm font-medium capitalize ${isVisible ? "text-purple-700" : "text-gray-500"}`}>{cat}</span>
+                      <span className={`text-sm font-medium capitalize ${isVisible ? "text-purple-700 dark:text-purple-300" : "text-gray-500 dark:text-gray-400"}`}>{cat}</span>
                     </div>
                   );
                 })}
@@ -517,7 +517,7 @@ export function TopologyToolbar({
         </>)}
 
         {/* Separator */}
-        <div className="h-7 w-px bg-gradient-to-b from-transparent via-gray-300 to-transparent" />
+        <div className="h-7 w-px bg-gradient-to-b from-transparent via-gray-300 dark:via-slate-600 to-transparent" />
 
         {/* ── Search ── */}
         <div className="relative flex-1 max-w-xs">
@@ -526,7 +526,7 @@ export function TopologyToolbar({
             ref={searchRef}
             data-topology-search
             aria-label="Search topology resources"
-            className="h-8 w-full rounded-lg border border-gray-200 bg-white dark:bg-slate-800 pl-9 pr-8 text-sm placeholder:text-gray-400 focus:border-indigo-300 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-100 transition-all shadow-sm"
+            className="h-8 w-full rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 pl-9 pr-8 text-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-indigo-300 dark:focus:border-indigo-600 focus:bg-white dark:focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900 transition-all shadow-sm"
             placeholder="Search resources..."
             value={searchQuery}
             onChange={handleSearch}
@@ -573,19 +573,19 @@ export function TopologyToolbar({
                 <button
                   key={r.node.id}
                   type="button"
-                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-indigo-50 transition-colors"
+                  className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
                   onMouseDown={() => handleSearchSelect(r.node.id)}
                 >
                   <K8sIcon kind={r.node.kind} size={18} className="shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900 truncate">{r.node.name}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-gray-100 text-gray-500 font-semibold shrink-0">
+                      <span className="font-semibold text-gray-900 dark:text-gray-100 truncate">{r.node.name}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-gray-400 font-semibold shrink-0">
                         {r.node.kind}
                       </span>
                     </div>
                     {r.node.namespace && (
-                      <div className="text-xs text-gray-400 truncate mt-0.5">{r.node.namespace}</div>
+                      <div className="text-xs text-gray-400 dark:text-gray-500 truncate mt-0.5">{r.node.namespace}</div>
                     )}
                   </div>
                 </button>
@@ -597,18 +597,18 @@ export function TopologyToolbar({
         {/* ── Stats ── */}
         {topology && (
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-cyan-50 px-3 py-1.5 border border-blue-100 shadow-sm">
+            <div className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/40 dark:to-cyan-950/40 px-3 py-1.5 border border-blue-100 dark:border-blue-800 shadow-sm">
               <Layers className="h-3 w-3 text-blue-500" />
-              <span className="text-xs font-bold text-blue-700 tabular-nums">{topology.metadata.resourceCount}</span>
+              <span className="text-xs font-bold text-blue-700 dark:text-blue-300 tabular-nums">{topology.metadata.resourceCount}</span>
               {depth < 3 && totalUnfiltered > 0 ? (
-                <span className="text-[10px] text-blue-500 font-medium">of {totalUnfiltered}</span>
+                <span className="text-[10px] text-blue-500 dark:text-blue-400 font-medium">of {totalUnfiltered}</span>
               ) : null}
-              <span className="text-[10px] text-blue-500 font-medium">resources</span>
+              <span className="text-[10px] text-blue-500 dark:text-blue-400 font-medium">resources</span>
             </div>
-            <div className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-50 to-violet-50 px-3 py-1.5 border border-purple-100 shadow-sm">
+            <div className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-950/40 dark:to-violet-950/40 px-3 py-1.5 border border-purple-100 dark:border-purple-800 shadow-sm">
               <GitBranch className="h-3 w-3 text-purple-500" />
-              <span className="text-xs font-bold text-purple-700 tabular-nums">{topology.metadata.edgeCount}</span>
-              <span className="text-[10px] text-purple-500 font-medium">edges</span>
+              <span className="text-xs font-bold text-purple-700 dark:text-purple-300 tabular-nums">{topology.metadata.edgeCount}</span>
+              <span className="text-[10px] text-purple-500 dark:text-purple-400 font-medium">edges</span>
             </div>
           </div>
         )}

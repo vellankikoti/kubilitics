@@ -31,6 +31,7 @@ import {
   ChevronRight,
   Gauge,
 } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { motion, AnimatePresence } from "framer-motion";
 import { useClusterOverviewData } from "@/hooks/useClusterOverviewData";
 import { useClusterUtilization } from "@/hooks/useClusterUtilization";
@@ -767,13 +768,14 @@ export default function ClusterOverview() {
                   })}
                   {itemsOnPage.length === 0 && (
                     <tr>
-                      <td
-                        colSpan={6}
-                        className="px-6 py-12 text-center text-sm text-muted-foreground"
-                      >
-                        {searchQuery
-                          ? "No resources match your search."
-                          : "No cluster resources found."}
+                      <td colSpan={6} className="px-6 py-16 text-center">
+                        <EmptyState
+                          icon={Server}
+                          title={searchQuery ? "No resources match your search" : "No cluster resources found"}
+                          description={searchQuery ? "Try adjusting your search terms." : "Nodes, namespaces, and cluster-scoped resources will appear here."}
+                          size="sm"
+                          primaryAction={searchQuery ? { label: "Clear search", onClick: () => setSearchQuery("") } : { label: "View Nodes", href: "/nodes" }}
+                        />
                       </td>
                     </tr>
                   )}

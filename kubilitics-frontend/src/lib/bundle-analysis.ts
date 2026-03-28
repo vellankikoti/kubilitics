@@ -11,15 +11,16 @@
  *
  * | Dependency             | Est. gzip | Used by                          | Strategy         |
  * |------------------------|-----------|----------------------------------|------------------|
- * | three + @react-three/* | ~180 kB   | 3D topology visualization        | Lazy route       |
- * | cytoscape + plugins    | ~120 kB   | 2D topology graph (CytoscapeTopology) | Lazy route  |
- * | gsap                   | ~30 kB    | Micro-animations (onboarding)    | Dynamic import   |
  * | monaco-editor          | ~400 kB   | YAML editor (resource edit)      | Dynamic import   |
- * | recharts               | ~80 kB    | Dashboard charts                 | Lazy route       |
- * | d3                     | ~60 kB    | Custom SVG charts                | Dynamic import   |
+ * | three + @react-three/* | ~180 kB   | 3D topology visualization        | Lazy route       |
+ * | @xterm/xterm + addons  | ~150 kB   | Terminal (pod exec, cluster shell)| Lazy component  |
+ * | cytoscape + plugins    | ~120 kB   | 2D topology graph (CytoscapeTopology) | Lazy route  |
  * | @codemirror/*          | ~90 kB    | YAML editor (resource edit)      | Dynamic import   |
- * | elkjs                  | ~35 kB    | ELK layout for topology          | Dynamic import   |
+ * | recharts               | ~80 kB    | Dashboard charts                 | Vendor chunk     |
+ * | d3                     | ~60 kB    | Custom SVG charts                | Dynamic import   |
  * | jspdf                  | ~50 kB    | PDF export                       | Dynamic import   |
+ * | elkjs                  | ~35 kB    | ELK layout for topology          | Dynamic import   |
+ * | gsap                   | ~30 kB    | Micro-animations (onboarding)    | Dynamic import   |
  *
  * ## Optimization Strategy
  *
@@ -113,6 +114,26 @@ export async function loadElk() {
 }
 
 /**
+ * Dynamically imports xterm.js terminal emulator + fit addon.
+ * Only loaded when the user opens a terminal panel (~150 kB saved).
+ *
+ * @example
+ * ```ts
+ * const { Terminal, FitAddon } = await loadXterm();
+ * const term = new Terminal({ cursorBlink: true });
+ * const fit = new FitAddon();
+ * term.loadAddon(fit);
+ * ```
+ */
+export async function loadXterm() {
+  const [{ Terminal }, { FitAddon }] = await Promise.all([
+    import('@xterm/xterm'),
+    import('@xterm/addon-fit'),
+  ]);
+  return { Terminal, FitAddon };
+}
+
+/**
  * Dynamically imports Cytoscape core + layout plugins.
  * Use when rendering the 2D topology graph outside the lazy-loaded route.
  *
@@ -182,6 +203,7 @@ export async function loadCodeMirror() {
  */
 export const BUNDLE_SIZE_ESTIMATES = {
   'three + @react-three': '~180 kB',
+  '@xterm/xterm + addon-fit': '~150 kB',
   'cytoscape + plugins': '~120 kB',
   'monaco-editor': '~400 kB',
   '@codemirror/*': '~90 kB',

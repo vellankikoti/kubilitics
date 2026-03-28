@@ -12,6 +12,7 @@ import { useClusterOverview } from "@/hooks/useClusterOverview";
 import { useHealthScore } from "@/hooks/useHealthScore";
 import { useClusterStore } from "@/stores/clusterStore";
 import { useBackendConfigStore } from "@/stores/backendConfigStore";
+import { EmptyNoClusters } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 
 const STATUS_CONFIG: Record<string, { badge: string; icon: typeof CheckCircle2 }> = {
@@ -81,95 +82,106 @@ export const ClusterHealthWidget = () => {
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col pt-2 pb-6 px-6 relative z-10">
-        <div className="flex items-center justify-center shrink-0" style={{ height: "160px" }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart aria-label="Cluster health score chart">
-              <defs>
-                <linearGradient id="colorGradient" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="hsl(var(--primary))" />
-                  <stop offset="100%" stopColor="#00E5FF" />
-                </linearGradient>
-              </defs>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={48}
-                outerRadius={64}
-                startAngle={90}
-                endAngle={-270}
-                dataKey="value"
-                stroke="none"
-                cornerRadius={10}
-                paddingAngle={4}
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} aria-label={`${entry.name}: ${entry.value}%`} />
-                ))}
-                <Label
-                  content={({ viewBox }) => {
-                    if (viewBox && "cx" in viewBox && "cy" in viewBox) {
-                      return (
-                        <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
-                          <tspan x={viewBox.cx} y={(viewBox.cy || 0) - 4} className="fill-foreground text-3xl font-black tracking-tighter">
-                            {hasData ? score : "—"}
-                          </tspan>
-                          <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 14} className="fill-muted-foreground text-[10px] font-bold uppercase tracking-[0.2em]">
-                            Grade {grade}
-                          </tspan>
-                        </text>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Breakdown — 4 factors (matches Resource Allocation vertical style) */}
-        <div className="space-y-2 pt-3 mt-auto border-t border-border/50">
-          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Health factors</p>
-          <div className="space-y-3">
-            {(["podHealth", "nodeHealth", "stability", "eventHealth"] as const).map((key) => {
-              const val = Math.min(100, Math.max(0, breakdown[key]));
-              const Icon = key === "podHealth" ? Boxes : key === "nodeHealth" ? Server : key === "stability" ? RefreshCw : ShieldAlert;
-              return (
-                <div key={key} className="space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground flex items-center gap-1.5">
-                      <Icon className="w-3 h-3" /> {BREAKDOWN_LABELS[key]}
-                    </span>
-                    <span className="font-semibold tabular-nums">{val}%</span>
-                  </div>
-                  <Progress
-                    value={val}
-                    className="h-1.5 bg-muted/50"
-                    indicatorClassName={cn(
-                      val >= 80 ? "bg-emerald-500" : val >= 60 ? "bg-amber-500" : "bg-rose-500"
-                    )}
-                  />
-                </div>
-              );
-            })}
+        {!hasData ? (
+          <div className="flex-1 flex items-center justify-center">
+            <EmptyNoClusters
+              size="sm"
+              primaryAction={{ label: "Connect Cluster", href: "/connect?addCluster=true" }}
+            />
           </div>
-        </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-center shrink-0" style={{ height: "160px" }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart aria-label="Cluster health score chart">
+                  <defs>
+                    <linearGradient id="colorGradient" x1="0" y1="0" x2="1" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--primary))" />
+                      <stop offset="100%" stopColor="#00E5FF" />
+                    </linearGradient>
+                  </defs>
+                  <Pie
+                    data={data}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={48}
+                    outerRadius={64}
+                    startAngle={90}
+                    endAngle={-270}
+                    dataKey="value"
+                    stroke="none"
+                    cornerRadius={10}
+                    paddingAngle={4}
+                  >
+                    {data.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} aria-label={`${entry.name}: ${entry.value}%`} />
+                    ))}
+                    <Label
+                      content={({ viewBox }) => {
+                        if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                          return (
+                            <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                              <tspan x={viewBox.cx} y={(viewBox.cy || 0) - 4} className="fill-foreground text-3xl font-black tracking-tighter">
+                                {score}
+                              </tspan>
+                              <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 14} className="fill-muted-foreground text-[10px] font-bold uppercase tracking-[0.2em]">
+                                Grade {grade}
+                              </tspan>
+                            </text>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
 
-        {/* Insight */}
-        {insight && (
-          <div className="mt-4 pt-3 border-t border-border/50">
-            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{insight}</p>
-            {(status === "fair" || status === "poor" || status === "critical") && (
-              <Link
-                to="/events"
-                className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-primary hover:underline"
-              >
-                View events
-                <ChevronRight className="w-3 h-3" />
-              </Link>
+            {/* Breakdown — 4 factors (matches Resource Allocation vertical style) */}
+            <div className="space-y-2 pt-3 mt-auto border-t border-border/50">
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Health factors</p>
+              <div className="space-y-3">
+                {(["podHealth", "nodeHealth", "stability", "eventHealth"] as const).map((key) => {
+                  const val = Math.min(100, Math.max(0, breakdown[key]));
+                  const Icon = key === "podHealth" ? Boxes : key === "nodeHealth" ? Server : key === "stability" ? RefreshCw : ShieldAlert;
+                  return (
+                    <div key={key} className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground flex items-center gap-1.5">
+                          <Icon className="w-3 h-3" /> {BREAKDOWN_LABELS[key]}
+                        </span>
+                        <span className="font-semibold tabular-nums">{val}%</span>
+                      </div>
+                      <Progress
+                        value={val}
+                        className="h-1.5 bg-muted/50"
+                        indicatorClassName={cn(
+                          val >= 80 ? "bg-emerald-500" : val >= 60 ? "bg-amber-500" : "bg-rose-500"
+                        )}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Insight */}
+            {insight && (
+              <div className="mt-4 pt-3 border-t border-border/50">
+                <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{insight}</p>
+                {(status === "fair" || status === "poor" || status === "critical") && (
+                  <Link
+                    to="/events"
+                    className="inline-flex items-center gap-1 mt-2 text-xs font-medium text-primary hover:underline"
+                  >
+                    View events
+                    <ChevronRight className="w-3 h-3" />
+                  </Link>
+                )}
+              </div>
             )}
-          </div>
+          </>
         )}
       </CardContent>
     </Card>

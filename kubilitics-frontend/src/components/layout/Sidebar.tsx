@@ -876,6 +876,23 @@ export function Sidebar() {
         {!collapsed && (
           <button
             type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('openKeyboardShortcuts'))}
+            className={cn(
+              "flex items-center justify-start gap-3 w-full px-4 py-2 rounded-xl border h-9 transition-all duration-300 group",
+              "bg-transparent text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 border-transparent hover:border-slate-100 dark:hover:border-slate-700/50"
+            )}
+            aria-label="Keyboard shortcuts"
+          >
+            <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
+            </svg>
+            <span className="text-[12px] flex-1 text-left">Keyboard Shortcuts</span>
+            <kbd className="inline-flex items-center rounded border bg-muted/80 px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground" aria-hidden>?</kbd>
+          </button>
+        )}
+        {!collapsed && (
+          <button
+            type="button"
             onClick={() => setCollapsed(true)}
             className={cn(
               "flex items-center justify-start gap-3 w-full px-4 py-2 rounded-xl border h-11 transition-all duration-500 group press-effect",

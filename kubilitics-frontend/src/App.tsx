@@ -179,9 +179,13 @@ import { AppLayout } from "./components/layout/AppLayout";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Retry with exponential backoff: 1s, 2s, 4s
-      retry: 3,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+      // Offline resilience: serve cached data first, then revalidate in background.
+      // Without this, queries fail immediately when the network is down.
+      networkMode: 'offlineFirst',
+      // Retry with backoff: 5s between retries to avoid hammering a dead endpoint.
+      // 2 retries (not 3) — faster failure acknowledgment when cluster is truly gone.
+      retry: 2,
+      retryDelay: 5000,
       // 60s stale time: data from informer cache is always consistent.
       // WebSocket invalidation triggers refetch when resources actually change.
       // Headlamp uses 3min; 60s is a good balance for Kubilitics.
@@ -196,6 +200,10 @@ const queryClient = new QueryClient({
       refetchOnReconnect: true,
       // Only refetch on mount if data is stale (>60s old)
       refetchOnMount: true,
+    },
+    mutations: {
+      // Mutations should not fire when offline — queue until reconnected
+      networkMode: 'offlineFirst',
     },
   },
 });

@@ -117,6 +117,29 @@ export const LazyCytoscapeTopology = lazyWithMinDelay(
     ),
 );
 
+// ─── Terminal (~150 kB: xterm + addon-fit) ───────────────────────────────────
+
+/**
+ * Lazy-loaded Pod Terminal component.
+ * Defers xterm.js and its fit addon (~150 kB) until the user opens a
+ * terminal tab in a pod/workload detail page.
+ */
+export const LazyPodTerminal = lazyWithMinDelay(
+  () => import(/* webpackChunkName: "terminal" */ '@/components/resources/PodTerminal').then(
+    (m) => ({ default: m.PodTerminal as ComponentType<unknown> }),
+  ),
+);
+
+/**
+ * Lazy-loaded Cluster Shell Panel.
+ * Defers xterm.js (~150 kB) until the user opens the shell panel from the header.
+ */
+export const LazyClusterShellPanel = lazyWithMinDelay(
+  () => import(/* webpackChunkName: "terminal" */ '@/components/shell/ClusterShellPanel').then(
+    (m) => ({ default: m.ClusterShellPanel as ComponentType<unknown> }),
+  ),
+);
+
 // ─── Export Utilities (~50 kB: jsPDF) ───────────────────────────────────────
 
 /**

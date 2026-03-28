@@ -6,7 +6,7 @@
  * - Search resources: always-visible trigger in header (core feature)
  * - All controls sized for clarity; labels visible; Notifications and Profile are real controls
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search,
@@ -33,7 +33,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { GlobalSearch } from './GlobalSearch';
-import { ClusterShellPanel } from '@/components/shell';
+// PERF: ClusterShellPanel pulls in xterm (~150KB). Lazy-load so it's only
+// fetched when the user actually opens the terminal panel.
+const ClusterShellPanel = lazy(() =>
+  import('@/components/shell/ClusterShellPanel').then(m => ({ default: m.ClusterShellPanel }))
+);
 import { DeploymentWizard, ServiceWizard, ConfigMapWizard, SecretWizard } from '@/components/wizards';
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { ActivePortForwardsIndicator } from '@/components/resources/ActivePortForwards';
@@ -269,7 +273,7 @@ export function Header() {
             >
               <Search className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors duration-300" />
               <span className="flex-1 text-left text-[13px] font-semibold tracking-tight hidden md:block">Search resources...</span>
-              <kbd className="hidden sm:inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200/60 bg-white px-2.5 font-mono text-[9px] font-bold text-slate-400 shrink-0 shadow-sm">
+              <kbd className="hidden sm:inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200/60 dark:border-slate-700/60 bg-white dark:bg-slate-800 px-2.5 font-mono text-[9px] font-bold text-slate-400 dark:text-slate-500 shrink-0 shadow-sm">
                 <Command className="h-2.5 w-2.5" />K
               </kbd>
             </button>
@@ -514,14 +518,16 @@ export function Header() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {activeCluster && currentClusterId && (
-        <ClusterShellPanel
-          open={shellOpen}
-          onOpenChange={setShellOpen}
-          clusterId={currentClusterId}
-          clusterName={activeCluster.name}
-          backendBaseUrl={backendBaseUrl}
-        />
+      {activeCluster && currentClusterId && shellOpen && (
+        <Suspense fallback={null}>
+          <ClusterShellPanel
+            open={shellOpen}
+            onOpenChange={setShellOpen}
+            clusterId={currentClusterId}
+            clusterName={activeCluster.name}
+            backendBaseUrl={backendBaseUrl}
+          />
+        </Suspense>
       )}
 
       {wizardOpen === 'deployment' && <DeploymentWizard onClose={() => setWizardOpen(null)} onSubmit={handleWizardSubmit} />}

@@ -7,7 +7,9 @@ import {
   ArrowUpRight,
   Shield,
   Activity,
+  Scaling,
 } from 'lucide-react';
+import { EmptyState } from '@/components/ui/empty-state';
 import { motion } from 'framer-motion';
 import { useScalingOverview } from '@/hooks/useScalingOverview';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -256,8 +258,14 @@ export default function ScalingOverview() {
               })}
               {itemsOnPage.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-sm text-slate-400">
-                    {searchQuery ? 'No resources match your search.' : 'No scaling resources found.'}
+                  <td colSpan={6} className="px-6 py-16 text-center">
+                    <EmptyState
+                      icon={Scaling}
+                      title={searchQuery ? "No resources match your search" : "No scaling resources found"}
+                      description={searchQuery ? "Try adjusting your search terms." : "HPAs, VPAs, and pod disruption budgets will appear here once configured."}
+                      size="sm"
+                      primaryAction={searchQuery ? { label: "Clear search", onClick: () => setSearchQuery('') } : { label: "View HPAs", href: "/horizontal-pod-autoscalers" }}
+                    />
                   </td>
                 </tr>
               )}
