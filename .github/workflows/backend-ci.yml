@@ -17,7 +17,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   GO_VERSION: '1.25.8'  # must be >= go directive in kubilitics-backend/go.mod
   # Pinned kubectl — keep aligned with k8s.io/client-go major version in go.mod
   # k8s.io/client-go v0.33.x → kubectl v1.33.x
@@ -30,9 +29,9 @@ jobs:
     timeout-minutes: 20
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
-    - uses: actions/setup-go@v5
+    - uses: actions/setup-go@v6
       with:
         go-version: ${{ env.GO_VERSION }}
         cache-dependency-path: kubilitics-backend/go.sum
@@ -73,7 +72,7 @@ jobs:
         fi
 
     - name: Upload test report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       if: always()
       with:
         name: backend-test-report
@@ -92,12 +91,12 @@ jobs:
     timeout-minutes: 10
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     # Read the exact Go version from go.mod so golangci-lint and the module
     # always agree — avoids "golangci-lint built with goX.Y can't lint goX.Z"
     # errors that appear when Dependabot bumps the `go` directive in go.mod.
-    - uses: actions/setup-go@v5
+    - uses: actions/setup-go@v6
       with:
         go-version-file: kubilitics-backend/go.mod
         cache: false
@@ -120,9 +119,9 @@ jobs:
     needs: [test, lint]
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
-    - uses: actions/setup-go@v5
+    - uses: actions/setup-go@v6
       with:
         go-version: ${{ env.GO_VERSION }}
 
@@ -131,7 +130,7 @@ jobs:
       run: CGO_ENABLED=0 go build -v -ldflags="-s -w" -o bin/kubilitics-backend ./cmd/server
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v5
       with:
         name: kubilitics-backend-linux
         path: kubilitics-backend/bin/kubilitics-backend
