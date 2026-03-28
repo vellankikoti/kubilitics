@@ -970,8 +970,8 @@ export default function ServiceDetail() {
             onOpenChange={setShowPortForwardDialog}
             podName={ctx.name}
             namespace={ctx.namespace}
-            baseUrl={baseUrl ?? ''}
-            clusterId={clusterId ?? ''}
+            baseUrl={ctx.backendBaseUrl}
+            clusterId={ctx.clusterId ?? ''}
             resourceType="service"
             servicePorts={ctx.resource.spec?.ports ?? []}
           />
