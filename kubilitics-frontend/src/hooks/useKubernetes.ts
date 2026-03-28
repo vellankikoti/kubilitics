@@ -346,7 +346,6 @@ export function useK8sResourceListPaginated<T extends KubernetesResource>(
       : () => k8sRequest<ResourceList<T>>(path, {}, config),
     enabled: (useBackend ? true : config.isConnected) && (options?.enabled !== false),
     staleTime: 30_000,
-    placeholderData: (prev: ResourceList<T> | undefined) => prev,
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });
@@ -482,7 +481,6 @@ export function useK8sResource<T extends KubernetesResource>(
     enabled: !isDemo && (useBackend ? true : config.isConnected) && !!name && (options?.enabled !== false),
     staleTime: options?.staleTime ?? 30_000,
     refetchInterval: options?.refetchInterval,
-    placeholderData: (prev: T | undefined) => prev,
     retry: 2,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 5000),
   });

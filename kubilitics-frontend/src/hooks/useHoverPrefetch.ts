@@ -13,7 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { useClusterStore } from '@/stores/clusterStore';
 import { useProjectStore } from '@/stores/projectStore';
-import { listResources } from '@/services/backendApiClient';
+import { listResources, getResource } from '@/services/backendApiClient';
 
 /** Maps sidebar route paths to the resource type(s) they display. */
 const ROUTE_RESOURCE_MAP: Record<string, string[]> = {
@@ -138,5 +138,25 @@ export function useHoverPrefetch() {
     }
   }, []);
 
-  return { onMouseEnter, onMouseLeave };
+  /**
+   * Prefetch a specific resource detail on hover (for list page → detail page transitions).
+   * Call this on resource name link hover to seed the cache before click.
+   */
+  const prefetchDetail = useCallback(
+    (resourceType: string, namespace: string, name: string) => {
+      if (!isBackendConfigured || !clusterId) return;
+      const queryKey = ['backend', 'resource', clusterId, resourceType, namespace, name];
+      const existing = queryClient.getQueryState(queryKey);
+      if (existing?.dataUpdatedAt && Date.now() - existing.dataUpdatedAt < 30_000) return;
+
+      queryClient.prefetchQuery({
+        queryKey,
+        queryFn: () => getResource(backendBaseUrl, clusterId, resourceType, namespace, name),
+        staleTime: 30_000,
+      });
+    },
+    [queryClient, backendBaseUrl, clusterId, isBackendConfigured],
+  );
+
+  return { onMouseEnter, onMouseLeave, prefetchDetail };
 }
