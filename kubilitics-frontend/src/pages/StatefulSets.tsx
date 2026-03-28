@@ -449,9 +449,9 @@ spec:
  });
  };
 
- const handleBulkLabel = async (labelPatch: Record<string, string | null>) => {
+ const handleBulkLabel = async (label: string) => {
  return executeBulkOperation(Array.from(selectedItems), async (_key, ns, name) => {
- await patchStatefulSet.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: labelPatch } } });
+ await patchStatefulSet.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: { [label.split("=")[0]]: label.split("=")[1] } } } });
  });
  };
 
@@ -521,7 +521,6 @@ spec:
  onBulkRestart={handleBulkRestart}
  onBulkScale={handleBulkScale}
  onBulkLabel={handleBulkLabel}
- selectedResourceLabels={selectedResourceLabels}
  />
 
  <ResourceListTableToolbar

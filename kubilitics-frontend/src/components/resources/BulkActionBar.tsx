@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { LabelManagerDialog } from './LabelManagerDialog';
+// Label dialog uses simple key=value input. For full label management, users go to resource detail page.
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -62,18 +62,8 @@ export interface BulkActionBarProps {
   onBulkRestart?: () => Promise<BulkOperationResult[]>;
   /** Bulk scale handler (Deployments). Takes target replica count. */
   onBulkScale?: (replicas: number) => Promise<BulkOperationResult[]>;
-  /**
-   * Bulk label handler. Takes a label patch object where:
-   * - key -> string value means add/update that label
-   * - key -> null means remove that label
-   */
-  onBulkLabel?: (labelPatch: Record<string, string | null>) => Promise<BulkOperationResult[]>;
-  /**
-   * Map of resource key ("namespace/name") to its current labels.
-   * Required for the Label Manager dialog to show existing labels.
-   * If not provided, the dialog still works but won't show existing labels.
-   */
-  selectedResourceLabels?: Map<string, Record<string, string>>;
+  /** Bulk label handler. Takes key=value string to add to all selected resources. */
+  onBulkLabel?: (label: string) => Promise<BulkOperationResult[]>;
   /** Extra action buttons to render alongside built-in ones. */
   children?: ReactNode;
 }
@@ -108,16 +98,15 @@ export function BulkActionBar({
   onBulkRestart,
   onBulkScale,
   onBulkLabel,
-  selectedResourceLabels,
   children,
 }: BulkActionBarProps) {
   const [progress, setProgress] = useState<BulkOperationProgress | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     open: boolean;
-    action: 'delete' | 'restart' | 'scale';
+    action: 'delete' | 'restart' | 'scale' | 'label';
   }>({ open: false, action: 'delete' });
   const [scaleInput, setScaleInput] = useState('3');
-  const [labelManagerOpen, setLabelManagerOpen] = useState(false);
+  const [labelInput, setLabelInput] = useState('');
   const [lastResults, setLastResults] = useState<BulkOperationResult[] | null>(null);
 
   const canRestart = RESTARTABLE.has(resourceType) && !!onBulkRestart;
@@ -167,14 +156,13 @@ export function BulkActionBar({
         if (onBulkScale) await runOperation('Scaling', () => onBulkScale(replicas));
         break;
       }
+      case 'label': {
+        if (!labelInput.includes('=') || !labelInput.trim()) return;
+        if (onBulkLabel) await runOperation('Labeling', () => onBulkLabel(labelInput.trim()));
+        break;
+      }
     }
-  }, [confirmDialog.action, onBulkDelete, onBulkRestart, onBulkScale, runOperation, scaleInput]);
-
-  const handleLabelManagerApply = useCallback(async (labelPatch: Record<string, string | null>) => {
-    if (onBulkLabel) {
-      await runOperation('Updating labels', () => onBulkLabel(labelPatch));
-    }
-  }, [onBulkLabel, runOperation]);
+  }, [confirmDialog.action, onBulkDelete, onBulkRestart, onBulkScale, onBulkLabel, runOperation, scaleInput, labelInput]);
 
   const dismissResults = useCallback(() => setLastResults(null), []);
 
@@ -285,11 +273,11 @@ export function BulkActionBar({
                   variant="outline"
                   size="sm"
                   className="gap-1.5"
-                  onClick={() => setLabelManagerOpen(true)}
+                  onClick={() => setConfirmDialog({ open: true, action: 'label' })}
                   disabled={isOperationRunning}
                 >
                   <Tag className="h-3.5 w-3.5" />
-                  Manage Labels
+                  Label
                 </Button>
               )}
               {children}
@@ -323,6 +311,7 @@ export function BulkActionBar({
               {confirmDialog.action === 'delete' && `Delete ${selectedCount} ${plural(selectedCount, resourceName)}?`}
               {confirmDialog.action === 'restart' && `Restart ${selectedCount} ${plural(selectedCount, resourceName)}?`}
               {confirmDialog.action === 'scale' && `Scale ${selectedCount} ${plural(selectedCount, resourceName)}`}
+              {confirmDialog.action === 'label' && `Label ${selectedCount} ${plural(selectedCount, resourceName)}`}
             </DialogTitle>
             <DialogDescription>
               {confirmDialog.action === 'delete' &&
@@ -331,6 +320,8 @@ export function BulkActionBar({
                 `This will restart ${selectedCount} ${plural(selectedCount, resourceName)} by updating the restart annotation.`}
               {confirmDialog.action === 'scale' &&
                 'Set the target replica count for all selected resources.'}
+              {confirmDialog.action === 'label' &&
+                'Add a label to all selected resources. To manage existing labels, open the resource detail page.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -348,6 +339,19 @@ export function BulkActionBar({
             </div>
           )}
 
+          {confirmDialog.action === 'label' && (
+            <div className="py-2">
+              <label className="text-sm font-medium text-foreground">Label (key=value)</label>
+              <Input
+                value={labelInput}
+                onChange={(e) => setLabelInput(e.target.value)}
+                className="mt-1.5"
+                placeholder="e.g. env=production"
+              />
+              <p className="text-xs text-muted-foreground mt-2">To manage or remove existing labels, open the resource detail page.</p>
+            </div>
+          )}
+
           <div className="flex justify-end gap-2 pt-2">
             <Button
               variant="outline"
@@ -359,28 +363,18 @@ export function BulkActionBar({
               variant={confirmDialog.action === 'delete' ? 'destructive' : 'default'}
               onClick={handleConfirmAction}
               disabled={
-                (confirmDialog.action === 'scale' && (isNaN(parseInt(scaleInput, 10)) || parseInt(scaleInput, 10) < 0))
+                (confirmDialog.action === 'scale' && (isNaN(parseInt(scaleInput, 10)) || parseInt(scaleInput, 10) < 0)) ||
+                (confirmDialog.action === 'label' && (!labelInput.includes('=') || !labelInput.trim()))
               }
             >
               {confirmDialog.action === 'delete' && 'Delete'}
               {confirmDialog.action === 'restart' && 'Restart'}
               {confirmDialog.action === 'scale' && 'Scale'}
+              {confirmDialog.action === 'label' && 'Apply Label'}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Label Manager dialog */}
-      {canLabel && (
-        <LabelManagerDialog
-          open={labelManagerOpen}
-          onOpenChange={setLabelManagerOpen}
-          selectedResourceLabels={selectedResourceLabels ?? new Map()}
-          selectedCount={selectedCount}
-          resourceName={resourceName}
-          onApply={handleLabelManagerApply}
-        />
-      )}
 
       {/* Failure detail dialog */}
       <Dialog open={failures.length > 0 && lastResults !== null && !progress} onOpenChange={(open) => { if (!open) dismissResults(); }}>

@@ -243,9 +243,9 @@ export default function CustomResourceDefinitions() {
  });
  };
 
- const handleBulkLabel = async (labelPatch: Record<string, string | null>) => {
+ const handleBulkLabel = async (label: string) => {
  return executeBulkOperation(Array.from(selectedItems).map((n) => `_/${n}`), async (_key, _ns, name) => {
- await patchCRD.mutateAsync({ name, patch: { metadata: { labels: labelPatch } } });
+ await patchCRD.mutateAsync({ name, patch: { metadata: { labels: { [label.split("=")[0]]: label.split("=")[1] } } } });
  });
  };
 
@@ -349,7 +349,6 @@ spec:
  onClearSelection={() => multiSelect.clearSelection()}
  onBulkDelete={handleBulkDelete}
  onBulkLabel={handleBulkLabel}
- selectedResourceLabels={selectedResourceLabels}
  />
 
  <ResourceListTableToolbar

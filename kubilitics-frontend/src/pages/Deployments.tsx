@@ -467,10 +467,10 @@ export default function Deployments() {
  });
  };
 
- const handleBulkLabel = async (labelPatch: Record<string, string | null>) => {
+ const handleBulkLabel = async (label: string) => {
  if (!isConnected) { toast.error('Connect cluster to label deployments'); return []; }
  return executeBulkOperation(Array.from(selectedItems), async (_key, ns, name) => {
- await patchDeployment.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: labelPatch } } });
+ await patchDeployment.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: { [label.split("=")[0]]: label.split("=")[1] } } } });
  });
  };
 
@@ -624,7 +624,6 @@ spec:
  onBulkRestart={handleBulkRestart}
  onBulkScale={handleBulkScale}
  onBulkLabel={handleBulkLabel}
- selectedResourceLabels={selectedResourceLabels}
  />
 
  <ResourceListTableToolbar

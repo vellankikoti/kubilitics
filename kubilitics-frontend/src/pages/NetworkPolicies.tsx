@@ -311,9 +311,9 @@ spec:
  });
  };
 
- const handleBulkLabel = async (labelPatch: Record<string, string | null>) => {
+ const handleBulkLabel = async (label: string) => {
  return executeBulkOperation(Array.from(selectedItems), async (_key, ns, name) => {
- await patchNetworkPolicyResource.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: labelPatch } } });
+ await patchNetworkPolicyResource.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: { [label.split("=")[0]]: label.split("=")[1] } } } });
  });
  };
 
@@ -383,7 +383,6 @@ spec:
  onClearSelection={() => multiSelect.clearSelection()}
  onBulkDelete={handleBulkDelete}
  onBulkLabel={handleBulkLabel}
- selectedResourceLabels={selectedResourceLabels}
  />
 
  {/* Stats Cards - Design 3.6: Total, Ingress Rules, Egress Rules, Default Deny, Unprotected Pods */}

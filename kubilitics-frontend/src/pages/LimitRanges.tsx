@@ -264,9 +264,9 @@ export default function LimitRanges() {
  });
  };
 
- const handleBulkLabel = async (labelPatch: Record<string, string | null>) => {
+ const handleBulkLabel = async (label: string) => {
  return executeBulkOperation(Array.from(selectedItems), async (_key, ns, name) => {
- await patchLR.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: labelPatch } } });
+ await patchLR.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: { [label.split("=")[0]]: label.split("=")[1] } } } });
  });
  };
 
@@ -345,7 +345,6 @@ export default function LimitRanges() {
  onClearSelection={() => multiSelect.clearSelection()}
  onBulkDelete={handleBulkDelete}
  onBulkLabel={handleBulkLabel}
- selectedResourceLabels={selectedResourceLabels}
  />
 
  <ResourceListTableToolbar

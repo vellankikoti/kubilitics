@@ -441,7 +441,7 @@ export default function Secrets() {
 
  const handleBulkLabelSecret = async (labelPatch: Record<string, string | null>) => {
  return executeBulkOperation(Array.from(selectedItems), async (_key, ns, name) => {
- await patchSecretResource.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: labelPatch } } });
+ await patchSecretResource.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: { [label.split("=")[0]]: label.split("=")[1] } } } });
  });
  };
 
@@ -532,7 +532,6 @@ data: {}
  onClearSelection={() => multiSelect.clearSelection()}
  onBulkDelete={handleBulkDeleteSecret}
  onBulkLabel={handleBulkLabelSecret}
- selectedResourceLabels={selectedResourceLabels}
  />
 
  <ResourceListTableToolbar

@@ -432,7 +432,7 @@ export default function ConfigMaps() {
 
  const handleBulkLabelCm = async (labelPatch: Record<string, string | null>) => {
  return executeBulkOperation(Array.from(selectedItems), async (_key, ns, name) => {
- await patchCmResource.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: labelPatch } } });
+ await patchCmResource.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: { [label.split("=")[0]]: label.split("=")[1] } } } });
  });
  };
 
@@ -565,7 +565,6 @@ data: {}
  onClearSelection={() => multiSelect.clearSelection()}
  onBulkDelete={handleBulkDeleteCm}
  onBulkLabel={handleBulkLabelCm}
- selectedResourceLabels={selectedResourceLabels}
  />
 
  <ResourceListTableToolbar

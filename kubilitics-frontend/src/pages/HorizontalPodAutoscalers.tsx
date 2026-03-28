@@ -291,9 +291,9 @@ export default function HorizontalPodAutoscalers() {
  });
  };
 
- const handleBulkLabel = async (labelPatch: Record<string, string | null>) => {
+ const handleBulkLabel = async (label: string) => {
  return executeBulkOperation(Array.from(selectedItems), async (_key, ns, name) => {
- await patchHPA.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: labelPatch } } });
+ await patchHPA.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: { [label.split("=")[0]]: label.split("=")[1] } } } });
  });
  };
 
@@ -379,7 +379,6 @@ export default function HorizontalPodAutoscalers() {
  onClearSelection={() => multiSelect.clearSelection()}
  onBulkDelete={handleBulkDelete}
  onBulkLabel={handleBulkLabel}
- selectedResourceLabels={selectedResourceLabels}
  />
 
  <ResourceListTableToolbar

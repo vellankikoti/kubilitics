@@ -483,9 +483,9 @@ export default function Nodes() {
  });
  };
 
- const handleBulkLabel = async (labelPatch: Record<string, string | null>) => {
+ const handleBulkLabel = async (label: string) => {
  return executeBulkOperation(Array.from(selectedNodes), async (_key, _ns, name) => {
- await patchNodeResource.mutateAsync({ name, patch: { metadata: { labels: labelPatch } } });
+ await patchNodeResource.mutateAsync({ name, patch: { metadata: { labels: { [label.split("=")[0]]: label.split("=")[1] } } } });
  });
  };
 
@@ -660,7 +660,6 @@ export default function Nodes() {
  onClearSelection={() => multiSelect.clearSelection()}
  onBulkDelete={handleBulkDelete}
  onBulkLabel={handleBulkLabel}
- selectedResourceLabels={selectedResourceLabels}
  />
 
  <ResourceListTableToolbar
