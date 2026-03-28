@@ -536,7 +536,7 @@ export function QuickCreateDialog({ open, onOpenChange, kind, onSuccess }: Quick
   const createResource = useCreateK8sResource(resourceType);
 
   const backendBaseUrl = getEffectiveBackendBaseUrl(useBackendConfigStore((s) => s.backendBaseUrl));
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const activeCluster = useClusterStore((s) => s.activeCluster);
 

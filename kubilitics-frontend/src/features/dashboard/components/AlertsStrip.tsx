@@ -70,7 +70,7 @@ function groupAlertsByReason(alerts: AlertItem[]): Map<string, AlertItem[]> {
 export const AlertsStrip = () => {
   const { activeCluster } = useClusterStore();
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const backendBaseUrl = getEffectiveBackendBaseUrl(useBackendConfigStore((s) => s.backendBaseUrl));
   const clusterId = currentClusterId ?? undefined;
   const { isConnected } = useConnectionStatus();

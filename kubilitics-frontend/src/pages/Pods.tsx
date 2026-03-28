@@ -236,7 +236,7 @@ export default function Pods() {
  const patchResource = usePatchK8sResource('pods');
  const createResource = useCreateK8sResource('pods');
  const backendBaseUrl = getEffectiveBackendBaseUrl(useBackendConfigStore((s) => s.backendBaseUrl));
- const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+ const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
  const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
  const clusterId = currentClusterId ?? null;
 

@@ -142,7 +142,7 @@ export default function ServiceAccounts() {
  const activeCluster = useClusterStore((s) => s.activeCluster);
  const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
  const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
- const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+ const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
  const clusterId = currentClusterId ?? null;
 
  const { data, isLoading, isError, refetch, pagination: hookPagination } = usePaginatedResourceList<ServiceAccountResource>('serviceaccounts');

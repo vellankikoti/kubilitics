@@ -525,7 +525,7 @@ function TemplateEditorDialog({
   const clusterId = useActiveClusterId();
   const { data: namespaces = [] } = useNamespacesFromCluster(clusterId);
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
 
   const [yamlContent, setYamlContent] = useState('');

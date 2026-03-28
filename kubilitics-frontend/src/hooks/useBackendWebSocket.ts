@@ -46,7 +46,7 @@ export function useBackendWebSocket(options: UseBackendWebSocketOptions = {}) {
 
   const stored = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(stored);
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
 
   const [connected, setConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<BackendWebSocketMessage | null>(null);

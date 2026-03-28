@@ -48,7 +48,7 @@ export function useOfflineMode(): OfflineModeState {
   const [failureCount, setFailureCount] = useState(0);
 
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const backoffFactorRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const firstFailureTimeRef = useRef<number | null>(null);

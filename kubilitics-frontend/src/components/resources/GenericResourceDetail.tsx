@@ -343,7 +343,7 @@ export function GenericResourceDetail<T extends KubernetesResource>({
   const { activeCluster } = useClusterStore();
   const breadcrumbSegments = useDetailBreadcrumbs(kind, name ?? undefined, namespace ?? undefined, activeCluster?.name);
   const clusterId = useActiveClusterId();
-  const isBackendConfiguredVal = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfiguredVal = useBackendConfigStore((s) => s.isBackendConfigured());
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const baseUrl = getEffectiveBackendBaseUrl(backendBaseUrl);
 

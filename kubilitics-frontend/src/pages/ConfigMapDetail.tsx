@@ -54,7 +54,7 @@ function getFileExtension(key: string, format: string): string {
 function UsedByContent({ namespace, name }: { namespace?: string; name?: string }) {
   const navigate = useNavigate();
   const clusterId = useActiveClusterId();
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const baseUrl = getEffectiveBackendBaseUrl(backendBaseUrl);
 

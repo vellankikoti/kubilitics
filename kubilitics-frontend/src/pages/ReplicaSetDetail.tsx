@@ -169,7 +169,7 @@ export default function ReplicaSetDetail() {
   });
 
   const backendBaseUrl = getEffectiveBackendBaseUrl(useBackendConfigStore((s) => s.backendBaseUrl));
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const patchReplicaSet = usePatchK8sResource('replicasets');
 
   // Pods list for tabs

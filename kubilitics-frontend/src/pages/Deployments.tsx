@@ -232,7 +232,7 @@ export default function Deployments() {
  const createResource = useCreateK8sResource('deployments');
  const patchDeployment = usePatchK8sResource('deployments');
  const backendBaseUrl = getEffectiveBackendBaseUrl(useBackendConfigStore((s) => s.backendBaseUrl));
- const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+ const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
  const activeCluster = useClusterStore((s) => s.activeCluster);
  const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
  const clusterId = currentClusterId ?? null;

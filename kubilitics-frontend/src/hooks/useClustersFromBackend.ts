@@ -18,7 +18,7 @@ export interface UseClustersFromBackendOptions {
 export function useClustersFromBackend(options?: UseClustersFromBackendOptions) {
   const stored = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(stored);
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const circuitOpen = useBackendCircuitOpen();
 
   // Removed gateOnHealth - circuit breaker handles backend down scenarios

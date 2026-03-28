@@ -24,7 +24,7 @@ function nextBackoff(prev: number): number {
 export function useOverviewStream(clusterId: string | undefined) {
   const queryClient = useQueryClient();
   const stored = useBackendConfigStore((s) => s.backendBaseUrl);
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const wsRef = useRef<WebSocket | null>(null);
   const backoffRef = useRef(1_000);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);

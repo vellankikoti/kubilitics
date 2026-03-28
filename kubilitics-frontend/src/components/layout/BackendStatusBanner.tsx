@@ -21,7 +21,7 @@ import { useOfflineMode } from '@/hooks/useOfflineMode';
 import { useBackendCircuitOpen } from '@/hooks/useBackendCircuitOpen';
 
 export function BackendStatusBanner({ className }: { className?: string }) {
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const { backendReachable, retryNow } = useOfflineMode();
   const circuitOpen = useBackendCircuitOpen();
   const [dismissed, setDismissed] = useState(false);

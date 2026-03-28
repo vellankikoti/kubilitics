@@ -110,7 +110,7 @@ export default function HomePage() {
 
   const storedBackendUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = useMemo(() => getEffectiveBackendBaseUrl(storedBackendUrl), [storedBackendUrl]);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const setCurrentClusterId = useBackendConfigStore((s) => s.setCurrentClusterId);
   const setActiveCluster = useClusterStore((s) => s.setActiveCluster);
 

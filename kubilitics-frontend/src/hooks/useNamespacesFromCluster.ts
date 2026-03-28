@@ -6,7 +6,7 @@ import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/back
 import { listResources } from '@/services/backendApiClient';
 
 export function useNamespacesFromCluster(clusterId: string | null) {
-    const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+    const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
     const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
     const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
 

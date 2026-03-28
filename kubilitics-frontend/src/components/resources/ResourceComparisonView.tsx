@@ -682,7 +682,7 @@ export function ResourceComparisonView({
       setBrowseNamespace(namespace || '');
     }, [initialKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+    const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
     // List available resources: works via backend OR direct K8s connection
     const canList = Boolean(isConnected || (clusterId && isBackendConfigured && backendBaseUrl));
     const canFetch = Boolean(isConnected || (clusterId && isBackendConfigured));

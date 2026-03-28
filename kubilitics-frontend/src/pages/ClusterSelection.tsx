@@ -80,7 +80,7 @@ export default function ClusterSelection() {
   const { setDemo, setClusters, setActiveCluster } = useClusterStore();
   const storedBackendUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedBackendUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const setCurrentClusterId = useBackendConfigStore((s) => s.setCurrentClusterId);
   const clustersFromBackend = useClustersFromBackend();
 

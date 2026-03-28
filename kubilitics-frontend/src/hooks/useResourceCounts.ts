@@ -133,7 +133,7 @@ const DIRECT_K8S_QUERY_OPTIONS = {
  */
 export function useResourceCounts(): { counts: ResourceCounts; isLoading: boolean; isInitialLoad: boolean; isConnected: boolean } {
   const { isConnected } = useConnectionStatus();
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
 
   // Backend path: single summary request (project-scoped when activeProject is set)

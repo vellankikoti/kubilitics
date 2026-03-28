@@ -85,7 +85,7 @@ export function useHoverPrefetch() {
   const queryClient = useQueryClient();
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const clusterId = useBackendConfigStore((s) => s.currentClusterId);
   const activeCluster = useClusterStore((s) => s.activeCluster);
   const activeProjectId = useProjectStore((s) => s.activeProject?.id ?? null);

@@ -205,7 +205,7 @@ export function useK8sResourceList<T extends KubernetesResource>(
   const { config } = useKubernetesConfigStore();
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const isDemo = useClusterStore((s) => s.isDemo);
   // P0-D: Use currentClusterId exclusively for API paths.
@@ -297,7 +297,7 @@ export function useK8sResourceListPaginated<T extends KubernetesResource>(
   const { config } = useKubernetesConfigStore();
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const activeCluster = useClusterStore((s) => s.activeCluster);
   // P0-D: Use currentClusterId exclusively. activeCluster.id may hold a stale or demo
@@ -378,7 +378,7 @@ export function usePaginatedResourceList<T extends KubernetesResource>(
   namespace?: string,
   options?: { enabled?: boolean; pageSize?: number }
 ) {
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const activeCluster = useClusterStore((s) => s.activeCluster);
   // P0-D: Use currentClusterId exclusively. activeCluster.id may hold a stale or demo
@@ -460,7 +460,7 @@ export function useK8sResource<T extends KubernetesResource>(
   const { config } = useKubernetesConfigStore();
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const isDemo = useClusterStore((s) => s.isDemo);
   const clusterId = currentClusterId;
@@ -495,7 +495,7 @@ export function useCreateK8sResource(resourceType: ResourceType) {
   const apiBase = API_GROUPS[resourceType];
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const clusterId = currentClusterId;
 
@@ -538,7 +538,7 @@ export function useUpdateK8sResource(resourceType: ResourceType) {
   const apiBase = API_GROUPS[resourceType];
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const clusterId = currentClusterId;
 
@@ -582,7 +582,7 @@ export function usePatchK8sResource(resourceType: ResourceType) {
   const queryClient = useQueryClient();
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const activeCluster = useClusterStore((s) => s.activeCluster);
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   // P0-D: Use currentClusterId exclusively. activeCluster.id may hold a stale or demo
@@ -695,7 +695,7 @@ export function useDeleteK8sResource(resourceType: ResourceType) {
   const apiBase = API_GROUPS[resourceType];
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const activeCluster = useClusterStore((s) => s.activeCluster);
   // P0-D: Use currentClusterId exclusively. activeCluster.id may hold a stale or demo
@@ -842,7 +842,7 @@ export function useK8sPodLogs(
   const { config } = useKubernetesConfigStore();
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const activeCluster = useClusterStore((s) => s.activeCluster);
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   // P0-D: Use currentClusterId exclusively. activeCluster.id may hold a stale or demo
@@ -932,7 +932,7 @@ export function useCronJobChildJobs(namespace: string, name: string, enabled: bo
   const { config } = useKubernetesConfigStore();
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const activeCluster = useClusterStore((s) => s.activeCluster);
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   // P0-D: Use currentClusterId exclusively. activeCluster.id may hold a stale or demo

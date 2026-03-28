@@ -415,7 +415,7 @@ function EndpointsTab({ resource: svc, isConnected }: ResourceContext<ServiceRes
   const svcName = svc.metadata?.name || '';
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const baseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const clusterId = useActiveClusterId();
   const name = svc.metadata?.name;
 
@@ -537,7 +537,7 @@ function DNSTab({ resource: svc }: ResourceContext<ServiceResource>) {
   // Need endpoint rows for headless DNS
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const baseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const clusterId = useActiveClusterId();
   const useBackendEndpoints = !!(isBackendConfigured && clusterId && baseUrl && namespace && svcName);
   const endpointsQuery = useQuery({
@@ -912,7 +912,7 @@ export default function ServiceDetail() {
   const namespace = nsParam ?? '';
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const baseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const clusterId = useActiveClusterId();
   const [showPortForwardDialog, setShowPortForwardDialog] = useState(false);
 

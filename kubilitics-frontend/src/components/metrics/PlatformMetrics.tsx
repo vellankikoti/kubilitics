@@ -234,7 +234,7 @@ function CacheHitGauge({ ratio }: { ratio: number }) {
 export function PlatformMetrics({ className }: { className?: string }) {
   const stored = useBackendConfigStore((s) => s.backendBaseUrl);
   const baseUrl = getEffectiveBackendBaseUrl(stored);
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['platform-metrics', baseUrl],

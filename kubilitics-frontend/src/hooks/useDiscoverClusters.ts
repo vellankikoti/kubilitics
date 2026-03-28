@@ -12,7 +12,7 @@ import { useBackendCircuitOpen } from '@/hooks/useBackendCircuitOpen';
 export function useDiscoverClusters() {
   const stored = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(stored);
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const circuitOpen = useBackendCircuitOpen();
 
   return useQuery({

@@ -212,7 +212,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
 
   // Cluster / backend state
   const backendBaseUrl = getEffectiveBackendBaseUrl(useBackendConfigStore((s) => s.backendBaseUrl));
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const activeCluster = useClusterStore((s) => s.activeCluster);
   const setActiveNamespace = useClusterStore((s) => s.setActiveNamespace);
