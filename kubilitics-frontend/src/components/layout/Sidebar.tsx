@@ -54,6 +54,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useProjectStore } from '@/stores/projectStore';
 import { RecentResources } from '@/components/layout/RecentResources';
 import { useHoverPrefetch } from '@/hooks/useHoverPrefetch';
+import { BrandLogo } from '@/components/BrandLogo';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -288,7 +289,9 @@ function ResourceSubCategory({
           "flex items-center justify-between w-full px-2.5 py-2 rounded-lg transition-all duration-200 group text-left",
           isCategoryActive
             ? cn("text-foreground", colors.activeBg)
-            : "text-slate-700 dark:text-slate-300 hover:bg-slate-100/60 dark:hover:bg-slate-800/60"
+            : isExpanded
+              ? "text-slate-800 dark:text-slate-200 bg-slate-50/80 dark:bg-slate-800/40"
+              : "text-slate-700 dark:text-slate-300 hover:bg-slate-100/60 dark:hover:bg-slate-800/60"
         )}
       >
         <div className="flex items-center gap-2 min-w-0">
@@ -408,26 +411,26 @@ function TopLevelNavLink({
     <NavLink
       to={to}
       className={cn(
-        "flex items-center gap-3 px-4 py-2 rounded-xl transition-all duration-300 group border h-11",
+        "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group border h-12",
         isActive
           ? "bg-white dark:bg-slate-800 text-foreground border-slate-200/60 dark:border-slate-700/40 shadow-apple"
           : "bg-transparent text-slate-800 dark:text-slate-300 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 border-transparent hover:border-slate-100 dark:hover:border-slate-700/50"
       )}
     >
       <div className={cn(
-        "h-7 w-7 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+        "h-8 w-8 rounded-lg flex items-center justify-center shrink-0 transition-colors",
         isActive
           ? navColors?.activeBg ?? 'bg-primary/10'
           : cn(navColors?.idleBg ?? 'bg-slate-100/80 dark:bg-slate-800/80', "group-hover:bg-slate-200/80 dark:group-hover:bg-slate-700/80")
       )}>
         <Icon className={cn(
-          "h-4 w-4 transition-colors",
+          "h-[18px] w-[18px] transition-colors",
           isActive
             ? navColors?.active ?? 'text-primary'
             : cn(navColors?.idle ?? 'text-slate-600 dark:text-slate-400', "group-hover:text-slate-800 dark:group-hover:text-slate-100")
         )} />
       </div>
-      <span className={cn("font-semibold text-[13px]", isActive ? "text-slate-900 dark:text-slate-100" : "text-slate-800 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100")}>{label}</span>
+      <span className={cn("font-bold text-sm tracking-[-0.01em]", isActive ? "text-slate-900 dark:text-slate-100" : "text-slate-800 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100")}>{label}</span>
     </NavLink>
   );
 }
@@ -690,7 +693,7 @@ function SidebarContent({
   const filteredCategories = categories;
 
   return (
-    <div className="flex flex-col gap-4 pb-6 w-full">
+    <div className="flex flex-col gap-5 pb-6 w-full">
       {/* Project scope indicator */}
       {activeProject && (
         <div className="rounded-xl border border-primary/20 bg-primary/5 dark:bg-primary/10 p-3 space-y-2">
@@ -714,7 +717,7 @@ function SidebarContent({
       <SyncingIndicator isLoading={isLoading} isInitialLoad={isInitialLoad} />
 
       {/* Top-level navigation */}
-      <div className="space-y-1">
+      <div className="space-y-1.5">
         <TopLevelNavLink to="/dashboard" icon={LayoutDashboard} label="Dashboard" isActive={isDashboardActive} />
         <TopLevelNavLink to="/fleet" icon={Layers} label="Fleet" isActive={isFleetActive} />
         <TopLevelNavLink to="/topology" icon={Network} label="Topology" isActive={isTopologyActive} />
@@ -723,10 +726,10 @@ function SidebarContent({
       {/* Resources — single expandable section containing all K8s resource categories */}
       <div className="space-y-1">
         {/* Section divider label */}
-        <div className="flex items-center gap-2 px-2 pt-2 pb-1">
-          <div className="h-px flex-1 bg-slate-200/60 dark:bg-slate-700/60" />
-          <span className="text-[9px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-[0.15em] select-none">Kubernetes</span>
-          <div className="h-px flex-1 bg-slate-200/60 dark:bg-slate-700/60" />
+        <div className="flex items-center gap-2.5 px-2 pt-3 pb-1.5">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200/80 to-slate-200/80 dark:via-slate-700/80 dark:to-slate-700/80" />
+          <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.18em] select-none">Kubernetes</span>
+          <div className="h-px flex-1 bg-gradient-to-l from-transparent via-slate-200/80 to-slate-200/80 dark:via-slate-700/80 dark:to-slate-700/80" />
         </div>
         <button
           onClick={handleResourcesToggle}
@@ -776,7 +779,7 @@ function SidebarContent({
               transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
               className="overflow-hidden"
             >
-              <div className="pl-2 space-y-0.5 py-1">
+              <div className="pl-2 space-y-1 py-1.5">
                 {filteredCategories.map((category) => (
                   <ResourceSubCategory
                     key={category.id}
@@ -922,8 +925,8 @@ export function Sidebar() {
           aria-label="Main navigation"
         >
           {/* Logo icon — always visible in collapsed state */}
-          <NavLink to="/dashboard" className="mb-2 flex items-center justify-center" title="Kubilitics">
-            <img src="/brand/logo-mark-rounded.png" alt="Kubilitics" className="h-9 w-9 rounded-lg" draggable={false} />
+          <NavLink to="/dashboard" className="mb-2 flex items-center justify-center group/logo" title="Kubilitics — Go to Dashboard">
+            <BrandLogo mark height={36} className="rounded-lg transition-transform duration-200 group-hover/logo:scale-105 group-active/logo:scale-95" draggable={false} />
           </NavLink>
           <div className="w-12 h-px bg-border/50 mb-1" />
 
@@ -974,7 +977,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-72 h-full flex flex-col border-r border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-[hsl(228,14%,9%)] backdrop-blur-3xl shrink-0 z-[70] transition-all duration-500" role="navigation" aria-label="Main navigation">
+    <aside className="w-72 h-full flex flex-col border-r border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-[hsl(228,14%,9%)] backdrop-blur-3xl shrink-0 z-[70] transition-[width] duration-300 ease-out" role="navigation" aria-label="Main navigation">
       {fullContent}
     </aside>
   );

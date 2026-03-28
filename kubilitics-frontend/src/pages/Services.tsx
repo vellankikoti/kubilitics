@@ -456,13 +456,21 @@ spec:
  });
  };
 
- const handleBulkLabel = async (label: string) => {
- const [labelKey, ...rest] = label.split('=');
- const labelValue = rest.join('=');
+ const handleBulkLabel = async (labelPatch: Record<string, string | null>) => {
  return executeBulkOperation(Array.from(selectedItems), async (_key, ns, name) => {
- await patchServiceResource.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: { [labelKey]: labelValue } } } });
+ await patchServiceResource.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: labelPatch } } });
  });
  };
+
+ const selectedResourceLabels = useMemo(() => {
+ const map = new Map<string, Record<string, string>>();
+ for (const key of selectedItems) {
+ const [ns, n] = key.split('/');
+ const raw = (data?.items ?? []).find((r) => r.metadata.namespace === ns && r.metadata.name === n);
+ if (raw) map.set(key, raw.metadata.labels ?? {});
+ }
+ return map;
+ }, [selectedItems, data?.items]);
 
  const isAllSelected = multiSelect.isAllSelected(allServiceKeys);
  const isSomeSelected = multiSelect.isSomeSelected(allServiceKeys);
@@ -521,6 +529,7 @@ spec:
  onClearSelection={() => multiSelect.clearSelection()}
  onBulkDelete={handleBulkDelete}
  onBulkLabel={handleBulkLabel}
+ selectedResourceLabels={selectedResourceLabels}
  />
 
  {/* Stats Cards */}

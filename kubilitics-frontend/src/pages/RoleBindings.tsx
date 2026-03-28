@@ -264,13 +264,22 @@ export default function RoleBindings() {
  });
  };
 
- const handleBulkLabel = async (label: string) => {
- const [labelKey, ...rest] = label.split('=');
- const labelValue = rest.join('=');
+ const handleBulkLabel = async (labelPatch: Record<string, string | null>) => {
  return executeBulkOperation(Array.from(selectedItems), async (_key, ns, name) => {
- await patchRoleBinding.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: { [labelKey]: labelValue } } } });
+ await patchRoleBinding.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: labelPatch } } });
  });
  };
+
+ const selectedResourceLabels = useMemo(() => {
+ const map = new Map<string, Record<string, string>>();
+ const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; namespace?: string; labels?: Record<string, string> } }>;
+ for (const key of selectedItems) {
+ const [ns, n] = key.split('/');
+ const raw = rawItems.find((r) => r.metadata.namespace === ns && r.metadata.name === n);
+ if (raw) map.set(key, raw.metadata.labels ?? {});
+ }
+ return map;
+ }, [selectedItems, data?.allItems]);
 
  const exportConfig = {
  filenamePrefix: 'role-bindings',
@@ -345,6 +354,7 @@ export default function RoleBindings() {
  onClearSelection={() => multiSelect.clearSelection()}
  onBulkDelete={handleBulkDelete}
  onBulkLabel={handleBulkLabel}
+ selectedResourceLabels={selectedResourceLabels}
  />
 
  <ResourceListTableToolbar

@@ -297,13 +297,21 @@ export default function ClusterRoles() {
  });
  };
 
- const handleBulkLabel = async (label: string) => {
- const [labelKey, ...rest] = label.split('=');
- const labelValue = rest.join('=');
+ const handleBulkLabel = async (labelPatch: Record<string, string | null>) => {
  return executeBulkOperation(Array.from(selectedItems).map((n) => `_/${n}`), async (_key, _ns, name) => {
- await patchClusterRole.mutateAsync({ name, patch: { metadata: { labels: { [labelKey]: labelValue } } } });
+ await patchClusterRole.mutateAsync({ name, patch: { metadata: { labels: labelPatch } } });
  });
  };
+
+ const selectedResourceLabels = useMemo(() => {
+ const map = new Map<string, Record<string, string>>();
+ const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; labels?: Record<string, string> } }>;
+ for (const n of selectedItems) {
+ const raw = rawItems.find((r) => r.metadata.name === n);
+ if (raw) map.set(n, raw.metadata.labels ?? {});
+ }
+ return map;
+ }, [selectedItems, data?.allItems]);
 
  const exportConfig = {
  filenamePrefix: 'cluster-roles',
@@ -372,6 +380,7 @@ export default function ClusterRoles() {
  onClearSelection={() => multiSelect.clearSelection()}
  onBulkDelete={handleBulkDelete}
  onBulkLabel={handleBulkLabel}
+ selectedResourceLabels={selectedResourceLabels}
  />
 
  <ResourceListTableToolbar

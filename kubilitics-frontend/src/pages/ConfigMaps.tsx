@@ -430,13 +430,22 @@ export default function ConfigMaps() {
  });
  };
 
- const handleBulkLabelCm = async (label: string) => {
- const [labelKey, ...rest] = label.split('=');
- const labelValue = rest.join('=');
+ const handleBulkLabelCm = async (labelPatch: Record<string, string | null>) => {
  return executeBulkOperation(Array.from(selectedItems), async (_key, ns, name) => {
- await patchCmResource.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: { [labelKey]: labelValue } } } });
+ await patchCmResource.mutateAsync({ name, namespace: ns, patch: { metadata: { labels: labelPatch } } });
  });
  };
+
+ const selectedResourceLabels = useMemo(() => {
+ const map = new Map<string, Record<string, string>>();
+ const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; namespace?: string; labels?: Record<string, string> } }>;
+ for (const key of selectedItems) {
+ const [ns, n] = key.split('/');
+ const raw = rawItems.find((r) => r.metadata.namespace === ns && r.metadata.name === n);
+ if (raw) map.set(key, raw.metadata.labels ?? {});
+ }
+ return map;
+ }, [selectedItems, data?.allItems]);
 
  const isAllSelected = multiSelect.isAllSelected(allCmKeys);
  const isSomeSelected = multiSelect.isSomeSelected(allCmKeys);
@@ -556,6 +565,7 @@ data: {}
  onClearSelection={() => multiSelect.clearSelection()}
  onBulkDelete={handleBulkDeleteCm}
  onBulkLabel={handleBulkLabelCm}
+ selectedResourceLabels={selectedResourceLabels}
  />
 
  <ResourceListTableToolbar

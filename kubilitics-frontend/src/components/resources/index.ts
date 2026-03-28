@@ -30,6 +30,7 @@ export { DetailPodTable, type DetailPodTableProps } from './DetailPodTable';
 export { FileTransferDialog, type FileTransferDialogProps } from './FileTransferDialog';
 export { ResourceComparisonView } from './ResourceComparisonView';
 export { BulkActionBar, executeBulkOperation, type BulkActionBarProps, type BulkOperationResult, type BulkOperationProgress, type BulkResourceType } from './BulkActionBar';
+export { LabelManagerDialog, type LabelManagerDialogProps } from './LabelManagerDialog';
 export { ResourceTopologyView, type ResourceTopologyViewProps } from './ResourceTopologyView';
 export { X } from 'lucide-react'; // Export X if needed, or just let users import from lucide-react
 
