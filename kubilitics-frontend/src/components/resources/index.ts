@@ -35,6 +35,7 @@ export { BulkActionBar, executeBulkOperation, type BulkActionBarProps, type Bulk
 export { LabelManagerDialog, type LabelManagerDialogProps } from './LabelManagerDialog';
 export { ResourceTopologyView, type ResourceTopologyViewProps } from './ResourceTopologyView';
 export { X } from 'lucide-react'; // Export X if needed, or just let users import from lucide-react
+export { QuickCreateDialog, type QuickCreateResourceKind } from './QuickCreateDialog';
 
 // ── Unified Metadata System ──────────────────────────────────────────────
 export {

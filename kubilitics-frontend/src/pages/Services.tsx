@@ -53,7 +53,7 @@ import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/back
 import { useClusterStore } from '@/stores/clusterStore';
 import { useQueries } from '@tanstack/react-query';
 import { getServiceEndpoints } from '@/services/backendApiClient';
-import { DeleteConfirmDialog, PortForwardDialog, BulkActionBar, executeBulkOperation } from '@/components/resources';
+import { DeleteConfirmDialog, PortForwardDialog, BulkActionBar, executeBulkOperation, QuickCreateDialog } from '@/components/resources';
 import { ResourceExportDropdown, ListPagination, PAGE_SIZE_OPTIONS, ResourceCommandBar, resourceTableRowClassName, ROW_MOTION, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, StatusPill, ListViewSegmentedControl, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, NamespaceBadge, ResourceListTableToolbar, type StatusPillVariant } from '@/components/list';
 import { ServiceIcon } from '@/components/icons/KubernetesIcons';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
@@ -946,16 +946,13 @@ spec:
  </ResizableTableProvider>
  </ResourceListTableToolbar>
 
- {/* Create Wizard Dialog */}
- {showCreateWizard && (
- <ServiceWizard
- onClose={() => setShowCreateWizard(false)}
- onSubmit={() => {
- setShowCreateWizard(false);
- refetch();
- }}
+ {/* Quick Create Service Dialog */}
+ <QuickCreateDialog
+ open={showCreateWizard}
+ onOpenChange={setShowCreateWizard}
+ kind="Service"
+ onSuccess={() => refetch()}
  />
- )}
 
  {/* Delete Dialog */}
  <DeleteConfirmDialog

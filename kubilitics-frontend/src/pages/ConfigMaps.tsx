@@ -57,7 +57,7 @@ import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/back
 import { useClusterStore } from '@/stores/clusterStore';
 import { getConfigMapConsumers } from '@/services/backendApiClient';
 import { ResourceCreator, DEFAULT_YAMLS } from '@/components/editor';
-import { DeleteConfirmDialog, BulkActionBar, executeBulkOperation } from '@/components/resources';
+import { DeleteConfirmDialog, BulkActionBar, executeBulkOperation, QuickCreateDialog } from '@/components/resources';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/components/ui/sonner';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
@@ -1034,11 +1034,12 @@ data: {}
  </p>
  </div>
 
- {showCreateWizard && (
+ {/* Clone flow: keep full YAML editor; New flow: quick create dialog */}
+ {showCreateWizard && cloneInitialYaml && (
  <ResourceCreator
- key={cloneInitialYaml ?? 'new'}
+ key={cloneInitialYaml}
  resourceKind="ConfigMap"
- defaultYaml={cloneInitialYaml ?? DEFAULT_YAMLS.ConfigMap}
+ defaultYaml={cloneInitialYaml}
  onClose={handleCloseCreateWizard}
  onApply={async (yaml) => {
  try {
@@ -1051,6 +1052,12 @@ data: {}
  }}
  />
  )}
+ <QuickCreateDialog
+ open={showCreateWizard && !cloneInitialYaml}
+ onOpenChange={(open) => { if (!open) handleCloseCreateWizard(); else setShowCreateWizard(true); }}
+ kind="ConfigMap"
+ onSuccess={() => refetch()}
+ />
 
  <DeleteConfirmDialog
  open={deleteDialog.open}

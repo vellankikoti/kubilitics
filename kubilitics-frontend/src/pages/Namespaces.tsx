@@ -33,7 +33,7 @@ import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/back
 import { useClusterStore } from '@/stores/clusterStore';
 import { getNamespaceCounts } from '@/services/backendApiClient';
 import { ResourceCreator, DEFAULT_YAMLS } from '@/components/editor';
-import { DeleteConfirmDialog, BulkActionBar, executeBulkOperation } from '@/components/resources';
+import { DeleteConfirmDialog, BulkActionBar, executeBulkOperation, QuickCreateDialog } from '@/components/resources';
 import { StatusPill, type StatusPillVariant } from '@/components/list';
 import { toast } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
@@ -343,23 +343,15 @@ export default function Namespaces() {
  ],
  };
 
- if (showCreator) {
- return (
- <ResourceCreator
- resourceKind="Namespace"
- defaultYaml={DEFAULT_YAMLS.Namespace}
- onClose={() => setShowCreator(false)}
- onApply={() => {
- toast.success('Namespace created');
- setShowCreator(false);
- refetch();
- }}
- />
- );
- }
-
  return (
  <>
+ {/* Quick Create Namespace Dialog */}
+ <QuickCreateDialog
+ open={showCreator}
+ onOpenChange={setShowCreator}
+ kind="Namespace"
+ onSuccess={() => refetch()}
+ />
  <div className="space-y-6">
  <ListPageHeader
  icon={<NamespaceIcon className="h-6 w-6 text-primary" />}

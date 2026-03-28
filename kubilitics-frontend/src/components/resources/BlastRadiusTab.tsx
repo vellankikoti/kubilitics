@@ -1,20 +1,27 @@
 /**
  * BlastRadiusTab — Dedicated impact analysis view for resource detail pages.
  *
- * Shows criticality scores, fan-in/fan-out, SPOF detection, and a failure
- * simulation mode that highlights affected resources via BFS traversal.
+ * Fetches blast radius data from the backend API via useBlastRadius.
+ * Falls back to topology-derived criticality data when the API is unavailable.
+ * Shows criticality scores, fan-in/fan-out, SPOF detection, dependency chain,
+ * affected resources with links, and a failure simulation mode.
  */
 import { useState, useMemo, useCallback, useRef } from "react";
+import { Link } from "react-router-dom";
 import {
   Zap,
   AlertTriangle,
   Shield,
   ArrowDownRight,
   ArrowUpRight,
+  ExternalLink,
+  ChevronRight,
 } from "lucide-react";
 
+import { useBlastRadius } from "@/hooks/useBlastRadius";
 import { useResourceTopology } from "@/hooks/useResourceTopology";
 import { useActiveClusterId } from "@/hooks/useActiveClusterId";
+import { kindToRoutePath } from "@/utils/resourceKindMapper";
 import { TopologyCanvas } from "@/topology/TopologyCanvas";
 import { transformGraph } from "@/topology/utils/transformGraph";
 import type { TopologyResponse, TopologyNode } from "@/topology/types/topology";
@@ -41,6 +48,15 @@ const LEVEL_TEXT_COLORS: Record<string, string> = {
   low: "text-emerald-500",
 };
 
+/** Build a detail page path for a resource. */
+function buildResourceDetailPath(resourceKind: string, resourceName: string, resourceNamespace?: string): string {
+  const route = kindToRoutePath(resourceKind);
+  if (resourceNamespace) {
+    return `/${route}/${resourceNamespace}/${resourceName}`;
+  }
+  return `/${route}/${resourceName}`;
+}
+
 export function BlastRadiusTab({ kind, namespace, name }: BlastRadiusTabProps) {
   const clusterId = useActiveClusterId();
 
@@ -53,14 +69,25 @@ export function BlastRadiusTab({ kind, namespace, name }: BlastRadiusTabProps) {
 
   const canFetch = !!clusterId && !!kind && !!name;
 
-  // Fetch full graph (depth=3) for blast radius analysis
-  const { graph, isLoading, error } = useResourceTopology({
+  // ── Backend blast radius API ───────────────────────────────────────────
+  const {
+    data: blastRadiusData,
+    isLoading: brLoading,
+    error: brError,
+    isUnavailable: brUnavailable,
+  } = useBlastRadius({ kind, namespace, name, enabled: canFetch });
+
+  // ── Topology graph (always fetched for the canvas + fallback data) ─────
+  const { graph, isLoading: topoLoading, error: topoError } = useResourceTopology({
     kind,
     namespace,
     name,
     enabled: canFetch,
     depth: 3,
   });
+
+  const isLoading = brLoading || topoLoading;
+  const error = brError || topoError;
 
   // Transform engine graph to v2 format
   const topology = useMemo<TopologyResponse | null>(() => {
@@ -75,7 +102,7 @@ export function BlastRadiusTab({ kind, namespace, name }: BlastRadiusTabProps) {
     return response;
   }, [graph, clusterId, namespace, kind, name]);
 
-  // Find the focus node and read its criticality data
+  // Find the focus node
   const focusNode = useMemo<TopologyNode | null>(() => {
     if (!topology) return null;
     return (
@@ -85,7 +112,30 @@ export function BlastRadiusTab({ kind, namespace, name }: BlastRadiusTabProps) {
     );
   }, [topology, kind, name, namespace]);
 
-  const criticality = focusNode?.criticality ?? null;
+  // ── Resolve display values: prefer API data, fall back to topology criticality ──
+  const useApi = !!blastRadiusData && !brUnavailable;
+  const topoCriticality = focusNode?.criticality ?? null;
+
+  const criticalityScore = useApi
+    ? blastRadiusData!.criticalityScore
+    : (topoCriticality?.score ?? 0);
+  const level = useApi
+    ? blastRadiusData!.level
+    : (topoCriticality?.level ?? "low");
+  const blastRadius = useApi
+    ? blastRadiusData!.blastRadiusPercent
+    : (topoCriticality?.blastRadius ?? 0);
+  const fanIn = useApi
+    ? blastRadiusData!.fanIn
+    : (topoCriticality?.fanIn ?? 0);
+  const fanOut = useApi
+    ? blastRadiusData!.fanOut
+    : (topoCriticality?.fanOut ?? 0);
+  const isSPOF = useApi
+    ? blastRadiusData!.isSPOF
+    : (topoCriticality?.isSPOF ?? false);
+  const affectedResources = useApi ? blastRadiusData!.affectedResources : [];
+  const dependencyChain = useApi ? blastRadiusData!.dependencyChain : [];
 
   // Highlight the focus node
   const highlightNodeIds = useMemo(() => {
@@ -93,11 +143,8 @@ export function BlastRadiusTab({ kind, namespace, name }: BlastRadiusTabProps) {
   }, [focusNode]);
 
   // BFS to compute affected nodes when simulating failure.
-  // Traverses BOTH directions: if a resource fails, everything connected
-  // to it is affected — upstream consumers AND downstream dependencies.
   const simulationAffectedNodes = useMemo(() => {
     if (!simulatedFailureNodeId || !topology) return null;
-    // Build bidirectional adjacency
     const adj = new Map<string, Set<string>>();
     for (const edge of topology.edges) {
       if (!adj.has(edge.source)) adj.set(edge.source, new Set());
@@ -105,7 +152,6 @@ export function BlastRadiusTab({ kind, namespace, name }: BlastRadiusTabProps) {
       adj.get(edge.source)!.add(edge.target);
       adj.get(edge.target)!.add(edge.source);
     }
-    // BFS from the failed node in all directions
     const affected = new Set<string>();
     affected.add(simulatedFailureNodeId);
     const queue = [simulatedFailureNodeId];
@@ -124,21 +170,20 @@ export function BlastRadiusTab({ kind, namespace, name }: BlastRadiusTabProps) {
   const isSimulating = simulationAffectedNodes != null && simulationAffectedNodes.size > 0;
   const impactedCount = isSimulating ? simulationAffectedNodes!.size - 1 : 0;
 
-  // Group affected nodes by kind for the affected resources list
+  // Group affected nodes by kind for the simulation list
   const affectedByKind = useMemo(() => {
-    if (!isSimulating || !topology) return new Map<string, string[]>();
-    const groups = new Map<string, string[]>();
+    if (!isSimulating || !topology) return new Map<string, TopologyNode[]>();
+    const groups = new Map<string, TopologyNode[]>();
     for (const node of topology.nodes) {
       if (simulationAffectedNodes!.has(node.id) && node.id !== simulatedFailureNodeId) {
         const list = groups.get(node.kind) ?? [];
-        list.push(node.name);
+        list.push(node);
         groups.set(node.kind, list);
       }
     }
     return groups;
   }, [isSimulating, topology, simulationAffectedNodes, simulatedFailureNodeId]);
 
-  // Simulate failure on the focus node
   const handleSimulateFailure = useCallback(() => {
     if (focusNode) {
       setSimulatedFailureNodeId(focusNode.id);
@@ -182,42 +227,52 @@ export function BlastRadiusTab({ kind, namespace, name }: BlastRadiusTabProps) {
     );
   }
 
-  const blastRadius = criticality?.blastRadius ?? 0;
-  const level = criticality?.level ?? "low";
-  const fanIn = criticality?.fanIn ?? 0;
-  const fanOut = criticality?.fanOut ?? 0;
-  const isSPOF = criticality?.isSPOF ?? false;
-
   return (
     <div className="flex flex-col gap-4 p-4 w-full">
       {/* Score Cards Row */}
-      <div className="grid grid-cols-4 gap-4">
-        {/* Blast Radius */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {/* Criticality Score */}
+        <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <p className="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+            Criticality Score
+          </p>
+          <div className="flex items-baseline gap-2">
+            <p
+              className={`text-2xl font-bold ${
+                level === "critical"
+                  ? "text-red-600"
+                  : level === "high"
+                  ? "text-amber-500"
+                  : "text-gray-900 dark:text-gray-100"
+              }`}
+            >
+              {criticalityScore}
+            </p>
+            <span className="text-xs text-gray-400">/100</span>
+          </div>
+        </div>
+
+        {/* Blast Radius Percentage */}
         <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
           <p className="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1">
             Blast Radius
           </p>
-          <p
-            className={`text-2xl font-bold ${
-              level === "critical" ? "text-red-600" : "text-gray-900 dark:text-gray-100"
-            }`}
-          >
-            {blastRadius}
-          </p>
-        </div>
-
-        {/* Criticality Level */}
-        <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
-          <p className="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider mb-1">
-            Level
-          </p>
-          <span
-            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${
-              LEVEL_COLORS[level] ?? LEVEL_COLORS.low
-            }`}
-          >
-            {level.charAt(0).toUpperCase() + level.slice(1)}
-          </span>
+          <div className="flex items-baseline gap-2">
+            <p
+              className={`text-2xl font-bold ${
+                level === "critical" ? "text-red-600" : "text-gray-900 dark:text-gray-100"
+              }`}
+            >
+              {blastRadius}%
+            </p>
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold text-white ${
+                LEVEL_COLORS[level] ?? LEVEL_COLORS.low
+              }`}
+            >
+              {level.charAt(0).toUpperCase() + level.slice(1)}
+            </span>
+          </div>
         </div>
 
         {/* Fan-in / Fan-out */}
@@ -285,9 +340,14 @@ export function BlastRadiusTab({ kind, namespace, name }: BlastRadiusTabProps) {
             </>
           )}
         </div>
+        {brUnavailable && (
+          <span className="text-xs text-gray-400 dark:text-slate-500 italic">
+            Using topology-derived data (blast radius API not available)
+          </span>
+        )}
       </div>
 
-      {/* Topology Canvas — explicit height for React Flow */}
+      {/* Topology Canvas */}
       <div className="rounded-lg border border-gray-200 dark:border-slate-700 overflow-hidden" style={{ height: "500px" }}>
         <TopologyCanvas
           topology={topology}
@@ -303,25 +363,77 @@ export function BlastRadiusTab({ kind, namespace, name }: BlastRadiusTabProps) {
         />
       </div>
 
-      {/* Affected Resources List (visible only during simulation) */}
+      {/* Affected Resources from API (always visible when API data available) */}
+      {useApi && affectedResources.length > 0 && !isSimulating && (
+        <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+            Affected Resources ({affectedResources.length})
+          </h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {affectedResources.map((res) => (
+              <Link
+                key={`${res.kind}/${res.namespace}/${res.name}`}
+                to={buildResourceDetailPath(res.kind, res.name, res.namespace)}
+                className="flex items-center gap-2 rounded-md border border-gray-100 dark:border-slate-700 px-3 py-2 text-sm hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors group"
+              >
+                <span className="text-xs font-medium text-gray-400 dark:text-slate-500 uppercase w-20 shrink-0 truncate">
+                  {res.kind}
+                </span>
+                <span className="text-gray-700 dark:text-gray-300 truncate flex-1">
+                  {res.name}
+                </span>
+                {res.impact === "direct" && (
+                  <span className="text-xs text-red-500 font-medium shrink-0">direct</span>
+                )}
+                <ExternalLink className="h-3 w-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Dependency Chain from API */}
+      {useApi && dependencyChain.length > 0 && (
+        <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
+          <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+            Dependency Chain
+          </h4>
+          <div className="flex flex-wrap items-center gap-1">
+            {dependencyChain.map((entry, idx) => (
+              <span key={idx} className="flex items-center gap-1">
+                <span className="text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-slate-800 rounded px-2 py-0.5">
+                  {entry}
+                </span>
+                {idx < dependencyChain.length - 1 && (
+                  <ChevronRight className="h-3.5 w-3.5 text-gray-400 dark:text-slate-500 shrink-0" />
+                )}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Affected Resources List (visible during simulation) */}
       {isSimulating && affectedByKind.size > 0 && (
         <div className="rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4">
           <h4 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
-            Affected Resources
+            Affected Resources (Simulation)
           </h4>
           <div className="grid grid-cols-3 gap-4">
-            {Array.from(affectedByKind.entries()).map(([resourceKind, names]) => (
+            {Array.from(affectedByKind.entries()).map(([resourceKind, nodes]) => (
               <div key={resourceKind}>
                 <p className="text-xs font-medium text-gray-500 dark:text-slate-400 mb-1.5">
-                  {resourceKind} ({names.length})
+                  {resourceKind} ({nodes.length})
                 </p>
                 <ul className="space-y-0.5">
-                  {names.map((resourceName) => (
-                    <li
-                      key={resourceName}
-                      className="text-sm text-gray-700 dark:text-gray-300 truncate"
-                    >
-                      {resourceName}
+                  {nodes.map((node) => (
+                    <li key={node.name}>
+                      <Link
+                        to={buildResourceDetailPath(node.kind, node.name, node.namespace)}
+                        className="text-sm text-primary hover:underline truncate block"
+                      >
+                        {node.name}
+                      </Link>
                     </li>
                   ))}
                 </ul>

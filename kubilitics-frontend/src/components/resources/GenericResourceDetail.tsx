@@ -19,11 +19,28 @@
 
 import { useState, useCallback, useEffect, ReactNode } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { LucideIcon, Clock, Download, Trash2, Edit, FileCode, GitCompare, Network, Zap } from 'lucide-react';
+import { LucideIcon, Clock, Download, Trash2, Edit, FileCode, GitCompare, Network, Zap, Copy, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { CodeEditor } from '@/components/editor/CodeEditor';
+import { useNamespacesFromCluster } from '@/hooks/useNamespacesFromCluster';
+import { applyManifest } from '@/services/api/resources';
 import {
   ResourceDetailLayout,
   YamlViewer,
@@ -130,6 +147,173 @@ export interface GenericResourceDetailProps<T extends KubernetesResource> {
 }
 
 // ---------------------------------------------------------------------------
+// Clone to Namespace Dialog
+// ---------------------------------------------------------------------------
+
+function CloneToNamespaceDialog({
+  open,
+  onOpenChange,
+  resource,
+  kind,
+  clusterId,
+  backendBaseUrl,
+  isBackendConfigured,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  resource: KubernetesResource | null;
+  kind: string;
+  clusterId: string | null;
+  backendBaseUrl: string;
+  isBackendConfigured: boolean;
+}) {
+  const { data: namespaces = [] } = useNamespacesFromCluster(clusterId);
+  const [targetNamespace, setTargetNamespace] = useState('');
+  const [cloneYaml, setCloneYaml] = useState('');
+  const [isApplying, setIsApplying] = useState(false);
+
+  // Build clean YAML whenever dialog opens or resource changes
+  useEffect(() => {
+    if (!open || !resource) return;
+    // Deep-clone and strip server-managed metadata
+    const cleaned = JSON.parse(JSON.stringify(resource));
+    if (cleaned.metadata) {
+      delete cleaned.metadata.uid;
+      delete cleaned.metadata.resourceVersion;
+      delete cleaned.metadata.creationTimestamp;
+      delete cleaned.metadata.generation;
+      delete cleaned.metadata.managedFields;
+      delete cleaned.metadata.selfLink;
+      // Remove owner references so the clone is independent
+      delete cleaned.metadata.ownerReferences;
+    }
+    // Remove status block — K8s will regenerate it
+    delete cleaned.status;
+    const yaml = yamlParser.dump(cleaned, { lineWidth: -1, noRefs: true });
+    setCloneYaml(yaml);
+    setTargetNamespace('');
+  }, [open, resource]);
+
+  const handleApply = useCallback(async () => {
+    if (!clusterId || !isBackendConfigured) {
+      toast.error('No cluster connected', {
+        description: 'Connect to a cluster in Settings before cloning resources.',
+      });
+      return;
+    }
+    if (!targetNamespace) {
+      toast.error('Select a target namespace');
+      return;
+    }
+
+    // Replace namespace in the YAML
+    let finalYaml = cloneYaml;
+    if (finalYaml.match(/^\s*namespace:\s*.*/m)) {
+      finalYaml = finalYaml.replace(
+        /^(\s*)namespace:\s*.*/m,
+        `$1namespace: ${targetNamespace}`,
+      );
+    } else {
+      finalYaml = finalYaml.replace(
+        /^(\s*name:\s*.+)$/m,
+        `$1\n  namespace: ${targetNamespace}`,
+      );
+    }
+
+    setIsApplying(true);
+    try {
+      const result = await applyManifest(backendBaseUrl, clusterId, finalYaml);
+      const resources = result.resources ?? [];
+      const summary = resources.map((r) => `${r.kind}/${r.name} (${r.action})`).join(', ');
+      toast.success(`${kind} cloned to ${targetNamespace}`, {
+        description: summary || result.message || 'Applied successfully.',
+      });
+      onOpenChange(false);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error('Failed to clone resource', { description: message });
+    } finally {
+      setIsApplying(false);
+    }
+  }, [clusterId, isBackendConfigured, targetNamespace, cloneYaml, kind, backendBaseUrl, onOpenChange]);
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col gap-0 p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b space-y-1.5">
+          <DialogTitle className="text-base font-semibold flex items-center gap-2">
+            <Copy className="h-4 w-4" />
+            Clone {kind} to Another Namespace
+          </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground">
+            Server-managed metadata (uid, resourceVersion, creationTimestamp) has been stripped.
+            Select a target namespace, review the YAML, and apply.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Namespace selector */}
+        <div className="px-6 py-3 border-b bg-muted/30 flex items-center gap-3">
+          <label className="text-sm font-medium text-muted-foreground shrink-0">
+            Target Namespace
+          </label>
+          <Select value={targetNamespace} onValueChange={setTargetNamespace}>
+            <SelectTrigger className="w-60 h-9">
+              <SelectValue placeholder="Select target namespace" />
+            </SelectTrigger>
+            <SelectContent>
+              {namespaces.length > 0 ? (
+                namespaces.map((ns) => (
+                  <SelectItem key={ns} value={ns}>
+                    {ns}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem value="default">default</SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* YAML preview */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <CodeEditor
+            value={cloneYaml}
+            onChange={(v) => setCloneYaml(v)}
+            minHeight="350px"
+            fontSize="small"
+          />
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t flex items-center justify-between bg-background">
+          <p className="text-xs text-muted-foreground">
+            The resource will be created in the target namespace.
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => onOpenChange(false)} className="press-effect">
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleApply}
+              disabled={isApplying || !targetNamespace}
+              className="press-effect"
+            >
+              {isApplying ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Copy className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Clone to {targetNamespace || '...'}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -182,6 +366,7 @@ export function GenericResourceDetail<T extends KubernetesResource>({
   const deleteResource = useDeleteK8sResource(resourceType);
   const updateResource = useUpdateK8sResource(resourceType);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showCloneDialog, setShowCloneDialog] = useState(false);
 
   // --- Context object for render props ---
   const ctx: ResourceContext<T> = {
@@ -403,6 +588,7 @@ export function GenericResourceDetail<T extends KubernetesResource>({
           { icon: Edit, label: `Edit ${kind}`, description: `Modify this ${kind}`, className: 'press-effect' },
           { icon: Download, label: 'Download YAML', description: `Export ${kind} definition`, onClick: handleDownloadYaml, className: 'press-effect' },
           { icon: Download, label: 'Export as JSON', description: `Export ${kind} as JSON`, onClick: handleDownloadJson, className: 'press-effect' },
+          { icon: Copy, label: 'Clone to Namespace', description: `Clone this ${kind} to another namespace (promote to staging/prod)`, onClick: () => setShowCloneDialog(true), className: 'press-effect' },
           ...(extraActionItems ? extraActionItems(ctx) : []),
           { icon: Trash2, label: `Delete ${kind}`, description: `Remove this ${kind}`, variant: 'destructive', onClick: () => setShowDeleteDialog(true), className: 'press-effect' },
         ]} />
@@ -484,6 +670,15 @@ export function GenericResourceDetail<T extends KubernetesResource>({
           }
         }}
         requireNameConfirmation
+      />
+      <CloneToNamespaceDialog
+        open={showCloneDialog}
+        onOpenChange={setShowCloneDialog}
+        resource={resource}
+        kind={kind}
+        clusterId={clusterId ?? null}
+        backendBaseUrl={baseUrl ?? ''}
+        isBackendConfigured={isBackendConfiguredFn()}
       />
       {extraDialogs?.({ ...ctx, showDeleteDialog, setShowDeleteDialog })}
     </>

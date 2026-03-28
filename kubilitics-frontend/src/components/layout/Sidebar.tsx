@@ -37,6 +37,7 @@ import {
   ChevronDown,
   Package,
   ShieldCheck,
+  LayoutTemplate,
 } from 'lucide-react';
 import {
   K8sPodIcon, K8sDeploymentIcon, K8sReplicaSetIcon, K8sStatefulSetIcon,
@@ -393,6 +394,12 @@ const TOP_NAV_COLORS: Record<string, { active: string; activeBg: string; idle: s
     idle: 'text-violet-500 dark:text-violet-400',
     idleBg: 'bg-violet-50 dark:bg-violet-500/10',
   },
+  '/templates': {
+    active: 'text-emerald-600 dark:text-emerald-400',
+    activeBg: 'bg-emerald-100 dark:bg-emerald-500/20',
+    idle: 'text-emerald-500 dark:text-emerald-400',
+    idleBg: 'bg-emerald-50 dark:bg-emerald-500/10',
+  },
 };
 
 function TopLevelNavLink({
@@ -651,6 +658,7 @@ function SidebarContent({
   const isDashboardActive = pathname === '/dashboard';
   const isFleetActive = pathname === '/fleet';
   const isTopologyActive = pathname === '/topology';
+  const isTemplatesActive = pathname === '/templates';
   const activeProject = useProjectStore((s) => s.activeProject);
   const clearActiveProject = useProjectStore((s) => s.clearActiveProject);
 
@@ -722,6 +730,7 @@ function SidebarContent({
         <TopLevelNavLink to="/dashboard" icon={LayoutDashboard} label="Dashboard" isActive={isDashboardActive} />
         <TopLevelNavLink to="/fleet" icon={Layers} label="Fleet" isActive={isFleetActive} />
         <TopLevelNavLink to="/topology" icon={Network} label="Topology" isActive={isTopologyActive} />
+        <TopLevelNavLink to="/templates" icon={LayoutTemplate} label="Templates" isActive={isTemplatesActive} />
       </div>
 
       {/* Resources — single expandable section containing all K8s resource categories */}

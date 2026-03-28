@@ -166,6 +166,7 @@ const MutatingWebhookDetail = lazy(() => import("./pages/MutatingWebhookDetail")
 const ValidatingWebhooks = lazy(() => import("./pages/ValidatingWebhooks"));
 const ValidatingWebhookDetail = lazy(() => import("./pages/ValidatingWebhookDetail"));
 const Topology = lazy(() => import("./pages/Topology"));
+const ResourceTemplates = lazy(() => import("./pages/ResourceTemplates"));
 
 
 import { useResourceLiveUpdates } from "./hooks/useResourceLiveUpdates";
@@ -702,6 +703,8 @@ const App = () => (
                         <Route path="/settings" element={<SettingsPage />} />
                         {/* Cluster Topology */}
                         <Route path="/topology" element={<Topology />} />
+                        {/* Resource Templates */}
+                        <Route path="/templates" element={<ResourceTemplates />} />
                         {/* Security Scanner — disabled until backend APIs are implemented */}
 
                         {/* Workloads */}

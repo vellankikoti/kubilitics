@@ -363,3 +363,34 @@ export interface ContainerFileEntry {
   size: number;
   modified: string;
 }
+
+// ── Blast Radius ─────────────────────────────────────────────────────────
+
+/** An affected resource in the blast radius result. */
+export interface BlastRadiusAffectedResource {
+  kind: string;
+  name: string;
+  namespace: string;
+  /** How this resource is affected: "direct" | "transitive" */
+  impact: string;
+}
+
+/** Response from GET /api/v1/clusters/{clusterId}/blast-radius/{namespace}/{kind}/{name} */
+export interface BlastRadiusResult {
+  /** Criticality score 0-100. */
+  criticalityScore: number;
+  /** Criticality level: critical | high | medium | low. */
+  level: 'critical' | 'high' | 'medium' | 'low';
+  /** Blast radius percentage (0-100). */
+  blastRadiusPercent: number;
+  /** Number of resources that depend on this resource (incoming edges). */
+  fanIn: number;
+  /** Number of resources this resource depends on (outgoing edges). */
+  fanOut: number;
+  /** Single Point of Failure — true if removing this resource would disconnect the graph. */
+  isSPOF: boolean;
+  /** Resources affected if this resource fails. */
+  affectedResources: BlastRadiusAffectedResource[];
+  /** Dependency chain from this resource outward (ordered list of kind/name strings). */
+  dependencyChain: string[];
+}

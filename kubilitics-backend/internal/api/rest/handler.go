@@ -303,6 +303,9 @@ func SetupRoutes(router *mux.Router, h *Handler) {
 	router.Handle("/clusters/{clusterId}/topology/export", h.wrapWithRBAC(h.ExportTopology, auth.RoleOperator)).Methods("POST")
 	router.Handle("/clusters/{clusterId}/topology/export/drawio", h.wrapWithRBAC(h.GetTopologyExportDrawio, auth.RoleViewer)).Methods("GET")
 
+	// Blast radius analysis (USP #2): dependency inference + criticality scoring
+	router.Handle("/clusters/{clusterId}/blast-radius/{namespace}/{kind}/{name}", h.wrapWithRBAC(h.GetBlastRadius, auth.RoleViewer)).Methods("GET")
+
 	// Global search (command palette): GET /clusters/{clusterId}/search?q=...&limit=25
 	router.Handle("/clusters/{clusterId}/search", h.wrapWithRBAC(h.GetSearch, auth.RoleViewer)).Methods("GET")
 

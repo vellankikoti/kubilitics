@@ -41,7 +41,7 @@ import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { useClusterStore } from '@/stores/clusterStore';
 import { getPodMetrics, postShellCommand } from '@/services/backendApiClient';
-import { DeleteConfirmDialog, PortForwardDialog, parseCpu, parseMemory, calculatePodResourceMax, ResourceComparisonView, BulkActionBar, executeBulkOperation } from '@/components/resources';
+import { DeleteConfirmDialog, PortForwardDialog, parseCpu, parseMemory, calculatePodResourceMax, ResourceComparisonView, BulkActionBar, executeBulkOperation, QuickCreateDialog } from '@/components/resources';
 import { ResourceCommandBar, ResourceExportDropdown, ListViewSegmentedControl, NamespaceFilter } from '@/components/list';
 import { ResourceCreator, DEFAULT_YAMLS } from '@/components/editor';
 import { useQuery, useQueries } from '@tanstack/react-query';
@@ -1443,26 +1443,13 @@ export default function Pods() {
  </ResizableTableProvider>
  </ResourceListTableToolbar>
 
- {/* Create Pod */}
- {
- showCreateWizard && (
- <ResourceCreator
- resourceKind="Pod"
- defaultYaml={DEFAULT_YAMLS.Pod}
- onClose={() => setShowCreateWizard(false)}
- onApply={async (yaml) => {
- try {
- await createResource.mutateAsync({ yaml });
- setShowCreateWizard(false);
- refetch();
- } catch (e) {
- // Error toast is handled by useCreateK8sResource
- }
- }}
- clusterName={useClusterStore.getState().activeCluster?.name}
+ {/* Quick Create Pod Dialog */}
+ <QuickCreateDialog
+ open={showCreateWizard}
+ onOpenChange={setShowCreateWizard}
+ kind="Pod"
+ onSuccess={() => refetch()}
  />
- )
- }
 
  {/* Delete Confirmation Dialog */}
  <DeleteConfirmDialog
