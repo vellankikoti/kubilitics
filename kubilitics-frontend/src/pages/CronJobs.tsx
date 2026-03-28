@@ -204,7 +204,7 @@ export default function CronJobs() {
  const [pageIndex, setPageIndex] = useState(0);
 
  const { isConnected } = useConnectionStatus();
- const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+ const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
  const { data, isLoading, isError, isFetching, dataUpdatedAt, refetch } = useK8sResourceList<CronJobResource>('cronjobs', undefined, { limit: 5000 });
  const deleteResource = useDeleteK8sResource('cronjobs');
  const patchCronJob = usePatchK8sResource('cronjobs');

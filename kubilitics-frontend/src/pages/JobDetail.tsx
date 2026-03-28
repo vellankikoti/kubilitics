@@ -196,7 +196,7 @@ export default function JobDetail() {
   const clusterId = useActiveClusterId();
   const { isConnected } = useConnectionStatus();
   const backendBaseUrl = getEffectiveBackendBaseUrl(useBackendConfigStore((s) => s.backendBaseUrl));
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   const [selectedLogPod, setSelectedLogPod] = useState<string>('');
   const [selectedLogContainer, setSelectedLogContainer] = useState<string>('');

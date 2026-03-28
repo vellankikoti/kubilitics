@@ -23,7 +23,7 @@ export function useCriticalityScores(namespace?: string) {
   const clusterId = useActiveClusterId();
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const effectiveBaseUrl = getEffectiveBackendBaseUrl(backendBaseUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   return useQuery<Map<string, CriticalityEntry>>({
     queryKey: ['criticality-scores', clusterId, namespace],

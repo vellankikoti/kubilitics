@@ -495,7 +495,7 @@ function CrossClusterSearch({
   const navigate = useNavigate();
   const stored = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(stored);
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const { setActiveCluster, clusters: storeClusters } = useClusterStore();
   const setCurrentClusterId = useBackendConfigStore((s) => s.setCurrentClusterId);
   const queryClient = useQueryClient();

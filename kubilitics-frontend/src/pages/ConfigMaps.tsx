@@ -159,7 +159,7 @@ export default function ConfigMaps() {
  const [pageSize, setPageSize] = useState(10);
  const [pageIndex, setPageIndex] = useState(0);
  const backendBaseUrl = getEffectiveBackendBaseUrl(useBackendConfigStore((s) => s.backendBaseUrl));
- const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+ const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
  const activeCluster = useClusterStore((s) => s.activeCluster);
  const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
  const clusterId = currentClusterId ?? null;

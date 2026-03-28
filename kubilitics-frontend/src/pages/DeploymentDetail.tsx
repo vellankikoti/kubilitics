@@ -235,7 +235,7 @@ export default function DeploymentDetail() {
   });
 
   const backendBaseUrl = getEffectiveBackendBaseUrl(useBackendConfigStore((s) => s.backendBaseUrl));
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const patchDeployment = usePatchK8sResource('deployments');
 
   // Rollout history

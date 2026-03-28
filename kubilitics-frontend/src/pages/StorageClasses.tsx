@@ -123,7 +123,7 @@ export default function StorageClasses() {
  const deleteSC = useDeleteK8sResource('storageclasses');
  const patchSC = usePatchK8sResource('storageclasses');
  const backendBaseUrl = getEffectiveBackendBaseUrl(useBackendConfigStore((s) => s.backendBaseUrl));
- const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+ const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
  const activeCluster = useClusterStore((s) => s.activeCluster);
  const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
  const clusterId = currentClusterId ?? null;

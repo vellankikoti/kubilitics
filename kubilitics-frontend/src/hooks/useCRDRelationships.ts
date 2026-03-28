@@ -62,7 +62,7 @@ export function useCRDRelationships(
 ): CRDRelationshipResult {
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const baseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   const enabled = !!(
     isConfigured() &&

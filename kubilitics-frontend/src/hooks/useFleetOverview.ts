@@ -109,7 +109,7 @@ function computeAggregates(clusters: FleetCluster[]): FleetAggregates {
 export function useFleetOverview(): FleetOverviewResult {
   const stored = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(stored);
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   // Step 1: Fetch cluster list
   const clustersQuery = useQuery({

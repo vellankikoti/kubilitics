@@ -57,7 +57,7 @@ export function ResourceTopologyV2View({
   name,
 }: ResourceTopologyV2ViewProps) {
   const navigate = useNavigate();
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const clusterId = useActiveClusterId();
   const activeClusterName = useClusterStore((s) => s.activeCluster?.name);
   const fitViewRef = useRef<(() => void) | null>(null);

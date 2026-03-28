@@ -19,7 +19,7 @@ import { getClusterOverview, reconnectCluster, BackendApiError } from '@/service
 export function BackendClusterValidator() {
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const setCurrentClusterId = useBackendConfigStore((s) => s.setCurrentClusterId);
-  const isBackendConfiguredFn = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfiguredFn = useBackendConfigStore((s) => s.isBackendConfigured)();
   const validatedRef = useRef(false);
   const originalClusterIdRef = useRef<string | null>(null);
   

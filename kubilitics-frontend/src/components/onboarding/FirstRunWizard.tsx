@@ -228,7 +228,7 @@ function ConnectClusterStep({ onNext, onSkip }: { onNext: () => void; onSkip: ()
 
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const hasBackend = isBackendConfigured || isTauri();
 
   const { setDemo, setClusters, setActiveCluster } = useClusterStore();

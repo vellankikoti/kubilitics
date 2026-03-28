@@ -124,7 +124,7 @@ export const RecentEventsWidget = () => {
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   const backendQuery = useQuery({
     queryKey: ["backend", "events", currentClusterId, "dashboard-recent"],

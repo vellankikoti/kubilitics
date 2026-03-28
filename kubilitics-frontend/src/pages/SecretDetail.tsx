@@ -97,7 +97,7 @@ function DataTab({ resource: s }: ResourceContext<SecretResource>) {
   const secretType = s.type || 'Opaque';
 
   const clusterId = useActiveClusterId();
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const baseUrl = getEffectiveBackendBaseUrl(storedUrl);
   const namespace = s.metadata?.namespace ?? '';
@@ -236,7 +236,7 @@ function DataTab({ resource: s }: ResourceContext<SecretResource>) {
 function UsedByTab({ namespace, name }: { namespace?: string; name?: string }) {
   const navigate = useNavigate();
   const clusterId = useActiveClusterId();
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const baseUrl = getEffectiveBackendBaseUrl(storedUrl);
 
@@ -293,7 +293,7 @@ function UsedByTab({ namespace, name }: { namespace?: string; name?: string }) {
 export default function SecretDetail() {
   const { namespace, name } = useParams();
   const clusterId = useActiveClusterId();
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const baseUrl = getEffectiveBackendBaseUrl(storedUrl);
 

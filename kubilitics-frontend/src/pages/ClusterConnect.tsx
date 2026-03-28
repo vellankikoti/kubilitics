@@ -148,7 +148,7 @@ export default function ClusterConnect() {
   const { activeCluster, setActiveCluster, setClusters, setDemo, appMode, setAppMode, signOut } = useClusterStore();
   const storedBackendUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedBackendUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const setCurrentClusterId = useBackendConfigStore((s) => s.setCurrentClusterId);
   const logoutFlag = useBackendConfigStore((s) => s.logoutFlag);

@@ -147,7 +147,7 @@ export function DetailPodTable({
   /* -- Backend config for individual metrics fallback -- */
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const clusterId = useBackendConfigStore((s) => s.currentClusterId) ?? null;
 
   /* -- Search -- */

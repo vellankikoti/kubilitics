@@ -58,7 +58,7 @@ export default function Settings() {
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const setBackendBaseUrl = useBackendConfigStore((s) => s.setBackendBaseUrl);
   const effectiveBackendBaseUrl = useMemo(() => getEffectiveBackendBaseUrl(backendBaseUrl), [backendBaseUrl]);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const setCurrentClusterId = useBackendConfigStore((s) => s.setCurrentClusterId);
   const setActiveCluster = useClusterStore((s) => s.setActiveCluster);
   const setClusters = useClusterStore((s) => s.setClusters);

@@ -113,7 +113,7 @@ export function useNodeTrafficImpact(
 ): NodeTrafficImpactResult {
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const effectiveBaseUrl = getEffectiveBackendBaseUrl(backendBaseUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   const parsed = nodeId ? parseNodeId(nodeId) : null;
   const enabled = !!clusterId && !!parsed && isBackendConfigured();

@@ -97,7 +97,7 @@ function useNotificationWebSocket(
   enabled = true,
 ) {
   const addNotification = useNotificationStore((s) => s.addNotification);
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   const handleMessage = useCallback(
     (data: BackendWebSocketMessage) => {

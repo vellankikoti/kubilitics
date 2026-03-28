@@ -176,7 +176,7 @@ export default function PodDetail() {
   const [portForwardInitial, setPortForwardInitial] = useState<{ containerName: string; port: number } | null>(null);
 
   const { isConnected } = useConnectionStatus();
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   const { data: metricsResult } = useMetricsSummary('pod', namespace ?? undefined, name ?? undefined, { enabled: !!namespace && !!name });
 

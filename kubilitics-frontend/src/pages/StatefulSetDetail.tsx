@@ -229,7 +229,7 @@ export default function StatefulSetDetail() {
   });
 
   const backendBaseUrl = getEffectiveBackendBaseUrl(useBackendConfigStore((s) => s.backendBaseUrl));
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const patchStatefulSet = usePatchK8sResource('statefulsets');
 
   // Pods & PVC lists

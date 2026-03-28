@@ -101,7 +101,7 @@ export default function KubeConfigSetup() {
   const { setDemo, setClusters, setActiveCluster } = useClusterStore();
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const setCurrentClusterId = useBackendConfigStore((s) => s.setCurrentClusterId);
   const hasBackend = isEffectivelyConfigured(isBackendConfigured);
 

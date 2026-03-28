@@ -97,7 +97,7 @@ export default function CustomResources() {
  const [searchParams] = useSearchParams();
  const crdName = searchParams.get('crd') ?? undefined;
  const { isConnected } = useConnectionStatus();
- const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+ const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
  const [namespaceFilter, setNamespaceFilter] = useState<string>('');
  const [searchQuery, setSearchQuery] = useState('');

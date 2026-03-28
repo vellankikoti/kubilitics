@@ -5,7 +5,7 @@ import { useK8sResourceList } from './useKubernetes';
 
 export function useCRDOverview() {
     const { activeCluster } = useClusterStore();
-    const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+    const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
     const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
     const clusterId = currentClusterId ?? undefined;
 

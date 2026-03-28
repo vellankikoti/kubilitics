@@ -636,7 +636,7 @@ export default function CronJobDetail() {
   const navigate = useNavigate();
   const clusterId = useActiveClusterId();
   const { isConnected } = useConnectionStatus();
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const patchCronJob = usePatchK8sResource('cronjobs');
 
   // Pre-fetch child jobs for status cards (badge counts etc.)

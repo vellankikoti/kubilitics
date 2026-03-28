@@ -12,7 +12,7 @@ import { useConnectionStatus } from './useConnectionStatus';
 
 export function useMetalLBInstalled(): { installed: boolean; isLoading: boolean } {
   const { isConnected } = useConnectionStatus();
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const backendBaseUrl = getEffectiveBackendBaseUrl();
   const activeCluster = useClusterStore((s) => s.activeCluster);
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);

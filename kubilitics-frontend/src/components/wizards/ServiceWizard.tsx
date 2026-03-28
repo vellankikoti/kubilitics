@@ -37,7 +37,7 @@ export function ServiceWizard({ onClose, onSubmit }: ServiceWizardProps) {
   const createResource = useCreateK8sResource('services');
   const queryClient = useQueryClient();
   const backendBaseUrl = getEffectiveBackendBaseUrl(useBackendConfigStore((s) => s.backendBaseUrl));
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const activeCluster = useClusterStore((s) => s.activeCluster);
   const clusterId = currentClusterId ?? null;

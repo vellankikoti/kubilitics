@@ -164,7 +164,7 @@ export default function CostDashboard() {
   const stored = useBackendConfigStore((s) => s.backendBaseUrl);
   const baseUrl = getEffectiveBackendBaseUrl(stored);
   const clusterId = useBackendConfigStore((s) => s.currentClusterId);
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['cost-dashboard', baseUrl, clusterId, period],

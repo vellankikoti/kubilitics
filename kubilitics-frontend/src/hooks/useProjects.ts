@@ -18,7 +18,7 @@ import {
 export function useProjects() {
   const stored = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(stored);
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   return useQuery({
     queryKey: ['backend', 'projects', backendBaseUrl],
@@ -31,7 +31,7 @@ export function useProjects() {
 export function useProject(projectId: string | null) {
   const stored = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(stored);
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   return useQuery({
     queryKey: ['backend', 'project', projectId, backendBaseUrl],

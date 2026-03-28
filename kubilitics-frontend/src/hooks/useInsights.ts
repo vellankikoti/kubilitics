@@ -63,7 +63,7 @@ export function useInsights(): { insights: Insight[]; isLoading: boolean } {
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   const podsList = useK8sResourceList('pods', undefined, {
     enabled: !!activeCluster,

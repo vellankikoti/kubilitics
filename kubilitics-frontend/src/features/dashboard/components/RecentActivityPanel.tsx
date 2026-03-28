@@ -89,7 +89,7 @@ function reasonIcon(reason: string) {
 export const RecentActivityPanel = () => {
   const { isConnected } = useConnectionStatus();
   const clusterId = useBackendConfigStore((s) => s.currentClusterId);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const backendBaseUrl = getEffectiveBackendBaseUrl(useBackendConfigStore((s) => s.backendBaseUrl));
 
   // Backend events

@@ -496,7 +496,7 @@ function usePodLogStream(
 ) {
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const clusterId = useActiveClusterId();
   const { isConnected } = useConnectionStatus();
   const useBackend = isBackendConfigured() && !!clusterId;

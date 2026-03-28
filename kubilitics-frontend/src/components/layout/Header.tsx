@@ -257,7 +257,7 @@ export function Header() {
   // Backend health status indicator — uses useOfflineMode as single source of truth.
   // Previous approach fired a separate useBackendHealth query that showed red dots
   // immediately on transient failures. useOfflineMode requires 6+ failures over 90s.
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const { backendReachable } = useOfflineMode();
 
   // Determine backend status: healthy or unreachable (no intermediate "warning" — avoids flicker)

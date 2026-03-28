@@ -231,7 +231,7 @@ export default function PersistentVolumeClaims() {
  const itemsOnPage = filteredItems.slice(start, start + pageSize);
 
  const backendBaseUrl = getEffectiveBackendBaseUrl(useBackendConfigStore((s) => s.backendBaseUrl));
- const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+ const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
  const activeCluster = useClusterStore((s) => s.activeCluster);
  const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
  const clusterId = currentClusterId ?? null;

@@ -181,7 +181,7 @@ export default function DaemonSetDetail() {
   });
 
   const backendBaseUrl = getEffectiveBackendBaseUrl(useBackendConfigStore((s) => s.backendBaseUrl));
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const patchDaemonSet = usePatchK8sResource('daemonsets');
 
   const resourceEvents = useResourceEvents('DaemonSet', namespace ?? undefined, name ?? undefined);

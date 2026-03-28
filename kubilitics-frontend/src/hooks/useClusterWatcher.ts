@@ -150,8 +150,7 @@ export function useClusterWatcher() {
   const clusterId = useActiveClusterId();
   const stored = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(stored);
-  const isBackendConfiguredFn = useBackendConfigStore((s) => s.isBackendConfigured);
-  const isConfigured = isBackendConfiguredFn();
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const addNotification = useNotificationStore((s) => s.addNotification);
 
   const enabled = isConfigured && !!clusterId;

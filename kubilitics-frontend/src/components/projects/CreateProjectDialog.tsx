@@ -25,7 +25,7 @@ export function CreateProjectDialog({ children }: { children: React.ReactNode })
     const [description, setDescription] = useState('');
     const storedBackendUrl = useBackendConfigStore((s) => s.backendBaseUrl);
     const backendBaseUrl = useMemo(() => getEffectiveBackendBaseUrl(storedBackendUrl), [storedBackendUrl]);
-    const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+    const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
     const queryClient = useQueryClient();
 
     const createMutation = useMutation({

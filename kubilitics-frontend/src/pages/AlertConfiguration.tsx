@@ -505,7 +505,7 @@ export default function AlertConfiguration() {
   const [editingRule, setEditingRule] = useState<Partial<AlertRule> | null>(null);
   const [historyPage, setHistoryPage] = useState(0);
   const queryClient = useQueryClient();
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   const { data: rules, isLoading: rulesLoading } = useQuery({
     queryKey: ['alert-rules'],

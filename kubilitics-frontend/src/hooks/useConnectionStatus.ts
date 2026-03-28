@@ -9,7 +9,7 @@ import { useClusterStore } from '@/stores/clusterStore';
 import { useKubernetesConfigStore } from '@/stores/kubernetesConfigStore';
 
 export function useConnectionStatus(): { isConnected: boolean } {
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const activeCluster = useClusterStore((s) => s.activeCluster);
   const { config } = useKubernetesConfigStore();
 

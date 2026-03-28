@@ -33,7 +33,7 @@ const BREAKDOWN_LABELS: Record<string, string> = {
 export const ClusterHealthWidget = () => {
   const { activeCluster } = useClusterStore();
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const clusterId = currentClusterId ?? undefined;
 
   const overview = useClusterOverview(clusterId);

@@ -51,7 +51,7 @@ interface ProjectSettingsDialogProps {
 export function ProjectSettingsDialog({ project, open, onOpenChange }: ProjectSettingsDialogProps) {
     const storedBackendUrl = useBackendConfigStore((s) => s.backendBaseUrl);
     const backendBaseUrl = useMemo(() => getEffectiveBackendBaseUrl(storedBackendUrl), [storedBackendUrl]);
-    const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+    const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
     const queryClient = useQueryClient();
     const [selectedClusterId, setSelectedClusterId] = useState<string>('');
     const [selectedNamespace, setSelectedNamespace] = useState<string>('');

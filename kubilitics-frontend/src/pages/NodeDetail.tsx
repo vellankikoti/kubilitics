@@ -280,7 +280,7 @@ export default function NodeDetail() {
   const [isCordoned, setIsCordoned] = useState(false);
 
   const storedUrl = useBackendConfigStore((s) => s.backendBaseUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const backendBaseUrl = getEffectiveBackendBaseUrl(storedUrl);
 
   // Pods on this node

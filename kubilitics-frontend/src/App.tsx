@@ -220,7 +220,7 @@ function useRestoreClusterFromBackend() {
   const { activeCluster, setActiveCluster, setClusters, setDemo } = useClusterStore();
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const [restoreAttempted, setRestoreAttempted] = useState(false);
   const [restoreFailed, setRestoreFailed] = useState(false);
 
@@ -274,7 +274,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { activeCluster } = useClusterStore();
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
-  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured);
+  const isBackendConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
   const [isHydrated, setIsHydrated] = useState(false);
   const [hydrationTimedOut, setHydrationTimedOut] = useState(false);
   const [restoreTimedOut, setRestoreTimedOut] = useState(false);

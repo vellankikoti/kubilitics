@@ -9,7 +9,7 @@ import { getClusterOverview } from '@/services/backendApiClient';
 export function useClusterOverview(clusterId: string | undefined) {
   const stored = useBackendConfigStore((s) => s.backendBaseUrl);
   const backendBaseUrl = getEffectiveBackendBaseUrl(stored);
-  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
+  const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured)();
 
   return useQuery({
     queryKey: ['backend', 'clusterOverview', backendBaseUrl, clusterId],
