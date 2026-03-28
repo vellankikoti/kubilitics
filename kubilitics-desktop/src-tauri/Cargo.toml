@@ -23,7 +23,7 @@ anyhow = "1.0"
 reqwest = { version = "0.12", features = ["json"] }
 aes-gcm = "0.10"
 base64 = "0.22"
-rand = "0.8"
+rand = "0.9"
 sha2 = "0.10"
 
 # devtools only in debug builds (cargo build vs cargo build --release)
