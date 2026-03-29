@@ -12,11 +12,9 @@ ARG KUBECTL_VERSION=v1.33.3
 ARG APP_VERSION=dev
 
 # ── Stage 1: Builder ──────────────────────────────────────────────────────────
-# CRITICAL: Pin builder to linux/amd64 (the CI runner's native arch).
-# This means the Go compiler runs natively — no QEMU emulation — regardless
-# of the TARGET platform. Go's built-in cross-compilation handles arm64/etc
-# via GOARCH in nanoseconds; QEMU-emulated arm64 compilation takes 20+ minutes.
-FROM --platform=linux/amd64 golang:${GO_VERSION}-alpine AS builder
+# Use BUILDPLATFORM (the CI runner's native arch) so Go compiles natively
+# without QEMU emulation. Go cross-compiles to TARGETARCH via GOARCH.
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS builder
 
 # Re-declare ARGs after FROM (ARG scope resets at each FROM).
 # TARGETOS/TARGETARCH are set by BuildKit for the target platform.
@@ -52,7 +50,7 @@ RUN test -f /out/kubilitics-backend || \
 # ── Stage 2: kcli builder ─────────────────────────────────────────────────────
 # Clone and cross-compile kcli for the target platform.
 # Runs natively on amd64, produces binary for TARGETARCH via Go cross-compilation.
-FROM --platform=linux/amd64 golang:${GO_VERSION}-alpine AS kcli-builder
+FROM --platform=$BUILDPLATFORM golang:${GO_VERSION}-alpine AS kcli-builder
 
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
@@ -71,7 +69,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 # ── Stage 3: kubectl downloader ───────────────────────────────────────────────
 # Download the pinned kubectl binary for the TARGET architecture.
 # Runs on amd64 (native), downloads the correct arch binary for the target image.
-FROM --platform=linux/amd64 alpine:${ALPINE_VERSION} AS kubectl-fetcher
+FROM --platform=$BUILDPLATFORM alpine:${ALPINE_VERSION} AS kubectl-fetcher
 
 ARG TARGETARCH
 ARG KUBECTL_VERSION

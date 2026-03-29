@@ -40,7 +40,7 @@ jobs:
           cd kubilitics-frontend && npm run test -- --run 2>&1 | tee ../test_reports/frontend/test.log
 
       - name: Upload test report
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: frontend-test-report
@@ -127,7 +127,7 @@ jobs:
           kill $SERVER_PID 2>/dev/null || true
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: kubilitics-frontend-dist
           path: kubilitics-frontend/dist/

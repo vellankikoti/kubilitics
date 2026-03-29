@@ -102,7 +102,7 @@ jobs:
         working-directory: kubilitics-frontend
         env:
           TAURI_BUILD: "true"
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v7
         with:
           name: frontend-dist-tauri-${{ github.ref_name }}
           path: kubilitics-frontend/dist/
@@ -205,7 +205,7 @@ jobs:
             librsvg2-dev
 
       # ── Frontend dist (pre-built) ──────────────────────────────────────
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           name: frontend-dist-tauri-${{ github.ref_name }}
           path: kubilitics-frontend/dist/
@@ -360,7 +360,7 @@ jobs:
       # ── Upload artifacts ────────────────────────────────────────────────
       - name: Upload desktop artifacts (macOS)
         if: matrix.os == 'macos-latest'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: kubilitics-desktop-${{ matrix.name }}-${{ github.ref_name }}
           path: kubilitics-desktop/src-tauri/target/universal-apple-darwin/release/bundle/
@@ -368,7 +368,7 @@ jobs:
 
       - name: Upload desktop artifacts (Linux)
         if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: kubilitics-desktop-${{ matrix.name }}-${{ github.ref_name }}
           path: kubilitics-desktop/src-tauri/target/x86_64-unknown-linux-gnu/release/bundle/
@@ -376,7 +376,7 @@ jobs:
 
       - name: Upload desktop artifacts (Windows)
         if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: kubilitics-desktop-${{ matrix.name }}-${{ github.ref_name }}
           path: kubilitics-desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/
@@ -389,7 +389,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/download-artifact@v5
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
 
