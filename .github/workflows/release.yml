@@ -316,11 +316,18 @@ jobs:
         run: |
           if [ -n "$APPLE_CERTIFICATE" ]; then
             echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
-            security create-keychain -p "" build.keychain || true
+            # Create a dedicated build keychain
+            security create-keychain -p "build" build.keychain
             security default-keychain -s build.keychain
-            security unlock-keychain -p "" build.keychain
-            security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign || true
-            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
+            security unlock-keychain -p "build" build.keychain
+            # Prevent keychain from auto-locking (root cause of codesign hang)
+            security set-keychain-settings build.keychain
+            # Import certificate and allow codesign access without prompt
+            security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/security
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "build" build.keychain
+            # Verify certificate was imported
+            security find-identity -v build.keychain | head -5
+            rm certificate.p12
           fi
 
       # ── Tauri builds ───────────────────────────────────────────────────
@@ -334,9 +341,11 @@ jobs:
         shell: bash
         run: |
           [ -d "../dist" ] && [ -n "$(ls -A ../dist)" ] || { echo "❌ dist missing"; exit 1; }
-          # Skip Apple code signing for now (codesign hangs in CI).
-          # Users right-click → Open on first launch. Tauri update signing still works.
-          CONFIG='{"bundle":{"macOS":{"signingIdentity":null}}}'
+          if [ -n "${{ secrets.APPLE_CERTIFICATE }}" ]; then
+            CONFIG='{"bundle":{"macOS":{"signingIdentity":"${{ secrets.APPLE_SIGNING_IDENTITY }}"}}}'
+          else
+            CONFIG='{"bundle":{"macOS":{"signingIdentity":null}}}'
+          fi
           TAURI_SIGNING_PRIVATE_KEY="${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" CI=true cargo tauri build --target universal-apple-darwin --bundles app,dmg --config "$CONFIG"
 
       - name: Notarize macOS DMG
