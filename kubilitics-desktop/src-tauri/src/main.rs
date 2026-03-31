@@ -14,6 +14,7 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::init())
         .invoke_handler(tauri::generate_handler![
             commands::read_kubeconfig,
             commands::get_kubeconfig_info,
@@ -41,8 +42,7 @@ fn main() {
             commands::get_analytics_consent,
             commands::set_analytics_consent,
             commands::has_analytics_consent_been_asked,
-            commands::check_for_updates,
-            commands::install_update,
+            // Auto-updates handled by tauri-plugin-updater (not custom commands)
             commands::get_desktop_info,
             commands::restart_sidecar,
             commands::is_kcli_sidecar_available,

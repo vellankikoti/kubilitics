@@ -339,7 +339,7 @@ jobs:
           else
             CONFIG='{"bundle":{"macOS":{"signingIdentity":null}}}'
           fi
-          CI=true cargo tauri build --target universal-apple-darwin --bundles app,dmg --config "$CONFIG"
+          TAURI_SIGNING_PRIVATE_KEY="${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" CI=true cargo tauri build --target universal-apple-darwin --bundles app,dmg --config "$CONFIG"
 
       - name: Notarize macOS DMG
         if: matrix.os == 'macos-latest'
@@ -370,7 +370,7 @@ jobs:
           TAURI_SKIP_DEVSERVER_CHECK: "true"
         run: |
           [ -d "../dist" ] && [ -n "$(ls -A ../dist)" ] || { echo "❌ dist missing"; exit 1; }
-          cargo tauri build --target x86_64-pc-windows-msvc --bundles nsis,msi
+          TAURI_SIGNING_PRIVATE_KEY="${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" cargo tauri build --target x86_64-pc-windows-msvc --bundles nsis,msi
 
       - name: Build Tauri app (Linux AppImage + DEB + RPM)
         if: matrix.os == 'ubuntu-latest'
@@ -379,7 +379,7 @@ jobs:
           TAURI_SKIP_DEVSERVER_CHECK: "true"
         run: |
           [ -d "../dist" ] && [ -n "$(ls -A ../dist)" ] || { echo "❌ dist missing"; exit 1; }
-          cargo tauri build --target x86_64-unknown-linux-gnu --bundles appimage,deb,rpm
+          TAURI_SIGNING_PRIVATE_KEY="${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" cargo tauri build --target x86_64-unknown-linux-gnu --bundles appimage,deb,rpm
 
       # ── Upload artifacts ────────────────────────────────────────────────
       - name: Upload desktop artifacts (macOS)
@@ -423,11 +423,46 @@ jobs:
           find artifacts -type f \( \
             -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" \
             -o -name "*.rpm" -o -name "*-setup.exe" -o -name "*.msi" \
-            -o -name "*.nsis.zip" \
+            -o -name "*.nsis.zip" -o -name "*.tar.gz" -o -name "*.sig" \
           \) -exec cp {} release-assets/ \;
           echo "Release assets:"
           ls -lh release-assets/
           echo "Total: $(ls release-assets/ | wc -l) files"
+
+      - name: Generate auto-update manifest (latest.json)
+        run: |
+          VERSION="${{ github.ref_name }}"
+          MACOS_SIG=$(cat release-assets/*.app.tar.gz.sig 2>/dev/null || echo "")
+          LINUX_SIG=$(cat release-assets/*.AppImage.tar.gz.sig 2>/dev/null || echo "")
+          WINDOWS_SIG=$(cat release-assets/*.nsis.zip.sig 2>/dev/null || echo "")
+
+          cat > release-assets/latest.json << MANIFEST
+          {
+            "version": "${VERSION#v}",
+            "notes": "Kubilitics ${VERSION}",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "platforms": {
+              "darwin-aarch64": {
+                "signature": "${MACOS_SIG}",
+                "url": "https://github.com/kubilitics/kubilitics/releases/download/${VERSION}/Kubilitics.app.tar.gz"
+              },
+              "darwin-x86_64": {
+                "signature": "${MACOS_SIG}",
+                "url": "https://github.com/kubilitics/kubilitics/releases/download/${VERSION}/Kubilitics.app.tar.gz"
+              },
+              "linux-x86_64": {
+                "signature": "${LINUX_SIG}",
+                "url": "https://github.com/kubilitics/kubilitics/releases/download/${VERSION}/Kubilitics.AppImage.tar.gz"
+              },
+              "windows-x86_64": {
+                "signature": "${WINDOWS_SIG}",
+                "url": "https://github.com/kubilitics/kubilitics/releases/download/${VERSION}/Kubilitics_${VERSION#v}_x64-setup.nsis.zip"
+              }
+            }
+          }
+          MANIFEST
+          echo "Generated latest.json:"
+          cat release-assets/latest.json
 
       - name: Generate checksums
         working-directory: release-assets

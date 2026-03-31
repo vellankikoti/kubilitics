@@ -52,7 +52,14 @@
       }
     }
   },
-  "plugins": {},
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/kubilitics/kubilitics/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEJDMEFFMzJCQjVDQjQxQTgKUldTb1FjdTFLK01LdktPVFMrN1ozSC9LbXM5dW00eU0rWW81dGd2TDk0bG5NZ0Z1TEZMc3JTT3oK"
+    }
+  },
   "app": {
     "windows": [
       {
