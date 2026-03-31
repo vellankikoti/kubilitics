@@ -219,17 +219,42 @@ export default function Settings() {
     if (!isDesktop) return;
     setIsCheckingUpdate(true);
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      const update = await invoke<{ version: string } | null>('check_for_updates');
+      const { check } = await import('@tauri-apps/plugin-updater');
+      const update = await check();
       if (update) {
-        toast.success(`Update available: ${update.version}`, {
+        toast.success(`Update available: v${update.version}`, {
+          duration: Infinity,
           action: {
             label: 'Install',
             onClick: async () => {
               try {
-                const { invoke: invokeUpdate } = await import('@tauri-apps/api/core');
-                await invokeUpdate('install_update');
-                toast.success('Update installed. Please restart the application.');
+                const progressToastId = 'settings-update-progress';
+                toast.loading('Downloading update...', { id: progressToastId, duration: Infinity });
+                let downloaded = 0;
+                let total = 0;
+                await update.downloadAndInstall((event) => {
+                  if (event.event === 'Started' && event.data.contentLength) {
+                    total = event.data.contentLength;
+                  } else if (event.event === 'Progress') {
+                    downloaded += event.data.chunkLength;
+                    if (total > 0) {
+                      const pct = Math.min(Math.round((downloaded / total) * 100), 100);
+                      toast.loading(`Downloading... ${pct}%`, { id: progressToastId, duration: Infinity });
+                    }
+                  } else if (event.event === 'Finished') {
+                    toast.dismiss(progressToastId);
+                  }
+                });
+                toast.success('Update installed — restart to apply.', {
+                  duration: Infinity,
+                  action: {
+                    label: 'Restart now',
+                    onClick: async () => {
+                      const { relaunch } = await import('@tauri-apps/plugin-process');
+                      await relaunch();
+                    },
+                  },
+                });
               } catch (error) {
                 toast.error(`Failed to install update: ${error}`);
               }
