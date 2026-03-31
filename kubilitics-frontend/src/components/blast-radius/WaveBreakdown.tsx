@@ -118,7 +118,7 @@ function ResourceRow({
 }
 
 export function WaveBreakdown({ waves, onResourceClick }: WaveBreakdownProps) {
-  if (waves.length === 0) {
+  if (!waves || waves.length === 0) {
     return (
       <div className="text-sm text-slate-400 dark:text-slate-500 py-6 text-center">
         No affected resources detected.

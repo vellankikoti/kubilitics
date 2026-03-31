@@ -405,7 +405,7 @@ export function BlastRadiusTab({ kind, namespace, name }: BlastRadiusTabProps) {
             )}
           >
             <WaveBreakdown
-              waves={blastData.waves}
+              waves={blastData.waves ?? []}
               onResourceClick={handleResourceClick}
             />
           </div>
@@ -415,7 +415,7 @@ export function BlastRadiusTab({ kind, namespace, name }: BlastRadiusTabProps) {
               'bg-white dark:bg-slate-900',
             )}
           >
-            <RiskPanel risks={blastData.risk_indicators} />
+            <RiskPanel risks={blastData.risk_indicators ?? []} />
           </div>
         </div>
       )}

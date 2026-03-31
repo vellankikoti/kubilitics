@@ -17,7 +17,20 @@ export async function getBlastRadius(
 ): Promise<BlastRadiusResult> {
   const ns = namespace || '-';
   const path = `clusters/${encodeURIComponent(clusterId)}/blast-radius/${encodeURIComponent(ns)}/${encodeURIComponent(kind)}/${encodeURIComponent(name)}`;
-  return backendRequest<BlastRadiusResult>(baseUrl, path);
+  const result = await backendRequest<BlastRadiusResult>(baseUrl, path);
+  // Defensive: backend Go serializes nil slices as "null" in JSON.
+  // Normalize all array fields to empty arrays to prevent frontend crashes.
+  result.waves = result.waves ?? [];
+  result.dependency_chain = result.dependency_chain ?? [];
+  result.risk_indicators = result.risk_indicators ?? [];
+  result.ingress_hosts = result.ingress_hosts ?? [];
+  for (const wave of result.waves) {
+    wave.resources = wave.resources ?? [];
+    for (const res of wave.resources) {
+      res.failure_path = res.failure_path ?? [];
+    }
+  }
+  return result;
 }
 
 /**

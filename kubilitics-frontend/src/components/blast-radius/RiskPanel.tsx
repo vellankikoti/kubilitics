@@ -31,7 +31,7 @@ const SEVERITY_STYLES: Record<string, { border: string; icon: string; IconCompon
 };
 
 export function RiskPanel({ risks }: RiskPanelProps) {
-  if (risks.length === 0) {
+  if (!risks || risks.length === 0) {
     return (
       <div className="text-sm text-slate-400 dark:text-slate-500 py-6 text-center">
         No risk indicators detected.

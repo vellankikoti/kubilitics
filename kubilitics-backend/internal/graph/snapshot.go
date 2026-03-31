@@ -299,17 +299,48 @@ func (s *GraphSnapshot) ComputeBlastRadius(target models.ResourceRef) (*models.B
 		HasHPA:           hasHPA,
 		HasPDB:           hasPDB,
 		IsIngressExposed: len(ingressHosts) > 0,
-		IngressHosts:     ingressHosts,
+		IngressHosts:     ensureStringSlice(ingressHosts),
 		ReplicaCount:     replicas,
 
-		Waves:           waves,
-		DependencyChain: chain,
-		RiskIndicators:  risks,
+		Waves:           ensureSlice(waves),
+		DependencyChain: ensureEdgeSlice(chain),
+		RiskIndicators:  ensureRiskSlice(risks),
 
 		GraphNodeCount:   len(s.Nodes),
 		GraphEdgeCount:   len(s.Edges),
 		GraphStalenessMs: stalenessMs,
 	}, nil
+}
+
+// ensureSlice/ensureEdgeSlice/ensureRiskSlice guarantee non-nil slices in JSON output.
+// Go's json.Marshal serializes nil slices as "null" (not "[]"), which crashes
+// frontend JavaScript when code does array.length on the response field.
+func ensureSlice(waves []models.BlastWave) []models.BlastWave {
+	if waves == nil {
+		return []models.BlastWave{}
+	}
+	return waves
+}
+
+func ensureEdgeSlice(edges []models.BlastDependencyEdge) []models.BlastDependencyEdge {
+	if edges == nil {
+		return []models.BlastDependencyEdge{}
+	}
+	return edges
+}
+
+func ensureRiskSlice(risks []models.RiskIndicator) []models.RiskIndicator {
+	if risks == nil {
+		return []models.RiskIndicator{}
+	}
+	return risks
+}
+
+func ensureStringSlice(s []string) []string {
+	if s == nil {
+		return []string{}
+	}
+	return s
 }
 
 // criticalityLevel maps a numeric score (0-100) to a human-readable level.
