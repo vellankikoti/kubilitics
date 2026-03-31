@@ -346,7 +346,7 @@ jobs:
           else
             CONFIG='{"bundle":{"macOS":{"signingIdentity":null}}}'
           fi
-          TAURI_SIGNING_PRIVATE_KEY="${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" CI=true cargo tauri build --target universal-apple-darwin --bundles app,dmg --config "$CONFIG"
+          TAURI_SIGNING_PRIVATE_KEY="${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" CI=true cargo tauri build --target universal-apple-darwin --bundles app,dmg --config "$CONFIG"
 
       - name: Notarize macOS DMG
         if: matrix.os == 'macos-latest'
@@ -377,7 +377,7 @@ jobs:
           TAURI_SKIP_DEVSERVER_CHECK: "true"
         run: |
           [ -d "../dist" ] && [ -n "$(ls -A ../dist)" ] || { echo "❌ dist missing"; exit 1; }
-          TAURI_SIGNING_PRIVATE_KEY="${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" cargo tauri build --target x86_64-pc-windows-msvc --bundles nsis,msi
+          TAURI_SIGNING_PRIVATE_KEY="${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" cargo tauri build --target x86_64-pc-windows-msvc --bundles nsis,msi
 
       - name: Build Tauri app (Linux AppImage + DEB + RPM)
         if: matrix.os == 'ubuntu-latest'
@@ -386,7 +386,7 @@ jobs:
           TAURI_SKIP_DEVSERVER_CHECK: "true"
         run: |
           [ -d "../dist" ] && [ -n "$(ls -A ../dist)" ] || { echo "❌ dist missing"; exit 1; }
-          TAURI_SIGNING_PRIVATE_KEY="${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" cargo tauri build --target x86_64-unknown-linux-gnu --bundles appimage,deb,rpm
+          TAURI_SIGNING_PRIVATE_KEY="${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}" TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" cargo tauri build --target x86_64-unknown-linux-gnu --bundles appimage,deb,rpm
 
       # ── Upload artifacts ────────────────────────────────────────────────
       - name: Upload desktop artifacts (macOS)
