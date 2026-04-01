@@ -214,10 +214,15 @@ export function ContextPicker({
         <motion.div variants={item} className="flex flex-col lg:flex-row gap-6 mb-6">
           {/* Left: detected contexts */}
           <div className="w-full lg:w-1/2 min-w-0">
-            <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2.5 px-0.5">
-              Detected Contexts
-            </p>
-            <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+            <div className="flex items-center justify-between mb-2.5 px-0.5">
+              <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                Detected Contexts
+              </p>
+              <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                {contexts.length} found
+              </span>
+            </div>
+            <div className="space-y-2 max-h-[min(50vh,420px)] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
               {contexts.map((ctx) => {
                 const isSelected = selectedContext === ctx.context;
                 return (
