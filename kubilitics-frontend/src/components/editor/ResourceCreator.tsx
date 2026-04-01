@@ -362,7 +362,7 @@ metadata:
 spec:
   containers:
     - name: web
-      image: nginx:1.27-alpine
+      image: nginx:alpine
       ports:
         - containerPort: 80
           name: http
@@ -418,7 +418,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: nginx:1.27-alpine
+          image: nginx:alpine
           ports:
             - containerPort: 80
               name: http
@@ -1034,7 +1034,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: nginx:1.27-alpine`,
+          image: nginx:alpine`,
 
   Endpoints: `apiVersion: v1
 kind: Endpoints
@@ -1116,7 +1116,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: nginx:1.27-alpine`,
+          image: nginx:alpine`,
 
   CustomResourceDefinition: `apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
@@ -1207,7 +1207,7 @@ template:
   spec:
     containers:
       - name: web
-        image: nginx:1.27-alpine`,
+        image: nginx:alpine`,
 
   ControllerRevision: `apiVersion: apps/v1
 kind: ControllerRevision
@@ -1258,7 +1258,7 @@ metadata:
 spec:
   containers:
     - name: web
-      image: nginx:1.27-alpine
+      image: nginx:alpine
       ports:
         - containerPort: 80
       resources:
@@ -1294,7 +1294,7 @@ spec:
   containers:
     # Main application container
     - name: app
-      image: nginx:1.27-alpine
+      image: nginx:alpine
       ports:
         - containerPort: 80
       resources:
@@ -1350,7 +1350,7 @@ spec:
           cpu: "100m"
   containers:
     - name: app
-      image: nginx:1.27-alpine
+      image: nginx:alpine
       ports:
         - containerPort: 80
       resources:
@@ -1390,7 +1390,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: nginx:1.27-alpine
+          image: nginx:alpine
           ports:
             - containerPort: 80
           resources:
@@ -1434,7 +1434,7 @@ spec:
     spec:
       containers:
         - name: app
-          image: nginx:1.27-alpine
+          image: nginx:alpine
           ports:
             - containerPort: 8080
           # Environment variables from ConfigMap and Secret
@@ -1494,7 +1494,7 @@ spec:
     spec:
       containers:
         - name: web
-          image: nginx:1.27-alpine
+          image: nginx:alpine
           ports:
             - containerPort: 80
           resources:
