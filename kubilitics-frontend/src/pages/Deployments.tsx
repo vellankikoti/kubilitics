@@ -24,7 +24,7 @@ import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { useClusterStore } from '@/stores/clusterStore';
 import { applyManifest, CONFIRM_DESTRUCTIVE_HEADER, getDeploymentRolloutHistory, getEvents, postDeploymentRollback } from '@/services/backendApiClient';
-import { DeleteConfirmDialog, ScaleDialog, RolloutActionsDialog, MetricBar, parseCpu, parseMemory, calculatePodResourceMax, BulkActionBar, executeBulkOperation, QuickCreateDialog } from '@/components/resources';
+import { DeleteConfirmDialog, ScaleDialog, RolloutActionsDialog, MetricBar, parseCpu, parseMemory, calculatePodResourceMax, BulkActionBar, executeBulkOperation } from '@/components/resources';
 import { ResourceCommandBar, ResourceExportDropdown, ListViewSegmentedControl } from '@/components/list';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ResourceCreator, DEFAULT_YAMLS } from '@/components/editor';
@@ -1145,13 +1145,22 @@ spec:
  </ResizableTableProvider>
  </ResourceListTableToolbar>
 
- {/* Quick Create Deployment Dialog */}
- <QuickCreateDialog
- open={showCreateWizard}
- onOpenChange={setShowCreateWizard}
- kind="Deployment"
- onSuccess={() => refetch()}
+ {showCreateWizard && (
+ <ResourceCreator
+ resourceKind="Deployment"
+ defaultYaml={DEFAULT_YAMLS.Deployment}
+ onClose={() => setShowCreateWizard(false)}
+ onApply={async (yaml) => {
+ try {
+ await createResource.mutateAsync({ yaml });
+ setShowCreateWizard(false);
+ refetch();
+ } catch (e) {
+ // Error toast is handled by useCreateK8sResource
+ }
+ }}
  />
+ )}
  <DeleteConfirmDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, item: open ? deleteDialog.item : null })} resourceType="Deployment" resourceName={deleteDialog.bulk ? `${selectedItems.size} deployments` : (deleteDialog.item?.name || '')} namespace={deleteDialog.bulk ? undefined : deleteDialog.item?.namespace} onConfirm={handleDelete} requireNameConfirmation={!deleteDialog.bulk} />
  {scaleDialog.item && (
  <ScaleDialog

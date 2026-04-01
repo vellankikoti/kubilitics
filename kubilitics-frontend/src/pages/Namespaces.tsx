@@ -27,13 +27,13 @@ import {
  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
-import { usePaginatedResourceList, useK8sResourceList, useDeleteK8sResource, usePatchK8sResource, calculateAge, type KubernetesResource } from '@/hooks/useKubernetes';
+import { usePaginatedResourceList, useK8sResourceList, useDeleteK8sResource, useCreateK8sResource, usePatchK8sResource, calculateAge, type KubernetesResource } from '@/hooks/useKubernetes';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { useClusterStore } from '@/stores/clusterStore';
 import { getNamespaceCounts } from '@/services/backendApiClient';
 import { ResourceCreator, DEFAULT_YAMLS } from '@/components/editor';
-import { DeleteConfirmDialog, BulkActionBar, executeBulkOperation, QuickCreateDialog } from '@/components/resources';
+import { DeleteConfirmDialog, BulkActionBar, executeBulkOperation } from '@/components/resources';
 import { StatusPill, type StatusPillVariant } from '@/components/list';
 import { toast } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
@@ -136,6 +136,7 @@ export default function Namespaces() {
 
  const { data, isLoading, isError, refetch, pagination: hookPagination } = usePaginatedResourceList<NamespaceResource>('namespaces');
  const deleteResource = useDeleteK8sResource('namespaces');
+ const createResource = useCreateK8sResource('namespaces');
  const patchNamespaceResource = usePatchK8sResource('namespaces');
 
  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: Namespace | null; bulk?: boolean }>({ open: false, item: null });
@@ -345,13 +346,27 @@ export default function Namespaces() {
 
  return (
  <>
- {/* Quick Create Namespace Dialog */}
- <QuickCreateDialog
- open={showCreator}
- onOpenChange={setShowCreator}
- kind="Namespace"
- onSuccess={() => refetch()}
+ {/* Resource Creator */}
+ {showCreator && (
+ <ResourceCreator
+   resourceKind="Namespace"
+   defaultYaml={DEFAULT_YAMLS.Namespace}
+   onClose={() => setShowCreator(false)}
+   onApply={async (yaml) => {
+     const { applyManifest } = await import('@/services/api/resources');
+     const baseUrl = (await import('@/stores/backendConfigStore')).getEffectiveBackendBaseUrl(
+       (await import('@/stores/backendConfigStore')).useBackendConfigStore.getState().backendBaseUrl
+     );
+     const clusterId = (await import('@/stores/clusterStore')).useClusterStore.getState().activeCluster?.id;
+     if (baseUrl != null && clusterId) {
+       await applyManifest(baseUrl, clusterId, yaml);
+       toast.success('Namespace created');
+       setShowCreator(false);
+       refetch();
+     }
+   }}
  />
+ )}
  <div className="space-y-6">
  <ListPageHeader
  icon={<NamespaceIcon className="h-6 w-6 text-primary" />}

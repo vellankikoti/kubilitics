@@ -47,19 +47,19 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useK8sResourceList, useDeleteK8sResource, usePatchK8sResource, calculateAge, type KubernetesResource } from '@/hooks/useKubernetes';
+import { useK8sResourceList, useDeleteK8sResource, useCreateK8sResource, usePatchK8sResource, calculateAge, type KubernetesResource } from '@/hooks/useKubernetes';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { useClusterStore } from '@/stores/clusterStore';
 import { useQueries } from '@tanstack/react-query';
 import { getServiceEndpoints } from '@/services/backendApiClient';
-import { DeleteConfirmDialog, PortForwardDialog, BulkActionBar, executeBulkOperation, QuickCreateDialog } from '@/components/resources';
+import { DeleteConfirmDialog, PortForwardDialog, BulkActionBar, executeBulkOperation } from '@/components/resources';
 import { ResourceExportDropdown, ListPagination, PAGE_SIZE_OPTIONS, ResourceCommandBar, resourceTableRowClassName, ROW_MOTION, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, StatusPill, ListViewSegmentedControl, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, NamespaceBadge, ResourceListTableToolbar, type StatusPillVariant } from '@/components/list';
 import { ServiceIcon } from '@/components/icons/KubernetesIcons';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { getRowAnimationClass } from '@/hooks/useResourceLiveUpdates';
-import { ServiceWizard } from '@/components/wizards';
+import { ResourceCreator, DEFAULT_YAMLS } from '@/components/editor';
 import { toast } from '@/components/ui/sonner';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
 
@@ -230,6 +230,7 @@ export default function Services() {
  const clusterId = currentClusterId ?? null;
  const { data, isLoading, isError, isFetching, dataUpdatedAt, refetch } = useK8sResourceList<ServiceResource>('services', undefined, { limit: 5000 });
  const deleteResource = useDeleteK8sResource('services');
+ const createResource = useCreateK8sResource('services');
  const patchServiceResource = usePatchK8sResource('services');
 
  // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -946,13 +947,22 @@ spec:
  </ResizableTableProvider>
  </ResourceListTableToolbar>
 
- {/* Quick Create Service Dialog */}
- <QuickCreateDialog
- open={showCreateWizard}
- onOpenChange={setShowCreateWizard}
- kind="Service"
- onSuccess={() => refetch()}
+ {showCreateWizard && (
+ <ResourceCreator
+ resourceKind="Service"
+ defaultYaml={DEFAULT_YAMLS.Service}
+ onClose={() => setShowCreateWizard(false)}
+ onApply={async (yaml) => {
+ try {
+ await createResource.mutateAsync({ yaml });
+ setShowCreateWizard(false);
+ refetch();
+ } catch (e) {
+ // Error toast is handled by useCreateK8sResource
+ }
+ }}
  />
+ )}
 
  {/* Delete Dialog */}
  <DeleteConfirmDialog
