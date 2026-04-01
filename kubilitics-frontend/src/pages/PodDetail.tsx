@@ -82,14 +82,14 @@ function TerminalAndFiles({
     <div className="flex flex-col flex-1 min-h-0 gap-3">
       {/* Two centered toggle buttons */}
       <div className="flex justify-center">
-        <div className="inline-flex items-center bg-muted/60 dark:bg-slate-800/60 rounded-lg p-1 gap-0.5">
+        <div className="inline-flex items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1 gap-0.5 border border-slate-200 dark:border-slate-700">
           <button
             onClick={() => setMode('terminal')}
             className={cn(
               'flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-all',
               mode === 'terminal'
-                ? 'bg-white dark:bg-slate-700 text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
+                ? 'bg-white dark:bg-slate-700 text-foreground shadow-sm border border-slate-200 dark:border-slate-600'
+                : 'text-slate-600 dark:text-slate-400 hover:text-foreground hover:bg-slate-50 dark:hover:bg-slate-700/50',
             )}
           >
             <Terminal className="h-4 w-4" />
@@ -100,8 +100,8 @@ function TerminalAndFiles({
             className={cn(
               'flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-all',
               mode === 'files'
-                ? 'bg-white dark:bg-slate-700 text-foreground shadow-sm'
-                : 'text-muted-foreground hover:text-foreground',
+                ? 'bg-white dark:bg-slate-700 text-foreground shadow-sm border border-slate-200 dark:border-slate-600'
+                : 'text-slate-600 dark:text-slate-400 hover:text-foreground hover:bg-slate-50 dark:hover:bg-slate-700/50',
             )}
           >
             <FolderOpen className="h-4 w-4" />
