@@ -684,7 +684,12 @@ export default function FleetDashboard() {
   const queryClient = useQueryClient();
   const setCurrentClusterId = useBackendConfigStore((s) => s.setCurrentClusterId);
   const { setActiveCluster, clusters: storeClusters } = useClusterStore();
-  const { clusters, aggregates, isLoading, isError, error } = useFleetOverview();
+  const fleetData = useFleetOverview();
+  const { clusters, aggregates, isError, error } = fleetData;
+  // Only show loading skeleton on FIRST render. Once we have data, never go back to skeleton.
+  const hasData = useRef(false);
+  if (clusters.length > 0) hasData.current = true;
+  const isLoading = fleetData.isLoading && !hasData.current;
   const [newGroupName, setNewGroupName] = useState('');
   const [showGroupForm, setShowGroupForm] = useState(false);
   const addGroup = useClusterOrganizationStore((s) => s.addGroup);
