@@ -143,8 +143,11 @@ export function useFleetOverview(): FleetOverviewResult {
 
   const aggregates = computeAggregates(fleetClusters);
 
-  const isSummaryLoading = summaryQueries.some((q) => q.isLoading);
-  const isLoading = clustersQuery.isLoading || (clusterList.length > 0 && isSummaryLoading);
+  // Only show loading skeleton on FIRST load, not on refetch.
+  // isLoading = true when query has no data yet. isFetching = true during background refetch.
+  // Using isLoading prevents the page from flashing skeleton every 30s.
+  const isSummaryInitialLoading = summaryQueries.some((q) => q.isLoading && !q.data);
+  const isLoading = (clustersQuery.isLoading && !clustersQuery.data) || (clusterList.length > 0 && isSummaryInitialLoading);
 
   return {
     clusters: fleetClusters,
