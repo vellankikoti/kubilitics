@@ -189,111 +189,175 @@ export function ContextPicker({
         variants={container}
         initial="hidden"
         animate="show"
-        className="relative z-10 w-full max-w-3xl"
+        className="relative z-10 w-full max-w-5xl"
       >
-        {/* Header */}
-        <motion.div variants={item} className="text-center mb-8">
-          <div className="flex flex-col items-center justify-center gap-3 mb-4">
-            <BrandLogo height={56} className="drop-shadow-lg" />
+        {/* Header — larger logo, compact text */}
+        <motion.div variants={item} className="text-center mb-6">
+          <div className="flex flex-col items-center justify-center gap-2 mb-3">
+            <BrandLogo height={80} className="drop-shadow-xl" />
           </div>
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/40 mb-4">
-            <Monitor size={13} className="text-blue-500" />
-            <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-widest">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/40 mb-3">
+            <Monitor size={11} className="text-blue-500" />
+            <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-widest">
               Desktop Mode
             </span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-2 tracking-[-0.03em] leading-[1.1] text-slate-900 dark:text-slate-100">
+          <h1 className="text-lg font-semibold mb-1 tracking-[-0.02em] text-slate-900 dark:text-slate-100">
             Choose a context
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed font-medium">
-            Multiple kubeconfig contexts detected. Select one to connect.
+          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto font-medium">
+            Select a detected context or add a cluster from a different kubeconfig.
           </p>
         </motion.div>
 
-        {/* Context Grid */}
-        <motion.div
-          variants={container}
-          className={cn(
-            'grid gap-3 mb-6',
-            contexts.length <= 3 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' :
-            contexts.length <= 6 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' :
-            'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
-          )}
-        >
-          {contexts.map((ctx) => {
-            const isSelected = selectedContext === ctx.context;
-            return (
-              <motion.div key={ctx.context} variants={item}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(ctx.context)}
-                  className={cn(
-                    'group relative w-full text-left rounded-xl border p-4 transition-all duration-300',
-                    'bg-white dark:bg-[hsl(228,14%,11%)]',
-                    'hover:-translate-y-0.5 hover:shadow-md',
-                    'focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[hsl(228,14%,7%)]',
-                    'outline-none',
-                    isSelected
-                      ? 'border-blue-400 dark:border-blue-500 shadow-[0_0_0_1px_rgba(59,130,246,0.3)] shadow-blue-500/10 bg-blue-50/30 dark:bg-blue-950/20'
-                      : 'border-slate-200/80 dark:border-slate-700/60 shadow-sm',
-                  )}
-                  aria-pressed={isSelected}
-                  aria-label={`Select context ${ctx.name || ctx.context}`}
-                >
-                  {/* Selection indicator */}
-                  <div className={cn(
-                    'absolute top-3 right-3 w-5 h-5 rounded-full flex items-center justify-center transition-all duration-300',
-                    isSelected
-                      ? 'bg-blue-500 text-white scale-100'
-                      : 'bg-slate-100 dark:bg-slate-800 text-transparent scale-90',
-                  )}>
-                    <CheckCircle2 size={12} />
-                  </div>
-
-                  {/* Icon */}
-                  <div className={cn(
-                    'w-9 h-9 rounded-lg flex items-center justify-center mb-3 transition-all duration-300',
-                    isSelected
-                      ? 'bg-gradient-to-br from-blue-500 to-blue-600 shadow-md shadow-blue-500/20'
-                      : 'bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/30',
-                  )}>
-                    <Server
-                      size={16}
+        {/* Split layout: contexts left, add-cluster right */}
+        <motion.div variants={item} className="flex flex-col lg:flex-row gap-5 mb-6">
+          {/* Left: detected contexts */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2.5 px-0.5">
+              Detected Contexts
+            </p>
+            <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+              {contexts.map((ctx) => {
+                const isSelected = selectedContext === ctx.context;
+                return (
+                  <motion.div key={ctx.context} variants={item}>
+                    <button
+                      type="button"
+                      onClick={() => onSelect(ctx.context)}
                       className={cn(
-                        'transition-colors duration-300',
+                        'group relative w-full text-left rounded-lg border px-3 py-2.5 transition-all duration-200',
+                        'bg-white dark:bg-[hsl(228,14%,11%)]',
+                        'hover:shadow-sm',
+                        'focus-visible:ring-2 focus-visible:ring-blue-500/50 outline-none',
                         isSelected
-                          ? 'text-white'
-                          : 'text-slate-500 dark:text-slate-400 group-hover:text-blue-500',
+                          ? 'border-blue-400 dark:border-blue-500 shadow-[0_0_0_1px_rgba(59,130,246,0.3)] bg-blue-50/40 dark:bg-blue-950/20'
+                          : 'border-slate-200/80 dark:border-slate-700/60',
                       )}
-                    />
-                  </div>
+                      aria-pressed={isSelected}
+                      aria-label={`Select context ${ctx.name || ctx.context}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* Icon */}
+                        <div className={cn(
+                          'w-8 h-8 rounded-md flex items-center justify-center shrink-0 transition-all duration-200',
+                          isSelected
+                            ? 'bg-gradient-to-br from-blue-500 to-blue-600 shadow-sm shadow-blue-500/20'
+                            : 'bg-slate-100 dark:bg-slate-800 group-hover:bg-blue-50 dark:group-hover:bg-blue-950/30',
+                        )}>
+                          <Server
+                            size={14}
+                            className={cn(
+                              'transition-colors duration-200',
+                              isSelected
+                                ? 'text-white'
+                                : 'text-slate-500 dark:text-slate-400 group-hover:text-blue-500',
+                            )}
+                          />
+                        </div>
 
-                  {/* Context name */}
-                  <div className="pr-6">
-                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate mb-0.5">
-                      {friendlyName(ctx.name || ctx.context)}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">
-                      {friendlyName(ctx.context)}
-                    </p>
-                  </div>
+                        {/* Name + server */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-semibold text-slate-900 dark:text-slate-100 truncate">
+                            {friendlyName(ctx.name || ctx.context)}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <StatusDot status={ctx.status} />
+                            <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium truncate">
+                              {displayServer(ctx.server, ctx.context) || friendlyName(ctx.context)}
+                            </span>
+                          </div>
+                        </div>
 
-                  {/* Server + status */}
-                  <div className="flex items-center gap-1.5 mt-2.5 pt-2.5 border-t border-slate-100 dark:border-slate-800">
-                    <StatusDot status={ctx.status} />
-                    <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium truncate">
-                      {displayServer(ctx.server, ctx.context)}
-                    </span>
-                    {ctx.isCurrent && (
-                      <span className="ml-auto shrink-0 text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400">
-                        current
-                      </span>
-                    )}
+                        {/* Right side: current badge or selection dot */}
+                        <div className="shrink-0 flex items-center gap-2">
+                          {ctx.isCurrent && (
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-blue-500 dark:text-blue-400">
+                              current
+                            </span>
+                          )}
+                          <div className={cn(
+                            'w-4 h-4 rounded-full flex items-center justify-center transition-all duration-200',
+                            isSelected
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-slate-100 dark:bg-slate-800 text-transparent',
+                          )}>
+                            <CheckCircle2 size={10} />
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right: add cluster from different kubeconfig */}
+          <div className="w-full lg:w-[320px] shrink-0">
+            <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2.5 px-0.5">
+              Add from kubeconfig
+            </p>
+            <div className="space-y-3">
+              {/* Paste kubeconfig card */}
+              <button
+                type="button"
+                onClick={() => setPasteDialogOpen(true)}
+                className={cn(
+                  'group w-full text-left rounded-xl border-2 border-dashed p-5 transition-all duration-200',
+                  'border-slate-200/80 dark:border-slate-700/60 bg-white dark:bg-[hsl(228,14%,11%)]',
+                  'hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-950/20',
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/40 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 transition-colors shrink-0">
+                    <ClipboardPaste size={18} className="text-blue-500" />
                   </div>
-                </button>
-              </motion.div>
-            );
-          })}
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Paste kubeconfig</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                      Paste YAML from clipboard or terminal output
+                    </p>
+                  </div>
+                </div>
+              </button>
+
+              {/* Upload kubeconfig card */}
+              <label
+                className={cn(
+                  'group w-full text-left rounded-xl border-2 border-dashed p-5 transition-all duration-200 block cursor-pointer',
+                  'border-slate-200/80 dark:border-slate-700/60 bg-white dark:bg-[hsl(228,14%,11%)]',
+                  'hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-950/20',
+                  isUploading && 'opacity-60 pointer-events-none',
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950/40 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/40 transition-colors shrink-0">
+                    {isUploading
+                      ? <Loader2 size={18} className="text-blue-500 animate-spin" />
+                      : <FolderOpen size={18} className="text-blue-500" />
+                    }
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Upload kubeconfig</p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                      Select or drag & drop a kubeconfig file
+                    </p>
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
+                />
+              </label>
+
+              {/* Help text */}
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 px-1 leading-relaxed">
+                Run <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded text-[10px] font-mono">kubectl config view --raw</code> to get your kubeconfig.
+              </p>
+            </div>
+          </div>
         </motion.div>
 
         {/* Error */}
@@ -341,38 +405,6 @@ export function ContextPicker({
               </>
             )}
           </Button>
-        </motion.div>
-
-        {/* Add cluster from different kubeconfig */}
-        <motion.div variants={item} className="mt-8 pt-6 border-t border-slate-200/60 dark:border-slate-700/40">
-          <p className="text-center text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">
-            Kubeconfig not listed above?
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 rounded-lg border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-950/30"
-              onClick={() => setPasteDialogOpen(true)}
-            >
-              <ClipboardPaste size={15} />
-              Paste kubeconfig
-            </Button>
-            <label className={cn(
-              'inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-sm font-medium transition-all cursor-pointer h-9',
-              'border-slate-200 dark:border-slate-700 hover:border-blue-400 dark:hover:border-blue-500',
-              'bg-background hover:bg-blue-50/50 dark:hover:bg-blue-950/30',
-              isUploading && 'opacity-60 pointer-events-none',
-            )}>
-              {isUploading ? <Loader2 size={15} className="animate-spin" /> : <FolderOpen size={15} />}
-              Upload kubeconfig
-              <input
-                type="file"
-                className="hidden"
-                onChange={(e) => e.target.files?.[0] && handleFileUpload(e.target.files[0])}
-              />
-            </label>
-          </div>
         </motion.div>
       </motion.div>
 
