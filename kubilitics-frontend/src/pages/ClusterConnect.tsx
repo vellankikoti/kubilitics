@@ -630,6 +630,7 @@ export default function ClusterConnect() {
         selectedContext={autoConnect.selectedContext}
         onSelect={autoConnect.setSelectedContext}
         onConnect={() => autoConnect.connect()}
+        onCancel={() => navigate('/')}
         isConnecting={autoConnect.isAutoConnecting}
         error={autoConnect.error}
       />

@@ -554,14 +554,23 @@ export default function ClusterSelection() {
 
           {/* Actions */}
           <div className="flex items-center justify-between">
-            <Button
-              variant="outline"
-              onClick={() => navigate('/connect')}
-              className="gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Another Cluster
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => navigate('/')}
+                className="gap-2"
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/connect')}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Another Cluster
+              </Button>
+            </div>
 
             <Button
               onClick={handleConnect}

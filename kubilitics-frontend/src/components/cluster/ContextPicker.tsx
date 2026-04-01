@@ -104,6 +104,7 @@ export interface ContextPickerProps {
   selectedContext: string | null;
   onSelect: (contextName: string) => void;
   onConnect: () => void;
+  onCancel?: () => void;
   isConnecting: boolean;
   error: string | null;
 }
@@ -113,6 +114,7 @@ export function ContextPicker({
   selectedContext,
   onSelect,
   onConnect,
+  onCancel,
   isConnecting,
   error,
 }: ContextPickerProps) {
@@ -246,8 +248,18 @@ export function ContextPicker({
           </motion.div>
         )}
 
-        {/* Connect Button */}
-        <motion.div variants={item} className="flex justify-center">
+        {/* Action Buttons */}
+        <motion.div variants={item} className="flex items-center justify-center gap-3">
+          {onCancel && (
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={onCancel}
+              className="min-w-[120px] rounded-xl h-12 text-sm font-semibold"
+            >
+              Cancel
+            </Button>
+          )}
           <Button
             size="lg"
             disabled={!selectedContext || isConnecting}
