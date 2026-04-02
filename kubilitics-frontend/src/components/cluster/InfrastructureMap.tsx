@@ -160,23 +160,23 @@ export function InfrastructureMap({ nodes }: InfrastructureMapProps) {
                                         <div className="flex justify-between items-center">
                                             <div className="flex items-center gap-2">
                                                 <Cpu className="h-3 w-3 text-blue-400" />
-                                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Compute Load</span>
+                                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Compute Load</span>
                                             </div>
-                                            <span className="text-xs font-black text-slate-500 tabular-nums">No metrics</span>
+                                            <span className="text-xs font-black text-slate-500 dark:text-slate-400 tabular-nums">No metrics</span>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <div className="flex items-center gap-2">
                                                 <HardDrive className="h-3 w-3 text-indigo-400" />
-                                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Memory Reserved</span>
+                                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Memory Reserved</span>
                                             </div>
-                                            <span className="text-xs font-black text-slate-500 tabular-nums">No metrics</span>
+                                            <span className="text-xs font-black text-slate-500 dark:text-slate-400 tabular-nums">No metrics</span>
                                         </div>
                                         <div className="flex justify-between items-center">
                                             <div className="flex items-center gap-2">
                                                 <Activity className="h-3 w-3 text-emerald-400" />
-                                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Latency</span>
+                                                <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Latency</span>
                                             </div>
-                                            <span className="text-xs font-black text-slate-500 tabular-nums">No metrics</span>
+                                            <span className="text-xs font-black text-slate-500 dark:text-slate-400 tabular-nums">No metrics</span>
                                         </div>
                                     </div>
 
