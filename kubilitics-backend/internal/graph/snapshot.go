@@ -150,7 +150,100 @@ func (s *GraphSnapshot) buildFailurePath(targetKey, affectedKey string) []models
 }
 
 // ComputeBlastRadius performs the full blast-radius analysis for a target resource.
+// It defaults to workload-deletion failure mode for backward compatibility.
 func (s *GraphSnapshot) ComputeBlastRadius(target models.ResourceRef) (*models.BlastRadiusResult, error) {
+	return s.ComputeBlastRadiusWithMode(target, FailureModeWorkloadDeletion)
+}
+
+// ComputeBlastRadiusWithMode performs the full blast-radius analysis for a target resource
+// under the specified failure mode.
+func (s *GraphSnapshot) ComputeBlastRadiusWithMode(target models.ResourceRef, failureMode string) (*models.BlastRadiusResult, error) {
+	if !ValidFailureMode(failureMode) {
+		failureMode = FailureModeWorkloadDeletion
+	}
+
+	// For namespace-deletion, delegate to the namespace-level aggregation.
+	if failureMode == FailureModeNamespaceDeletion {
+		return s.computeNamespaceDeletion(target)
+	}
+
+	return s.computeSingleResourceBlast(target, failureMode)
+}
+
+// computeNamespaceDeletion sums workload-deletion scores for all workloads in the
+// target's namespace (or the namespace itself if kind is Namespace) and caps at 100.
+func (s *GraphSnapshot) computeNamespaceDeletion(target models.ResourceRef) (*models.BlastRadiusResult, error) {
+	// Determine the namespace to delete
+	ns := target.Namespace
+	if target.Kind == "Namespace" {
+		ns = target.Name
+	}
+	if ns == "" {
+		return nil, fmt.Errorf("namespace-deletion requires a namespace context, got %s/%s/%s", target.Kind, target.Namespace, target.Name)
+	}
+
+	// Collect all workloads in the namespace
+	var totalScore float64
+	var allAffected int
+	affectedNS := make(map[string]bool)
+	var allWaves []models.BlastWave
+	var allRemediations []models.Remediation
+
+	workloadCount := 0
+	for key, ref := range s.Nodes {
+		if ref.Namespace != ns {
+			continue
+		}
+		// Only count workload-like kinds
+		switch ref.Kind {
+		case "Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "Service":
+		default:
+			continue
+		}
+		workloadCount++
+
+		result, err := s.computeSingleResourceBlast(ref, FailureModeWorkloadDeletion)
+		if err != nil {
+			continue
+		}
+		_ = key
+		totalScore += result.CriticalityScore
+		allAffected += result.TotalAffected
+		for _, w := range result.Waves {
+			for _, r := range w.Resources {
+				affectedNS[r.Namespace] = true
+			}
+		}
+		allWaves = append(allWaves, result.Waves...)
+		allRemediations = append(allRemediations, result.Remediations...)
+	}
+
+	// Cap at 100
+	if totalScore > 100.0 {
+		totalScore = 100.0
+	}
+
+	return &models.BlastRadiusResult{
+		TargetResource:     target,
+		CriticalityScore:   totalScore,
+		CriticalityLevel:   criticalityLevel(totalScore),
+		BlastRadiusPercent: 100.0, // namespace deletion affects everything in it
+		FailureMode:        FailureModeNamespaceDeletion,
+		TotalAffected:      allAffected,
+		AffectedNamespaces: len(affectedNS),
+		Waves:              ensureSlice(allWaves),
+		DependencyChain:    []models.BlastDependencyEdge{},
+		RiskIndicators:     []models.RiskIndicator{},
+		Remediations:       ensureRemediationSlice(allRemediations),
+		GraphNodeCount:     len(s.Nodes),
+		GraphEdgeCount:     len(s.Edges),
+		GraphStalenessMs:   time.Now().UnixMilli() - s.BuiltAt,
+	}, nil
+}
+
+// computeSingleResourceBlast is the core blast-radius computation for a single resource
+// under a given failure mode (pod-crash or workload-deletion).
+func (s *GraphSnapshot) computeSingleResourceBlast(target models.ResourceRef, failureMode string) (*models.BlastRadiusResult, error) {
 	key := refKey(target)
 	if _, ok := s.Nodes[key]; !ok {
 		return nil, fmt.Errorf("resource %s not found in graph", key)
@@ -210,11 +303,13 @@ func (s *GraphSnapshot) ComputeBlastRadius(target models.ResourceRef) (*models.B
 		})
 	}
 
-	// Blast radius percentage
+	// T4: Compute reachable subgraph size (bidirectional BFS — forward + reverse reachable nodes)
+	// This is the denominator for blast %, not TotalWorkloads.
 	totalAffected := len(affectedDepths)
+	reachableSubgraph := reachableSubgraphSize(s.Forward, s.Reverse, key)
 	var blastPercent float64
-	if s.TotalWorkloads > 0 {
-		blastPercent = float64(totalAffected) / float64(s.TotalWorkloads) * 100.0
+	if reachableSubgraph > 0 {
+		blastPercent = float64(totalAffected) / float64(reachableSubgraph) * 100.0
 	}
 
 	// Gather pre-computed data
@@ -263,6 +358,14 @@ func (s *GraphSnapshot) ComputeBlastRadius(target models.ResourceRef) (*models.B
 	// SPOF: single replica, no HPA, and has dependents
 	isSPOF := replicas <= 1 && !hasHPA && fanIn > 0
 
+	// T2: Apply failure mode to the base score
+	isDataStore := target.Kind == "StatefulSet"
+	score = applyFailureMode(score, failureMode, replicas)
+
+	// T5: Compute remediations
+	crossNsCount := len(affectedNS)
+	remediations := ComputeRemediations(isSPOF, hasPDB, hasHPA, replicas, fanIn, crossNsCount, isDataStore)
+
 	// Staleness
 	stalenessMs := time.Now().UnixMilli() - s.BuiltAt
 
@@ -289,6 +392,7 @@ func (s *GraphSnapshot) ComputeBlastRadius(target models.ResourceRef) (*models.B
 		CriticalityScore:   score,
 		CriticalityLevel:   criticalityLevel(score),
 		BlastRadiusPercent: blastPercent,
+		FailureMode:        failureMode,
 
 		FanIn:              fanIn,
 		FanOut:             fanOut,
@@ -305,6 +409,7 @@ func (s *GraphSnapshot) ComputeBlastRadius(target models.ResourceRef) (*models.B
 		Waves:           ensureSlice(waves),
 		DependencyChain: ensureEdgeSlice(chain),
 		RiskIndicators:  ensureRiskSlice(risks),
+		Remediations:    ensureRemediationSlice(remediations),
 
 		GraphNodeCount:   len(s.Nodes),
 		GraphEdgeCount:   len(s.Edges),
@@ -343,18 +448,60 @@ func ensureStringSlice(s []string) []string {
 	return s
 }
 
+func ensureRemediationSlice(r []models.Remediation) []models.Remediation {
+	if r == nil {
+		return []models.Remediation{}
+	}
+	return r
+}
+
 // criticalityLevel maps a numeric score (0-100) to a human-readable level.
+// Recalibrated thresholds: LOW < 20, MEDIUM 20-45, HIGH 45-70, CRITICAL > 70.
 func criticalityLevel(score float64) string {
 	switch {
-	case score >= 75:
+	case score > 70:
 		return "critical"
-	case score >= 50:
+	case score >= 45:
 		return "high"
-	case score >= 25:
+	case score >= 20:
 		return "medium"
 	default:
 		return "low"
 	}
+}
+
+// reachableSubgraphSize computes the total number of nodes reachable from startKey
+// via both forward and reverse edges (i.e., the connected component accessible from
+// the target). This is the correct denominator for blast radius percentage:
+// "X% of related resources are impacted" instead of "X% of the entire cluster."
+func reachableSubgraphSize(forward, reverse map[string]map[string]bool, startKey string) int {
+	visited := make(map[string]bool)
+	queue := []string{startKey}
+	visited[startKey] = true
+
+	for len(queue) > 0 {
+		curr := queue[0]
+		queue = queue[1:]
+
+		// Walk forward edges
+		for neighbor := range forward[curr] {
+			if !visited[neighbor] {
+				visited[neighbor] = true
+				queue = append(queue, neighbor)
+			}
+		}
+
+		// Walk reverse edges
+		for neighbor := range reverse[curr] {
+			if !visited[neighbor] {
+				visited[neighbor] = true
+				queue = append(queue, neighbor)
+			}
+		}
+	}
+
+	// Exclude the start node itself from the count
+	return len(visited) - 1
 }
 
 // GetSummary returns the top N most critical resources sorted by criticality score descending.
@@ -388,10 +535,11 @@ func (s *GraphSnapshot) GetSummary(limit int) []models.BlastRadiusSummaryEntry {
 			nsSet[s.Nodes[aKey].Namespace] = true
 		}
 
-		// Blast radius percent
+		// Blast radius percent: use reachable subgraph as denominator
 		var blastPct float64
-		if s.TotalWorkloads > 0 {
-			blastPct = float64(len(affected)) / float64(s.TotalWorkloads) * 100.0
+		subgraphSize := reachableSubgraphSize(s.Forward, s.Reverse, e.key)
+		if subgraphSize > 0 {
+			blastPct = float64(len(affected)) / float64(subgraphSize) * 100.0
 		}
 
 		replicas := s.NodeReplicas[e.key]

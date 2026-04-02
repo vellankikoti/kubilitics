@@ -5,7 +5,8 @@ type BlastRadiusResult struct {
 	TargetResource     ResourceRef           `json:"target_resource"`
 	CriticalityScore   float64               `json:"criticality_score"`    // 0-100
 	CriticalityLevel   string                `json:"criticality_level"`    // low / medium / high / critical
-	BlastRadiusPercent float64               `json:"blast_radius_percent"` // % of cluster workloads affected
+	BlastRadiusPercent float64               `json:"blast_radius_percent"` // % of reachable subgraph affected
+	FailureMode        string                `json:"failure_mode"`         // pod-crash / workload-deletion / namespace-deletion
 
 	FanIn              int                   `json:"fan_in"`               // direct dependents
 	FanOut             int                   `json:"fan_out"`              // direct dependencies
@@ -22,10 +23,19 @@ type BlastRadiusResult struct {
 	Waves              []BlastWave           `json:"waves"`
 	DependencyChain    []BlastDependencyEdge `json:"dependency_chain"`
 	RiskIndicators     []RiskIndicator       `json:"risk_indicators"`
+	Remediations       []Remediation         `json:"remediations"`
 
 	GraphNodeCount     int                   `json:"graph_node_count"`
 	GraphEdgeCount     int                   `json:"graph_edge_count"`
 	GraphStalenessMs   int64                 `json:"graph_staleness_ms"`
+}
+
+// Remediation is a suggested action to reduce the blast radius of a resource.
+type Remediation struct {
+	Type        string `json:"type"`        // "add-pdb", "increase-replicas", "add-hpa", etc.
+	Description string `json:"description"` // Human-readable
+	Priority    string `json:"priority"`    // "critical", "high", "medium", "low"
+	Impact      string `json:"impact"`      // "Reduces blast radius score by ~X points"
 }
 
 // BlastWave groups affected resources by their BFS depth from the target.

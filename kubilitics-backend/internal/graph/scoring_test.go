@@ -157,3 +157,49 @@ func TestSimplePageRank_EmptyGraph(t *testing.T) {
 		t.Errorf("empty graph should return empty map")
 	}
 }
+
+func TestComputeBaseScore_EqualsComputeCriticalityScore(t *testing.T) {
+	// computeBaseScore and computeCriticalityScore should return identical results
+	p := scoringParams{
+		pageRank:         0.5,
+		fanIn:            4,
+		crossNsCount:     3,
+		isDataStore:      true,
+		isIngressExposed: false,
+		isSPOF:           false,
+		hasHPA:           false,
+		hasPDB:           true,
+	}
+	base := computeBaseScore(p)
+	crit := computeCriticalityScore(p)
+	if base != crit {
+		t.Errorf("computeBaseScore (%.2f) should equal computeCriticalityScore (%.2f)", base, crit)
+	}
+}
+
+func TestApplyFailureMode_PodCrashAttenuates(t *testing.T) {
+	baseScore := 46.0
+
+	// 3-replica pod-crash: 46 * (1/3) = ~15.3 -> LOW
+	adjusted := applyFailureMode(baseScore, FailureModePodCrash, 3)
+	if adjusted >= 20.0 {
+		t.Errorf("pod-crash with 3 replicas: expected < 20 (LOW), got %.2f", adjusted)
+	}
+
+	// 5-replica pod-crash: 46 * (1/5) = 9.2
+	adjusted5 := applyFailureMode(baseScore, FailureModePodCrash, 5)
+	if adjusted5 >= 20.0 {
+		t.Errorf("pod-crash with 5 replicas: expected < 20, got %.2f", adjusted5)
+	}
+	if adjusted5 >= adjusted {
+		t.Errorf("5-replica pod-crash (%.2f) should be less than 3-replica (%.2f)", adjusted5, adjusted)
+	}
+}
+
+func TestApplyFailureMode_WorkloadDeletionNoAttenuation(t *testing.T) {
+	baseScore := 46.0
+	adjusted := applyFailureMode(baseScore, FailureModeWorkloadDeletion, 3)
+	if adjusted != baseScore {
+		t.Errorf("workload-deletion should not attenuate: expected %.2f, got %.2f", baseScore, adjusted)
+	}
+}
