@@ -172,8 +172,8 @@ export function TopologyToolbar({
 
   return (
     <div className="border-b border-slate-200 dark:border-slate-700 bg-card shadow-sm">
-      {/* Main toolbar row */}
-      <div className="flex items-center gap-3 px-4 py-2.5">
+      {/* Main toolbar row — wraps to two lines when space is tight */}
+      <div className="flex flex-wrap items-center gap-2 px-4 py-2">
 
         {/* ── View Mode Selector ── */}
         <ViewModeSelect value={viewMode} onChange={onViewModeChange} />
@@ -521,7 +521,7 @@ export function TopologyToolbar({
         <div className="h-7 w-px bg-gradient-to-b from-transparent via-gray-300 dark:via-slate-600 to-transparent" />
 
         {/* ── Search ── */}
-        <div className="relative flex-1 max-w-xs">
+        <div className="relative flex-1 min-w-[160px] max-w-xs">
           <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-600 dark:text-gray-400" />
           <input
             ref={searchRef}
@@ -595,7 +595,8 @@ export function TopologyToolbar({
           )}
         </div>
 
-        {/* ── Stats ── */}
+        {/* ── Stats + Actions — stay together, wrap as group ── */}
+        <div className="flex items-center gap-2 ml-auto shrink-0">
         {topology && (
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/40 dark:to-cyan-950/40 px-3 py-1.5 border border-blue-100 dark:border-blue-800 shadow-sm">
@@ -763,6 +764,7 @@ export function TopologyToolbar({
               })()}
             </DropdownMenuContent>
           </DropdownMenu>
+        </div>
         </div>
       </div>
     </div>
