@@ -548,8 +548,7 @@ export default function ClusterConnect() {
   // (single context) or show the ContextPicker (multiple contexts).
   const autoConnect = useAutoConnect();
 
-  // While auto-connect is in progress (single context → auto-connecting), show a
-  // minimal loading state so the user sees immediate feedback.
+  // While auto-connect is in progress, show branded loading.
   if (autoConnect.isDesktopMode && autoConnect.isAutoConnecting && !autoConnect.isResolved) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/30 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 gap-4">
@@ -559,12 +558,13 @@ export default function ClusterConnect() {
           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="flex flex-col items-center gap-4"
         >
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <Loader2 className="h-6 w-6 text-white animate-spin" />
+          <BrandLogo height={64} className="drop-shadow-lg mb-2" />
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+            <Loader2 className="h-5 w-5 text-white animate-spin" />
           </div>
           <div className="text-center">
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Detecting clusters...</p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Scanning kubeconfig</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Connecting to your clusters...</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Scanning kubeconfig contexts</p>
           </div>
         </motion.div>
       </div>

@@ -215,67 +215,41 @@ export function useAutoConnect(): UseAutoConnectReturn {
     }, AUTO_CONNECT_TIMEOUT_MS);
 
     (async () => {
-      let retryCount = 0;
       try {
         const baseUrl = getEffectiveBackendBaseUrl(storedBackendUrl);
 
-        // Wait for backend to be ready (Tauri sidecar cold start).
-        // Retry health check up to 6 times with 1s delay (covers ~6s cold start).
-        for (let attempt = 0; attempt < 10; attempt++) {
-          try {
-            const resp = await fetch(`${baseUrl || ''}/api/v1/health`, { signal: controller.signal });
-            if (resp.ok) break;
-          } catch {
-            // Backend not ready yet
-          }
-          if (controller.signal.aborted) return;
-          await new Promise((r) => setTimeout(r, 1000));
-        }
+        // ── Phase 1: Wait for backend + discover clusters in parallel ──
+        // Don't gate on health check — try cluster discovery immediately.
+        // If backend isn't ready, discovery fails and we retry.
+        // This cuts startup from ~15s to ~3-5s.
+        const fetchContexts = async (): Promise<BackendCluster[]> => {
+          const [registeredRaw, discoveredRaw] = await Promise.all([
+            getClusters(baseUrl).catch(() => null),
+            discoverClusters(baseUrl).catch(() => null),
+          ]);
+          const registered = Array.isArray(registeredRaw) ? registeredRaw : [] as BackendCluster[];
+          const discovered = Array.isArray(discoveredRaw) ? discoveredRaw : [] as BackendCluster[];
+          const registeredContexts = new Set(registered.map((c) => c.context));
+          const unregistered = discovered.filter((d) => !registeredContexts.has(d.context));
+          return [...registered, ...unregistered];
+        };
 
-        // Fetch registered + discovered in parallel
-        const [registeredRaw, discoveredRaw] = await Promise.all([
-          getClusters(baseUrl).catch((e) => { console.warn('[auto-connect] getClusters failed:', e); return null; }),
-          discoverClusters(baseUrl).catch((e) => { console.warn('[auto-connect] discoverClusters failed:', e); return null; }),
-        ]);
-        // API may return null instead of [] — normalize to arrays
-        const registered = Array.isArray(registeredRaw) ? registeredRaw : [] as BackendCluster[];
-        const discovered = Array.isArray(discoveredRaw) ? discoveredRaw : [] as BackendCluster[];
+        // Retry loop: try every 1.5s until we get contexts or timeout fires.
+        // Covers backend cold start (sidecar spawning) without a separate
+        // health-check gate. Much faster than the old 10s health poll.
+        let allBackend: BackendCluster[] = [];
+        for (let attempt = 0; attempt < 10; attempt++) {
+          if (controller.signal.aborted) return;
+          allBackend = await fetchContexts();
+          if (allBackend.length > 0) break;
+          // Backend not ready or no contexts — wait and retry
+          await new Promise((r) => setTimeout(r, 1500));
+        }
 
         if (controller.signal.aborted) return;
 
-        // Merge: registered first, then unregistered discovered contexts
-        const registeredContexts = new Set(registered.map((c) => c.context));
-        const unregistered = discovered.filter((d) => !registeredContexts.has(d.context));
-        const allBackend = [...registered, ...unregistered];
-
         if (allBackend.length === 0) {
-          // No contexts found — backend may still be starting (cold start
-          // after update). Retry up to 3 times with 2s delay before giving up.
-          if (!controller.signal.aborted && (retryCount ?? 0) < 3) {
-            retryCount = (retryCount ?? 0) + 1;
-            await new Promise((r) => setTimeout(r, 2000));
-            // Re-fetch
-            const [r2, d2] = await Promise.all([
-              getClusters(baseUrl).catch(() => null),
-              discoverClusters(baseUrl).catch(() => null),
-            ]);
-            const reg2 = Array.isArray(r2) ? r2 : [] as BackendCluster[];
-            const disc2 = Array.isArray(d2) ? d2 : [] as BackendCluster[];
-            const regCtx2 = new Set(reg2.map((c) => c.context));
-            const unreg2 = disc2.filter((d) => !regCtx2.has(d.context));
-            const all2 = [...reg2, ...unreg2];
-            if (all2.length > 0) {
-              const allContexts = all2.map(backendToDiscovered);
-              setContexts(allContexts);
-              const current = allContexts.find((c) => c.isCurrent);
-              setSelectedContext(current?.context ?? allContexts[0]?.context ?? null);
-              clearTimeout(timeoutId);
-              setIsAutoConnecting(false);
-              setIsResolved(true);
-              return;
-            }
-          }
-          // Truly no contexts after retries
+          // Truly no contexts after ~15s of retries
           setIsAutoConnecting(false);
           setIsResolved(true);
           return;
@@ -283,15 +257,27 @@ export function useAutoConnect(): UseAutoConnectReturn {
 
         const allContexts = allBackend.map(backendToDiscovered);
 
-        // Always show context picker and let the user choose — never auto-connect
-        // silently, even with a single cluster. This avoids confusing error toasts
-        // and gives the user control over which cluster they connect to.
-        setContexts(allContexts);
+        // ── Phase 2: Single context → auto-connect, skip picker ──
+        // Like Lens: if there's only one context, just connect. No clicks.
+        if (allContexts.length === 1) {
+          const ctx = allContexts[0];
+          setContexts(allContexts);
+          setSelectedContext(ctx.context);
+          clearTimeout(timeoutId);
+          // Auto-connect immediately
+          try {
+            await connect(ctx.context);
+            // connect() navigates to /home on success
+            return;
+          } catch {
+            // Auto-connect failed — fall through to show picker
+          }
+        }
 
-        // Pre-select the current-context if available
+        // ── Phase 3: Multiple contexts → show picker ──
+        setContexts(allContexts);
         const current = allContexts.find((c) => c.isCurrent);
-        const selected = current?.context ?? allContexts[0]?.context ?? null;
-        setSelectedContext(selected);
+        setSelectedContext(current?.context ?? allContexts[0]?.context ?? null);
 
         clearTimeout(timeoutId);
         setIsAutoConnecting(false);
@@ -302,9 +288,10 @@ export function useAutoConnect(): UseAutoConnectReturn {
         setError(message);
         setIsAutoConnecting(false);
         setIsResolved(true);
-        toast.error('Auto-connect failed', {
+        toast.error('Cluster detection failed', {
           id: 'auto-connect-status',
           description: message,
+          duration: 10000,
         });
       }
     })();
