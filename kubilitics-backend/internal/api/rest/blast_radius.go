@@ -45,7 +45,18 @@ func (h *Handler) GetBlastRadius(w http.ResponseWriter, r *http.Request) {
 	}
 
 	target := models.ResourceRef{Kind: kind, Name: name, Namespace: namespace}
-	result, err := snap.ComputeBlastRadius(target)
+
+	// Optional failure_mode query parameter (defaults to workload-deletion)
+	failureMode := r.URL.Query().Get("failure_mode")
+	if failureMode == "" {
+		failureMode = graph.FailureModeWorkloadDeletion
+	}
+	if !graph.ValidFailureMode(failureMode) {
+		respondError(w, http.StatusBadRequest, "Invalid failure_mode. Must be one of: pod-crash, workload-deletion, namespace-deletion")
+		return
+	}
+
+	result, err := snap.ComputeBlastRadiusWithMode(target, failureMode)
 	if err != nil {
 		requestID := logger.FromContext(r.Context())
 		respondErrorWithCode(w, http.StatusNotFound, ErrCodeNotFound, err.Error(), requestID)

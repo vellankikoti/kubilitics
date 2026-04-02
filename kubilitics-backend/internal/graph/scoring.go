@@ -6,6 +6,23 @@ import (
 	"github.com/kubilitics/kubilitics-backend/internal/models"
 )
 
+// FailureMode describes what type of failure is being simulated.
+const (
+	FailureModePodCrash           = "pod-crash"
+	FailureModeWorkloadDeletion   = "workload-deletion"
+	FailureModeNamespaceDeletion  = "namespace-deletion"
+)
+
+// ValidFailureMode returns true if mode is a recognized failure mode string.
+func ValidFailureMode(mode string) bool {
+	switch mode {
+	case FailureModePodCrash, FailureModeWorkloadDeletion, FailureModeNamespaceDeletion:
+		return true
+	default:
+		return false
+	}
+}
+
 // scoringParams holds the inputs required to compute a criticality score.
 type scoringParams struct {
 	pageRank         float64
@@ -18,8 +35,9 @@ type scoringParams struct {
 	hasPDB           bool
 }
 
-// computeCriticalityScore returns a 0-100 criticality score from the given params.
-func computeCriticalityScore(p scoringParams) float64 {
+// computeBaseScore returns the raw 0-100 criticality score from the given params,
+// before any failure-mode replica adjustment is applied.
+func computeBaseScore(p scoringParams) float64 {
 	score := 0.0
 
 	// PageRank contribution: max 30
@@ -63,6 +81,31 @@ func computeCriticalityScore(p scoringParams) float64 {
 		score = 100.0
 	}
 	return score
+}
+
+// computeCriticalityScore returns a 0-100 criticality score from the given params.
+// This is the backward-compatible entry point that computes the base score
+// (equivalent to workload-deletion mode with no replica attenuation).
+func computeCriticalityScore(p scoringParams) float64 {
+	return computeBaseScore(p)
+}
+
+// applyFailureMode adjusts the base score according to the failure mode and replica count.
+//   - pod-crash:           score * (1 / replicas) — near-zero if replicas > 1
+//   - workload-deletion:   score * 1.0 — full impact (default)
+//   - namespace-deletion:  handled externally (sum of workload scores, capped at 100)
+func applyFailureMode(baseScore float64, failureMode string, replicas int) float64 {
+	switch failureMode {
+	case FailureModePodCrash:
+		if replicas > 1 {
+			return baseScore * (1.0 / float64(replicas))
+		}
+		return baseScore // replicas <= 1 means full impact
+	case FailureModeWorkloadDeletion, FailureModeNamespaceDeletion:
+		return baseScore
+	default:
+		return baseScore
+	}
 }
 
 // simplePageRank computes an iterative PageRank over the graph and returns
