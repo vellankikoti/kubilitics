@@ -187,7 +187,7 @@ function healthBorder(h: string | undefined): string {
   if (h === 'healthy') return '2px solid #34A85330';
   if (h === 'warning') return '2px solid #FBBC0440';
   if (h === 'critical') return '2px solid #EA433540';
-  return '2px solid #E8EAED';
+  return '2px solid hsl(var(--border))';
 }
 
 // ─── Application View Tiers ──────────────────────────────────────────────────
@@ -234,7 +234,7 @@ function UnifiedNode({ data, selected }: NodeProps<Node<TopologyNodeData>>) {
     <div style={{
       width: isPod ? 160 : 192,
       borderRadius: 12,
-      background: '#FFFFFF',
+      background: 'hsl(var(--card))',
       border: selected ? `2px solid ${grad.from}` : healthBorder(health),
       boxShadow: selected
         ? `0 0 0 1px ${grad.from}30, 0 8px 24px rgba(0,0,0,0.12)`
@@ -291,7 +291,7 @@ function UnifiedNode({ data, selected }: NodeProps<Node<TopologyNodeData>>) {
 
         {/* Resource name */}
         <div style={{
-          fontSize: 12, fontWeight: 600, color: '#1A1A1A',
+          fontSize: 12, fontWeight: 600, color: 'hsl(var(--foreground))',
           fontFamily: '"Inter", system-ui, sans-serif',
           lineHeight: 1.3,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
@@ -302,7 +302,7 @@ function UnifiedNode({ data, selected }: NodeProps<Node<TopologyNodeData>>) {
         {/* Namespace */}
         {topologyNode.namespace && (
           <div style={{
-            fontSize: 10, color: '#6B7280', marginTop: 1,
+            fontSize: 10, color: 'hsl(var(--muted-foreground))', marginTop: 1,
             fontFamily: '"Inter", system-ui, sans-serif',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
@@ -683,7 +683,7 @@ function TierLabel({ label, y }: { label: string; y: number }) {
       zIndex: 5,
     }}>
       <span style={{
-        fontSize: 10, fontWeight: 700, color: '#6B7280',
+        fontSize: 10, fontWeight: 700, color: 'hsl(var(--muted-foreground))',
         textTransform: 'uppercase', letterSpacing: '0.06em',
         fontFamily: '"Inter", system-ui, sans-serif',
       }}>
@@ -728,10 +728,10 @@ function DetailPanel({
       exit={{ opacity: 0, x: 16 }}
       style={{
         position: 'absolute', top: 16, right: 16, width: 320,
-        background: 'rgba(255,255,255,0.97)',
+        background: 'hsl(var(--card) / 0.97)',
         backdropFilter: 'blur(16px)',
         borderRadius: 16,
-        border: '1px solid rgba(0,0,0,0.08)',
+        border: '1px solid hsl(var(--border))',
         boxShadow: '0 16px 48px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04)',
         overflow: 'hidden',
         zIndex: 30,
@@ -804,24 +804,24 @@ function DetailPanel({
 
       {/* Metrics */}
       {(node.computed?.cpuUsage != null || node.computed?.memoryUsage != null || node.computed?.restartCount != null) && (
-        <div style={{ padding: '12px 18px', borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+        <div style={{ padding: '12px 18px', borderBottom: '1px solid hsl(var(--border))' }}>
           <div style={{ display: 'flex', gap: 16 }}>
             {node.computed?.cpuUsage != null && (
               <div>
-                <div style={{ fontSize: 9, color: '#6B7280', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>CPU</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#1A1A1A', fontFamily: 'monospace' }}>{node.computed.cpuUsage}%</div>
+                <div style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>CPU</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'hsl(var(--foreground))', fontFamily: 'monospace' }}>{node.computed.cpuUsage}%</div>
               </div>
             )}
             {node.computed?.memoryUsage != null && (
               <div>
-                <div style={{ fontSize: 9, color: '#6B7280', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>Memory</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: '#1A1A1A', fontFamily: 'monospace' }}>{node.computed.memoryUsage}%</div>
+                <div style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>Memory</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'hsl(var(--foreground))', fontFamily: 'monospace' }}>{node.computed.memoryUsage}%</div>
               </div>
             )}
             {node.computed?.restartCount != null && (
               <div>
-                <div style={{ fontSize: 9, color: '#6B7280', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>Restarts</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: node.computed.restartCount > 3 ? '#EA4335' : '#1A1A1A', fontFamily: 'monospace' }}>{node.computed.restartCount}</div>
+                <div style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', fontWeight: 600, letterSpacing: '0.05em' }}>Restarts</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: node.computed.restartCount > 3 ? 'hsl(var(--destructive))' : 'hsl(var(--foreground))', fontFamily: 'monospace' }}>{node.computed.restartCount}</div>
               </div>
             )}
           </div>
@@ -831,7 +831,7 @@ function DetailPanel({
       {/* Relationships */}
       {relatedNodes.length > 0 && (
         <div style={{ padding: '12px 18px' }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
             Related ({relatedNodes.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -844,12 +844,12 @@ function DetailPanel({
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8,
                     padding: '5px 8px', borderRadius: 8,
-                    background: 'rgba(0,0,0,0.02)', border: '1px solid rgba(0,0,0,0.04)',
+                    background: 'hsl(var(--muted) / 0.3)', border: '1px solid hsl(var(--border))',
                     cursor: 'pointer', textAlign: 'left', width: '100%',
                     transition: 'background 0.15s',
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.05)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(0,0,0,0.02)')}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'hsl(var(--muted) / 0.5)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'hsl(var(--muted) / 0.3)')}
                 >
                   <div style={{
                     background: `${rg.from}15`, borderRadius: 4, padding: 3,
@@ -858,10 +858,10 @@ function DetailPanel({
                     <KindIcon kind={rn.kind} size={10} />
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: '#1A1A1A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'hsl(var(--foreground))', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {rn.name}
                     </div>
-                    <div style={{ fontSize: 9, color: '#9AA0A6' }}>{rn.kind}</div>
+                    <div style={{ fontSize: 9, color: 'hsl(var(--muted-foreground))' }}>{rn.kind}</div>
                   </div>
                   <div style={{ width: 5, height: 5, borderRadius: '50%', background: healthColor(rn.computed?.health), flexShrink: 0 }} />
                 </button>
@@ -1056,7 +1056,7 @@ function TopologyInner({ graph }: { graph: TopologyGraph }) {
   return (
     <div style={{
       position: 'relative', width: '100%', height: '100%',
-      background: '#FAFBFC',
+      background: 'hsl(var(--background))',
       fontFamily: '"Inter", system-ui, sans-serif',
       overflow: 'hidden',
     }}>
@@ -1081,24 +1081,24 @@ function TopologyInner({ graph }: { graph: TopologyGraph }) {
           type: 'structural',
         }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(0,0,0,0.04)" />
+        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="hsl(var(--muted-foreground) / 0.2)" />
         <Controls
           showZoom
           showFitView
           showInteractive={false}
           style={{
-            background: 'rgba(255,255,255,0.9)',
+            background: 'hsl(var(--card) / 0.9)',
             backdropFilter: 'blur(8px)',
             borderRadius: 10,
-            border: '1px solid rgba(0,0,0,0.08)',
+            border: '1px solid hsl(var(--border))',
             boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
           }}
         />
         <MiniMap
           style={{
-            background: 'rgba(255,255,255,0.9)',
+            background: 'hsl(var(--card) / 0.9)',
             borderRadius: 10,
-            border: '1px solid rgba(0,0,0,0.08)',
+            border: '1px solid hsl(var(--border))',
             boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
           }}
           maskColor="rgba(0,0,0,0.06)"
@@ -1110,10 +1110,10 @@ function TopologyInner({ graph }: { graph: TopologyGraph }) {
         <Panel position="top-center">
           <div style={{
             display: 'flex', alignItems: 'center', gap: 2,
-            background: 'rgba(255,255,255,0.95)',
+            background: 'hsl(var(--card) / 0.95)',
             backdropFilter: 'blur(16px)',
             borderRadius: 12,
-            border: '1px solid rgba(0,0,0,0.08)',
+            border: '1px solid hsl(var(--border))',
             boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
             padding: 3,
           }}>
@@ -1132,12 +1132,12 @@ function TopologyInner({ graph }: { graph: TopologyGraph }) {
                     cursor: 'pointer',
                     fontSize: 12,
                     fontWeight: isActive ? 700 : 500,
-                    color: isActive ? '#fff' : '#4B5563',
-                    background: isActive ? '#1A1A1A' : 'transparent',
+                    color: isActive ? 'hsl(var(--primary-foreground))' : 'hsl(var(--muted-foreground))',
+                    background: isActive ? 'hsl(var(--primary))' : 'transparent',
                     transition: 'all 0.2s ease',
                     fontFamily: '"Inter", system-ui, sans-serif',
                   }}
-                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'rgba(0,0,0,0.04)'; }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.background = 'hsl(var(--muted) / 0.5)'; }}
                   onMouseLeave={e => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
                 >
                   <Icon size={14} />
@@ -1152,18 +1152,18 @@ function TopologyInner({ graph }: { graph: TopologyGraph }) {
         <Panel position="bottom-left">
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12,
-            background: 'rgba(255,255,255,0.92)',
+            background: 'hsl(var(--card) / 0.92)',
             backdropFilter: 'blur(12px)',
             borderRadius: 10,
-            border: '1px solid rgba(0,0,0,0.06)',
+            border: '1px solid hsl(var(--border))',
             padding: '6px 14px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
             fontSize: 11,
-            color: '#6B7280',
+            color: 'hsl(var(--muted-foreground))',
             fontFamily: '"Inter", system-ui, sans-serif',
           }}>
-            <span style={{ fontWeight: 600, color: '#1A1A1A' }}>{viewNodes.length}</span> resources
-            <span style={{ width: 1, height: 12, background: 'rgba(0,0,0,0.1)' }} />
+            <span style={{ fontWeight: 600, color: 'hsl(var(--foreground))' }}>{viewNodes.length}</span> resources
+            <span style={{ width: 1, height: 12, background: 'hsl(var(--border))' }} />
             <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
               <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#34A853' }} />
               {stats.healthy}
@@ -1182,13 +1182,13 @@ function TopologyInner({ graph }: { graph: TopologyGraph }) {
             )}
             {focusNodeId && (
               <>
-                <span style={{ width: 1, height: 12, background: 'rgba(0,0,0,0.1)' }} />
-                <span style={{ color: '#4A7EC4', fontWeight: 600 }}>Focus mode</span>
+                <span style={{ width: 1, height: 12, background: 'hsl(var(--border))' }} />
+                <span style={{ color: 'hsl(var(--primary))', fontWeight: 600 }}>Focus mode</span>
                 <button
                   onClick={() => { setFocusNodeId(null); setSelectedNode(null); }}
                   style={{
-                    background: 'rgba(0,0,0,0.06)', border: 'none', borderRadius: 4,
-                    padding: '1px 5px', cursor: 'pointer', fontSize: 10, color: '#6B7280',
+                    background: 'hsl(var(--muted))', border: 'none', borderRadius: 4,
+                    padding: '1px 5px', cursor: 'pointer', fontSize: 10, color: 'hsl(var(--muted-foreground))',
                   }}
                 >
                   Clear
@@ -1202,7 +1202,7 @@ function TopologyInner({ graph }: { graph: TopologyGraph }) {
         <Panel position="bottom-center">
           <div style={{
             display: 'flex', alignItems: 'center', gap: 10,
-            fontSize: 10, color: '#9AA0A6',
+            fontSize: 10, color: 'hsl(var(--muted-foreground))',
             fontFamily: '"Inter", system-ui, sans-serif',
           }}>
             {[
@@ -1214,7 +1214,7 @@ function TopologyInner({ graph }: { graph: TopologyGraph }) {
             ].map(([key, label]) => (
               <span key={key} style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 <kbd style={{
-                  fontSize: 9, background: 'rgba(0,0,0,0.05)', border: '1px solid rgba(0,0,0,0.08)',
+                  fontSize: 9, background: 'hsl(var(--muted))', border: '1px solid hsl(var(--border))',
                   borderRadius: 3, padding: '0px 4px', fontFamily: '"Inter", system-ui, sans-serif',
                 }}>{key}</kbd>
                 <span>{label}</span>
@@ -1229,10 +1229,10 @@ function TopologyInner({ graph }: { graph: TopologyGraph }) {
         <div style={{
           position: 'absolute', top: 16, right: 16,
           display: 'flex', alignItems: 'center', gap: 8,
-          background: 'rgba(255,255,255,0.95)', borderRadius: 10,
+          background: 'hsl(var(--card) / 0.95)', borderRadius: 10,
           padding: '8px 14px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-          border: '1px solid rgba(0,0,0,0.06)', zIndex: 25,
-          fontSize: 12, color: '#6B7280',
+          border: '1px solid hsl(var(--border))', zIndex: 25,
+          fontSize: 12, color: 'hsl(var(--muted-foreground))',
         }}>
           <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
           Computing layout...
@@ -1261,7 +1261,7 @@ function EmptyState() {
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       height: '100%', gap: 16,
-      background: '#FAFBFC',
+      background: 'hsl(var(--background))',
       fontFamily: '"Inter", system-ui, sans-serif',
     }}>
       <div style={{
@@ -1273,10 +1273,10 @@ function EmptyState() {
         <Network size={26} style={{ color: '#fff' }} />
       </div>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 17, fontWeight: 700, color: '#1A1A1A', marginBottom: 6 }}>
+        <div style={{ fontSize: 17, fontWeight: 700, color: 'hsl(var(--foreground))', marginBottom: 6 }}>
           Cluster Topology
         </div>
-        <div style={{ fontSize: 13, color: '#6B7280' }}>
+        <div style={{ fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>
           Connect to a cluster to visualize your resources
         </div>
       </div>
