@@ -359,6 +359,15 @@ export function ResourceTopologyV2View({
       <div className={presentationMode ? "flex h-full" : "flex h-[calc(100%-3.5rem)]"}>
         {/* React Flow Canvas */}
         <div className="relative flex-1 min-h-0">
+          {/* Refetch overlay — shows when switching depth level */}
+          {isFetching && !isLoading && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/40 backdrop-blur-[1px] pointer-events-none">
+              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-card shadow-lg border border-border">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span className="text-sm font-medium text-foreground">Updating topology...</span>
+              </div>
+            </div>
+          )}
           <TopologyCanvas
             key={expandedFullScreen ? 'normal-while-fullscreen' : 'normal'}
             topology={topology}
