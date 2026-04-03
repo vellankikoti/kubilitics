@@ -6,7 +6,7 @@
  *   2. Level filter checkboxes
  *   3. Sortable, expandable table of namespace risk rankings
  */
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ShieldAlert,
@@ -22,7 +22,14 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { ListPagination } from '@/components/list/ListPagination';
 import { SectionOverviewHeader } from '@/components/layout/SectionOverviewHeader';
 import { ConnectionRequiredBanner } from '@/components/layout/ConnectionRequiredBanner';
 import { PageLoadingState } from '@/components/PageLoadingState';
@@ -31,6 +38,8 @@ import { useBackendConfigStore } from '@/stores/backendConfigStore';
 import type { NamespaceRisk } from '@/services/api/clusterHealth';
 
 /* ─── Constants ───────────────────────────────────────────────────────────── */
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
 const LEVEL_BADGE_STYLES: Record<string, string> = {
   critical:
@@ -241,6 +250,10 @@ export default function RiskRanking() {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [enabledLevels, setEnabledLevels] = useState<Set<string>>(new Set(ALL_LEVELS));
 
+  // Pagination State
+  const [pageSize, setPageSize] = useState(10);
+  const [pageIndex, setPageIndex] = useState(0);
+
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const { data, isLoading, error } = useRiskRanking(currentClusterId);
 
@@ -316,6 +329,35 @@ export default function RiskRanking() {
     });
     return sorted;
   }, [data?.namespaces, sortKey, sortDir, enabledLevels]);
+
+  // Calculate pagination
+  const totalFiltered = filteredAndSorted.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+  const safePageIndex = Math.min(pageIndex, totalPages - 1);
+  const start = safePageIndex * pageSize;
+  const itemsOnPage = filteredAndSorted.slice(start, start + pageSize);
+
+  useEffect(() => {
+    if (safePageIndex !== pageIndex) setPageIndex(safePageIndex);
+  }, [safePageIndex, pageIndex]);
+
+  const handlePageSizeChange = (size: number) => {
+    setPageSize(size);
+    setPageIndex(0);
+  };
+
+  const pagination = {
+    rangeLabel: totalFiltered > 0
+      ? `Showing ${start + 1}\u2013${Math.min(start + pageSize, totalFiltered)} of ${totalFiltered}`
+      : 'No namespaces',
+    hasPrev: safePageIndex > 0,
+    hasNext: start + pageSize < totalFiltered,
+    onPrev: () => setPageIndex((i) => Math.max(0, i - 1)),
+    onNext: () => setPageIndex((i) => Math.min(totalPages - 1, i + 1)),
+    currentPage: safePageIndex + 1,
+    totalPages: Math.max(1, totalPages),
+    onPageChange: (p: number) => setPageIndex(Math.max(0, Math.min(p - 1, totalPages - 1))),
+  };
 
   const generatedAt = data?.generated_at
     ? new Date(data.generated_at).toLocaleString()
@@ -458,11 +500,11 @@ export default function RiskRanking() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/30">
-                {filteredAndSorted.map((ns, i) => (
+                {itemsOnPage.map((ns, i) => (
                   <RiskRow
                     key={ns.namespace}
                     ns={ns}
-                    rank={i + 1}
+                    rank={start + i + 1}
                     isExpanded={expandedNs.has(ns.namespace)}
                     onToggle={() => toggleExpand(ns.namespace)}
                   />
@@ -494,30 +536,41 @@ export default function RiskRanking() {
             </table>
           </div>
 
-          {/* Footer stats */}
+          {/* Pagination Footer */}
           {filteredAndSorted.length > 0 && (
-            <div className="p-4 border-t border-border/50 bg-muted/20 flex items-center justify-between">
-              <span className="text-xs text-muted-foreground">
-                Showing {filteredAndSorted.length} of {data?.namespaces?.length ?? 0} namespaces
-              </span>
-              <div className="flex items-center gap-3">
-                {ALL_LEVELS.map((level) => {
-                  const count = data?.namespaces?.filter((ns) => ns.level === level).length ?? 0;
-                  if (count === 0) return null;
-                  return (
-                    <Badge
-                      key={level}
-                      variant="outline"
-                      className={cn(
-                        'text-[10px] uppercase tracking-wider font-semibold tabular-nums',
-                        LEVEL_BADGE_STYLES[level],
-                      )}
-                    >
-                      {count} {LEVEL_LABELS[level]}
-                    </Badge>
-                  );
-                })}
+            <div className="p-4 border-t border-border/50 bg-muted/20 flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-4">
+                <span className="text-sm text-muted-foreground">{pagination.rangeLabel}</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="press-effect gap-2">
+                      {pageSize} per page
+                      <ChevronDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    {PAGE_SIZE_OPTIONS.map((size) => (
+                      <DropdownMenuItem
+                        key={size}
+                        onClick={() => handlePageSizeChange(size)}
+                        className={cn(pageSize === size && 'bg-accent')}
+                      >
+                        {size} per page
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
+              <ListPagination
+                hasPrev={pagination.hasPrev}
+                hasNext={pagination.hasNext}
+                onPrev={pagination.onPrev}
+                onNext={pagination.onNext}
+                rangeLabel={undefined}
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                onPageChange={pagination.onPageChange}
+              />
             </div>
           )}
         </Card>
