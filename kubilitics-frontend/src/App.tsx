@@ -40,6 +40,12 @@ const ComparisonView = lazy(() => import("./pages/ComparisonView"));
 const GoldenTemplateConfig = lazy(() => import("./pages/GoldenTemplateConfig"));
 const DRReadinessView = lazy(() => import("./pages/DRReadinessView"));
 
+// Intelligence Layer (Pillar 2 features)
+const HealthDashboard = lazy(() => import("./pages/HealthDashboard"));
+const RiskRanking = lazy(() => import("./pages/RiskRanking"));
+const SPOFInventory = lazy(() => import("./pages/SPOFInventory"));
+const ReportSchedules = lazy(() => import("./pages/ReportSchedules"));
+
 // Pillar 3: What-If Simulation
 const SimulationPage = lazy(() => import("./pages/SimulationPage"));
 
@@ -715,6 +721,12 @@ const App = () => (
                         <Route path="/fleet/xray/compare" element={<ComparisonView />} />
                         <Route path="/fleet/xray/templates" element={<GoldenTemplateConfig />} />
                         <Route path="/fleet/xray/dr" element={<DRReadinessView />} />
+
+                        {/* Intelligence Layer */}
+                        <Route path="/health" element={<HealthDashboard />} />
+                        <Route path="/risk-ranking" element={<RiskRanking />} />
+                        <Route path="/spof-inventory" element={<SPOFInventory />} />
+                        <Route path="/report-schedules" element={<ReportSchedules />} />
 
                         {/* Pillar 3: What-If Simulation */}
                         <Route path="/simulation" element={<SimulationPage />} />
