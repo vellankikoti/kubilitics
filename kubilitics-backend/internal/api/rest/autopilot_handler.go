@@ -40,7 +40,7 @@ func (h *Handler) GetAutoPilotFindings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	engine := h.getGraphEngine(clusterID)
+	engine := h.getOrStartGraphEngine(r, clusterID)
 	if engine == nil {
 		respondError(w, http.StatusServiceUnavailable, "Graph engine not available for this cluster")
 		return

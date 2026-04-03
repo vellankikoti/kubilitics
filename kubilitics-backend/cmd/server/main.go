@@ -23,6 +23,7 @@ import (
 	grpcapi "github.com/kubilitics/kubilitics-backend/internal/api/grpc"
 	"github.com/kubilitics/kubilitics-backend/internal/api/middleware"
 	"github.com/kubilitics/kubilitics-backend/internal/api/rest"
+	"github.com/kubilitics/kubilitics-backend/internal/autopilot"
 	"github.com/kubilitics/kubilitics-backend/internal/api/websocket"
 	"github.com/kubilitics/kubilitics-backend/internal/addon/helm"
 	"github.com/kubilitics/kubilitics-backend/internal/addon/lifecycle"
@@ -513,13 +514,22 @@ func main() {
 	}
 	router := mux.NewRouter()
 	router.UseEncodedPath()
-	snapshotStore, err := diff.NewSQLiteSnapshotStore(repo.DB())
+	var snapshotStore diff.SnapshotStore
+	sqliteStore, err := diff.NewSQLiteSnapshotStore(repo.DB())
 	if err != nil {
-		log.Error("Failed to initialize topology snapshot store", "error", err)
-		os.Exit(1)
+		log.Warn("Failed to initialize SQLite snapshot store, falling back to in-memory", "error", err)
+		snapshotStore = diff.NewInMemorySnapshotStore()
+	} else {
+		snapshotStore = sqliteStore
 	}
 	handler := rest.NewHandler(clusterService, topologyService, cfg, logsService, eventsService, metricsService, unifiedMetricsService, projectService, addonSvc, repo, graphEngines, snapshotStore)
 	authHandler := rest.NewAuthHandler(repo, cfg)
+
+	// Auto-Pilot initialization
+	apRegistry := autopilot.NewRuleRegistry()
+	apRepo := autopilot.NewMemRepository()
+	apScheduler := autopilot.NewScheduler(apRegistry, nil, nil, nil, apRepo, graphEngines, 0)
+	rest.InitAutoPilot(apScheduler, apRepo, apRegistry)
 	
 	// OIDC handler (Phase 2: Enterprise Authentication)
 	oidcHandler, err := rest.NewOIDCHandler(cfg, repo)
