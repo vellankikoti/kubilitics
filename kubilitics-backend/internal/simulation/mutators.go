@@ -109,9 +109,19 @@ func nodeFailure(snap *graph.GraphSnapshot, nodeName string) error {
 	// OR pods whose name starts with the node name (for clusters without Node objects in the graph).
 	var podsToRemove []string
 
-	// Build a set of node keys that match
-	nodeKey := fmt.Sprintf("Node//%s", nodeName) // Node keys have empty namespace
+	// Build a set of node keys that match.
+	// Node is cluster-scoped — try both "Node/<name>" and "Node//<name>" formats
+	// since graph builders may use either convention.
+	nodeKey := fmt.Sprintf("Node/%s", nodeName)
 	_, nodeInGraph := snap.Nodes[nodeKey]
+	if !nodeInGraph {
+		// Try with empty namespace separator
+		altKey := fmt.Sprintf("Node//%s", nodeName)
+		if _, ok := snap.Nodes[altKey]; ok {
+			nodeKey = altKey
+			nodeInGraph = true
+		}
+	}
 
 	for key, ref := range snap.Nodes {
 		if ref.Kind != "Pod" {
