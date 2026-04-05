@@ -52,7 +52,7 @@ export default function ModeSelection() {
     };
 
     return (
-        <div className="relative min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/30 dark:from-[hsl(228,14%,7%)] dark:via-[hsl(228,14%,9%)] dark:to-[hsl(228,14%,11%)] text-foreground overflow-hidden flex flex-col items-center justify-center px-6 py-4 md:px-8 md:py-6">
+        <div className="relative min-h-screen bg-gradient-to-b from-slate-50 via-white to-blue-50/30 dark:from-background dark:via-background dark:to-muted/30 text-foreground overflow-hidden flex flex-col items-center justify-center px-6 py-4 md:px-8 md:py-6">
             {/* Ambient light orbs */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
                 <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-blue-200/20 dark:bg-blue-900/20 rounded-full blur-[120px]" />
@@ -111,9 +111,9 @@ export default function ModeSelection() {
                             tabIndex={0}
                             aria-label="Launch Personal desktop mode — runs locally on your machine"
                             className={cn(
-                                "group relative h-full bg-white dark:bg-[hsl(228,14%,11%)] border border-slate-200/80 dark:border-slate-700/60 cursor-pointer overflow-hidden p-6 md:p-7 rounded-2xl transition-all duration-500",
+                                "group relative h-full bg-white dark:bg-card border border-slate-200/80 dark:border-slate-700/60 cursor-pointer overflow-hidden p-6 md:p-7 rounded-2xl transition-all duration-500",
                                 "hover:border-blue-300/60 dark:hover:border-blue-500/40 hover:-translate-y-1",
-                                "focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[hsl(228,14%,7%)]",
+                                "focus-visible:ring-2 focus-visible:ring-blue-500/50 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-background",
                                 hoveredCard === 'desktop' ? 'shadow-[0_16px_48px_-12px_rgba(59,130,246,0.15)] dark:shadow-[0_16px_48px_-12px_rgba(59,130,246,0.25)]' : 'shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_-4px_rgba(0,0,0,0.3)]',
                             )}
                         >
@@ -168,9 +168,9 @@ export default function ModeSelection() {
                             tabIndex={0}
                             aria-label="Deploy Team Server mode — deployed to your Kubernetes cluster"
                             className={cn(
-                                "group relative h-full bg-white dark:bg-[hsl(228,14%,11%)] border border-slate-200/80 dark:border-slate-700/60 cursor-pointer overflow-hidden p-6 md:p-7 rounded-2xl transition-all duration-500",
+                                "group relative h-full bg-white dark:bg-card border border-slate-200/80 dark:border-slate-700/60 cursor-pointer overflow-hidden p-6 md:p-7 rounded-2xl transition-all duration-500",
                                 "hover:border-purple-300/60 dark:hover:border-purple-500/40 hover:-translate-y-1",
-                                "focus-visible:ring-2 focus-visible:ring-purple-500/50 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[hsl(228,14%,7%)]",
+                                "focus-visible:ring-2 focus-visible:ring-purple-500/50 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-background",
                                 hoveredCard === 'cluster' ? 'shadow-[0_16px_48px_-12px_rgba(147,51,234,0.15)] dark:shadow-[0_16px_48px_-12px_rgba(147,51,234,0.25)]' : 'shadow-[0_4px_24px_-4px_rgba(0,0,0,0.06)] dark:shadow-[0_4px_24px_-4px_rgba(0,0,0,0.3)]',
                             )}
                         >
@@ -251,7 +251,7 @@ export default function ModeSelection() {
 
             {/* Comparison Dialog */}
             <Dialog open={showComparison} onOpenChange={setShowComparison}>
-                <DialogContent className="max-w-4xl bg-white dark:bg-[hsl(228,14%,11%)] border-slate-200 dark:border-slate-700 text-foreground rounded-3xl p-8 md:p-12 shadow-2xl overflow-hidden">
+                <DialogContent className="max-w-4xl bg-white dark:bg-card border-slate-200 dark:border-slate-700 text-foreground rounded-3xl p-8 md:p-12 shadow-2xl overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 opacity-60" aria-hidden="true" />
 
                     <DialogHeader className="mb-8">

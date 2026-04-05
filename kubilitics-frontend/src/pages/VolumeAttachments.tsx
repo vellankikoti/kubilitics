@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search,
  RefreshCw,
@@ -286,7 +287,7 @@ export default function VolumeAttachments() {
 
  return (
  <>
- <div className="space-y-6">
+ <PageLayout label="Volume Attachments">
  <ListPageHeader
  icon={<StorageIcon className="h-6 w-6 text-primary" />}
  title="Volume Attachments"
@@ -506,7 +507,7 @@ export default function VolumeAttachments() {
  </Table>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
 
  {showCreateWizard && <ResourceCreator resourceKind="VolumeAttachment" defaultYaml={DEFAULT_YAMLS.VolumeAttachment} onClose={() => setShowCreateWizard(false)} onApply={() => { toast.success('VolumeAttachment created'); setShowCreateWizard(false); refetch(); }} />}
  <DeleteConfirmDialog

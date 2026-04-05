@@ -51,6 +51,7 @@ const ClusterShellPanel = lazy(() =>
 // Wizards removed — resource creation handled by ResourceCreator in list pages
 import { NotificationCenter } from '@/components/notifications/NotificationCenter';
 import { ActivePortForwardsIndicator } from '@/components/resources/ActivePortForwards';
+import { PipelineHealthIndicator } from '@/components/events/PipelineHealthIndicator';
 import { getClusterKubeconfig } from '@/services/backendApiClient';
 import { getEffectiveBackendBaseUrl, useBackendConfigStore } from '@/stores/backendConfigStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -76,14 +77,14 @@ const statusColors: Record<string, string> = {
   error: 'bg-red-500',
 };
 
-/** Header height — keep in sync with Sidebar's calc(100vh - 5rem) */
-export const HEADER_HEIGHT_CLASS = 'h-20';
+/** Header height — keep in sync with Sidebar's calc(100vh - 3.5rem) */
+export const HEADER_HEIGHT_CLASS = 'h-14';
 
 /* ─── Design tokens: balanced, readable controls ─── */
 
 /** Secondary action — Cluster (same treatment) */
 const BTN = cn(
-  'h-11 px-5 rounded-xl',
+  'h-9 px-4 rounded-xl',
   'inline-flex items-center justify-center gap-2',
   'text-[13px] font-semibold leading-none',
   'border border-slate-200/50 bg-white/40 text-slate-700',
@@ -97,7 +98,7 @@ const BTN = cn(
 
 /** Feature actions — Shell, Kubeconfig: clear button treatment and value proposition */
 const FEATURE_BTN = cn(
-  'h-11 px-5 rounded-xl',
+  'h-9 px-4 rounded-xl',
   'inline-flex items-center justify-center gap-2',
   'text-[13px] font-bold leading-none',
   'border border-slate-200/40 bg-slate-50/40 text-slate-800',
@@ -111,9 +112,9 @@ const FEATURE_BTN = cn(
 
 /** Icon or labelled button (Notifications, etc.) */
 const ICON_BTN = cn(
-  'h-11 min-w-[2.75rem] rounded-xl',
+  'h-9 min-w-[2.25rem] rounded-xl',
   'inline-flex items-center justify-center gap-2',
-  'text-slate-500 dark:text-slate-400',
+  'text-muted-foreground',
   'hover:bg-slate-100/60 hover:text-slate-900 hover:translate-y-[-0.5px]',
   'dark:hover:bg-slate-700/60 dark:hover:text-slate-100',
   'transition-all duration-300 ease-spring',
@@ -308,15 +309,15 @@ export function Header() {
 
   return (
     <>
-      <header className={cn(HEADER_HEIGHT_CLASS, 'border-b border-slate-100 dark:border-slate-800 bg-white/60 dark:bg-[hsl(228,14%,9%)]/80 backdrop-blur-3xl shrink-0 shadow-[0_1px_3px_rgba(0,0,0,0.02)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-all duration-300 sticky top-0 z-50')} role="banner" data-tauri-drag-region>
+      <header className={cn(HEADER_HEIGHT_CLASS, 'border-b border-border/40 bg-white/60 dark:bg-[hsl(228,14%,9%)]/80 backdrop-blur-3xl shrink-0 shadow-[0_1px_3px_rgba(0,0,0,0.02)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-all duration-300 sticky top-0 z-[var(--z-sticky,50)]')} role="banner" data-tauri-drag-region>
         <div className="flex items-center h-full w-full">
 
           {/* ──── Logo zone: icon mark + wordmark, Apple-quality sizing ──── */}
           {/* Tauri overlay title bar: extra left padding for macOS traffic lights */}
           <div className={cn(
             'shrink-0 flex items-center h-full bg-slate-50/20 dark:bg-slate-900/20 border-r border-slate-100/60 dark:border-slate-800/60 transition-all duration-300',
-            collapsed ? 'w-[5.5rem] justify-center px-0' : 'w-72 justify-start pl-6 pr-4',
-            isTauri() && 'pl-[78px]'
+            collapsed ? 'w-[5.5rem] justify-center px-0' : 'w-72 justify-start pr-4',
+            'pl-[100px]'
           )} data-tauri-drag-region>
             <button
               onClick={() => navigate('/dashboard')}
@@ -326,10 +327,10 @@ export function Header() {
               <BrandLogo
                 mark
                 height={40}
-                className="shrink-0 rounded-[10px] shadow-sm group-hover:shadow-md group-hover:scale-[1.04] transition-all duration-300"
+                className="shrink-0 rounded-[10px] shadow-md group-hover:shadow-lg group-hover:scale-[1.04] transition-all duration-300"
               />
               {!collapsed && (
-                <span className="text-[15px] font-semibold tracking-[0.08em] text-slate-700 dark:text-slate-200 whitespace-nowrap select-none transition-opacity duration-300">
+                <span className="text-[17px] font-bold tracking-[0.06em] text-foreground whitespace-nowrap select-none transition-opacity duration-300">
                   KUBILITICS
                 </span>
               )}
@@ -343,8 +344,8 @@ export function Header() {
               type="button"
               onClick={() => setSearchOpen(true)}
               className={cn(
-                'flex-1 max-w-[140px] sm:max-w-xs md:max-w-md lg:max-w-xl h-11 px-3 md:px-5 flex items-center gap-3 md:gap-4 rounded-xl',
-                'bg-slate-100/40 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-700/50 text-slate-400 dark:text-slate-500',
+                'flex-1 max-w-[140px] sm:max-w-xs md:max-w-md lg:max-w-xl h-9 px-3 md:px-4 flex items-center gap-3 md:gap-4 rounded-xl',
+                'bg-slate-100/40 dark:bg-slate-800/40 backdrop-blur-sm border border-slate-100 dark:border-slate-700/50 text-muted-foreground',
                 'hover:bg-slate-100/60 hover:border-slate-200 hover:text-slate-600 dark:hover:bg-slate-700/40 dark:hover:border-slate-600 dark:hover:text-slate-300',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/10',
                 'transition-all duration-300 group press-effect'
@@ -352,7 +353,7 @@ export function Header() {
             >
               <Search className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors duration-300" />
               <span className="flex-1 text-left text-[13px] font-semibold tracking-tight hidden md:block">Search resources...</span>
-              <kbd className="hidden sm:inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200/60 dark:border-slate-700/60 bg-white dark:bg-slate-800 px-2.5 font-mono text-[9px] font-bold text-slate-400 dark:text-slate-500 shrink-0 shadow-sm">
+              <kbd className="hidden sm:inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200/60 dark:border-slate-700/60 bg-white dark:bg-slate-800 px-2.5 font-mono text-[9px] font-bold text-muted-foreground shrink-0 shadow-sm">
                 <Command className="h-2.5 w-2.5" />K
               </kbd>
             </button>
@@ -447,7 +448,7 @@ export function Header() {
                                     style={{ backgroundColor: envTag ? ENV_DOT_COLORS[envTag] : ca.color }}
                                   />
                                   <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-tight flex items-center gap-2 flex-wrap">
+                                    <div className="text-sm font-bold text-foreground tracking-tight flex items-center gap-2 flex-wrap">
                                       {displayName}
                                       {envTag && (
                                         <span className={cn('text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border', ENV_BADGE_CLASSES[envTag])}>
@@ -455,7 +456,7 @@ export function Header() {
                                         </span>
                                       )}
                                     </div>
-                                    <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mt-0.5">{cluster.region} · {cluster.provider}</div>
+                                    <div className="text-[11px] font-bold text-muted-foreground mt-0.5">{cluster.region} · {cluster.provider}</div>
                                   </div>
                                   {cluster.id === activeCluster.id && (
                                     <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
@@ -465,7 +466,7 @@ export function Header() {
                                 </DropdownMenuItem>
                               );
                             })}
-                            <DropdownMenuSeparator className="my-2 bg-slate-100/60 dark:bg-slate-700/60" />
+                            <DropdownMenuSeparator className="my-2 bg-border/60" />
                           </>
                         )}
 
@@ -503,13 +504,13 @@ export function Header() {
                                       style={{ backgroundColor: ENV_DOT_COLORS[env] }}
                                     />
                                     <div className="flex-1 min-w-0">
-                                      <div className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-tight flex items-center gap-2 flex-wrap">
+                                      <div className="text-sm font-bold text-foreground tracking-tight flex items-center gap-2 flex-wrap">
                                         {displayName}
                                         <span className={cn('text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border', ENV_BADGE_CLASSES[env])}>
                                           {ENV_LABELS[env]}
                                         </span>
                                       </div>
-                                      <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mt-0.5">{cluster.region} · {cluster.provider}</div>
+                                      <div className="text-[11px] font-bold text-muted-foreground mt-0.5">{cluster.region} · {cluster.provider}</div>
                                     </div>
                                     {cluster.id === activeCluster.id && (
                                       <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
@@ -552,15 +553,15 @@ export function Header() {
                                     <div className="relative w-2.5 h-2.5 rounded-full" style={{ backgroundColor: ca.color }} />
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-bold text-slate-800 dark:text-slate-200 tracking-tight flex items-center gap-2 flex-wrap">
+                                    <div className="text-sm font-bold text-foreground tracking-tight flex items-center gap-2 flex-wrap">
                                       {displayName}
                                       {cluster.provider && (
-                                        <span className="text-[9px] px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-black uppercase tracking-widest rounded-full">
+                                        <span className="text-[9px] px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-muted-foreground font-black uppercase tracking-widest rounded-full">
                                           {cluster.provider.replace(/-/g, ' ')}
                                         </span>
                                       )}
                                     </div>
-                                    <div className="text-[11px] font-bold text-slate-400 dark:text-slate-500 mt-0.5">{cluster.region} · {cluster.version}</div>
+                                    <div className="text-[11px] font-bold text-muted-foreground mt-0.5">{cluster.region} · {cluster.version}</div>
                                   </div>
                                   {cluster.id === activeCluster.id && (
                                     <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center">
@@ -576,22 +577,22 @@ export function Header() {
                         {/* No results */}
                         {organizedClusters.total === 0 && clusterSearch.trim() && (
                           <div className="px-4 py-6 text-center">
-                            <p className="text-sm text-slate-400 dark:text-slate-500">No clusters match "{clusterSearch}"</p>
+                            <p className="text-sm text-muted-foreground">No clusters match "{clusterSearch}"</p>
                           </div>
                         )}
                       </div>
 
                       {/* Footer actions */}
-                      <DropdownMenuSeparator className="my-2 bg-slate-100/60 dark:bg-slate-700/60" />
-                      <DropdownMenuItem onClick={() => navigate('/connect?addCluster=true')} className="gap-3 cursor-pointer py-3 px-4 rounded-2xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                      <DropdownMenuSeparator className="my-2 bg-border/60" />
+                      <DropdownMenuItem onClick={() => navigate('/connect?addCluster=true')} className="gap-3 cursor-pointer py-3 px-4 rounded-2xl text-muted-foreground hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                         <div className="h-8 w-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                          <Plus className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                          <Plus className="h-3.5 w-3.5 text-muted-foreground" />
                         </div>
                         <span className="text-sm font-bold tracking-tight">Add Cluster</span>
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate('/fleet')} className="gap-3 cursor-pointer py-3 px-4 rounded-2xl text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                      <DropdownMenuItem onClick={() => navigate('/fleet')} className="gap-3 cursor-pointer py-3 px-4 rounded-2xl text-muted-foreground hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                         <div className="h-8 w-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                          <Layers className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />
+                          <Layers className="h-3.5 w-3.5 text-muted-foreground" />
                         </div>
                         <span className="text-sm font-bold tracking-tight">Manage Clusters</span>
                       </DropdownMenuItem>
@@ -631,7 +632,7 @@ export function Header() {
                   </Tooltip>
                   <DropdownMenuContent align="end" className="w-72 rounded-[2rem] p-3 border-none shadow-2xl mt-2 elevation-2">
                     <div className="px-4 py-3 mb-2">
-                      <p className="text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Download Assets</p>
+                      <p className="text-[11px] font-black text-muted-foreground uppercase tracking-widest">Download Assets</p>
                     </div>
                     {clusters.map((cluster) => (
                       <DropdownMenuItem
@@ -640,14 +641,17 @@ export function Header() {
                         className="flex items-center gap-4 py-4 px-4 cursor-pointer rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                       >
                         <div className={cn('w-2 h-2 rounded-full shrink-0 shadow-sm', statusColors[cluster.status])} />
-                        <span className="flex-1 text-sm font-bold text-slate-700 dark:text-slate-300 truncate">{cluster.name}</span>
+                        <span className="flex-1 text-sm font-bold text-foreground/80 truncate">{cluster.name}</span>
                         <div className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-                          <FileDown className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                          <FileDown className="h-4 w-4 text-muted-foreground" />
                         </div>
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
+
+                {/* Events Pipeline Health — colored dot with tooltip */}
+                <PipelineHealthIndicator />
 
                 {/* Theme Toggle — Light/Dark/System */}
                 <ThemeToggle />
@@ -678,21 +682,21 @@ export function Header() {
                           AD
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-xs font-black tracking-widest hidden xl:inline uppercase text-slate-700 dark:text-slate-200 group-hover:text-primary transition-colors">Admin</span>
+                      <span className="text-xs font-black tracking-widest hidden xl:inline uppercase text-foreground group-hover:text-primary transition-colors">Admin</span>
                       <ChevronDown className="h-4 w-4 text-slate-400 shrink-0 group-hover:text-primary transition-colors" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56 elevation-2">
                     <div className="px-3 py-2.5 border-b border-border/50 dark:border-border/50">
                       <p className="text-sm font-medium text-foreground">Admin User</p>
-                      <p className="text-xs text-muted-foreground dark:text-slate-400 mt-0.5">admin@kubilitics.com</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">admin@kubilitics.com</p>
                     </div>
                     <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 py-2.5 cursor-pointer">
-                      <Settings className="h-4 w-4 text-muted-foreground dark:text-slate-400" />
+                      <Settings className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">Settings</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/connect?addCluster=true')} className="gap-2 py-2.5 cursor-pointer">
-                      <Plus className="h-4 w-4 text-muted-foreground dark:text-slate-400" />
+                      <Plus className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">Add Cluster</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />

@@ -22,8 +22,8 @@ function StatusBadge({ status }: { status: string }) {
     warning: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300',
     error: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
     critical: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300',
-    removed: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
-    unknown: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
+    removed: 'bg-muted text-muted-foreground',
+    unknown: 'bg-muted text-muted-foreground',
   };
 
   return (
@@ -39,7 +39,7 @@ function StatusBadge({ status }: { status: string }) {
 function NodeInfoTable({ nodes, showScore = true }: { nodes: NodeInfo[]; showScore?: boolean }) {
   if (nodes.length === 0) {
     return (
-      <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-4">
+      <p className="text-xs text-muted-foreground text-center py-4">
         None
       </p>
     );
@@ -49,24 +49,24 @@ function NodeInfoTable({ nodes, showScore = true }: { nodes: NodeInfo[]; showSco
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-700">
-            <th className="text-left py-1.5 px-2 font-medium text-slate-500 dark:text-slate-400">Kind</th>
-            <th className="text-left py-1.5 px-2 font-medium text-slate-500 dark:text-slate-400">Namespace</th>
-            <th className="text-left py-1.5 px-2 font-medium text-slate-500 dark:text-slate-400">Name</th>
+          <tr className="border-b border-border">
+            <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Kind</th>
+            <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Namespace</th>
+            <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Name</th>
             {showScore && (
-              <th className="text-right py-1.5 px-2 font-medium text-slate-500 dark:text-slate-400">Score</th>
+              <th className="text-right py-1.5 px-2 font-medium text-muted-foreground">Score</th>
             )}
-            <th className="text-left py-1.5 px-2 font-medium text-slate-500 dark:text-slate-400">Status</th>
+            <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Status</th>
           </tr>
         </thead>
         <tbody>
           {nodes.map((node) => (
-            <tr key={node.key} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50">
-              <td className="py-1.5 px-2 text-slate-700 dark:text-slate-300 font-medium">{node.kind}</td>
-              <td className="py-1.5 px-2 text-slate-600 dark:text-slate-400">{node.namespace || '-'}</td>
-              <td className="py-1.5 px-2 text-slate-700 dark:text-slate-200">{node.name}</td>
+            <tr key={node.key} className="border-b border-border/50 hover:bg-muted/50">
+              <td className="py-1.5 px-2 text-foreground/80 font-medium">{node.kind}</td>
+              <td className="py-1.5 px-2 text-muted-foreground">{node.namespace || '-'}</td>
+              <td className="py-1.5 px-2 text-foreground">{node.name}</td>
               {showScore && (
-                <td className="py-1.5 px-2 text-right text-slate-600 dark:text-slate-400">{node.health_score}</td>
+                <td className="py-1.5 px-2 text-right text-muted-foreground">{node.health_score}</td>
               )}
               <td className="py-1.5 px-2">
                 <StatusBadge status={node.status} />
@@ -82,7 +82,7 @@ function NodeInfoTable({ nodes, showScore = true }: { nodes: NodeInfo[]; showSco
 function NodeDiffTable({ nodes }: { nodes: NodeDiff[] }) {
   if (nodes.length === 0) {
     return (
-      <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-4">
+      <p className="text-xs text-muted-foreground text-center py-4">
         None
       </p>
     );
@@ -92,26 +92,26 @@ function NodeDiffTable({ nodes }: { nodes: NodeDiff[] }) {
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-700">
-            <th className="text-left py-1.5 px-2 font-medium text-slate-500 dark:text-slate-400">Kind</th>
-            <th className="text-left py-1.5 px-2 font-medium text-slate-500 dark:text-slate-400">Namespace</th>
-            <th className="text-left py-1.5 px-2 font-medium text-slate-500 dark:text-slate-400">Name</th>
-            <th className="text-right py-1.5 px-2 font-medium text-slate-500 dark:text-slate-400">Score Change</th>
-            <th className="text-left py-1.5 px-2 font-medium text-slate-500 dark:text-slate-400">Status</th>
+          <tr className="border-b border-border">
+            <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Kind</th>
+            <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Namespace</th>
+            <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Name</th>
+            <th className="text-right py-1.5 px-2 font-medium text-muted-foreground">Score Change</th>
+            <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Status</th>
           </tr>
         </thead>
         <tbody>
           {nodes.map((node) => {
             const delta = node.score_after - node.score_before;
             return (
-              <tr key={node.key} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                <td className="py-1.5 px-2 text-slate-700 dark:text-slate-300 font-medium">{node.kind}</td>
-                <td className="py-1.5 px-2 text-slate-600 dark:text-slate-400">{node.namespace || '-'}</td>
-                <td className="py-1.5 px-2 text-slate-700 dark:text-slate-200">{node.name}</td>
+              <tr key={node.key} className="border-b border-border/50 hover:bg-muted/50">
+                <td className="py-1.5 px-2 text-foreground/80 font-medium">{node.kind}</td>
+                <td className="py-1.5 px-2 text-muted-foreground">{node.namespace || '-'}</td>
+                <td className="py-1.5 px-2 text-foreground">{node.name}</td>
                 <td className="py-1.5 px-2 text-right">
                   <span className={cn(
                     "font-semibold",
-                    delta > 0 ? "text-emerald-600 dark:text-emerald-400" : delta < 0 ? "text-red-600 dark:text-red-400" : "text-slate-500"
+                    delta > 0 ? "text-emerald-600 dark:text-emerald-400" : delta < 0 ? "text-red-600 dark:text-red-400" : "text-muted-foreground"
                   )}>
                     {node.score_before} -&gt; {node.score_after}
                   </span>
@@ -119,7 +119,7 @@ function NodeDiffTable({ nodes }: { nodes: NodeDiff[] }) {
                 <td className="py-1.5 px-2">
                   <div className="flex items-center gap-1">
                     <StatusBadge status={node.status_before} />
-                    <span className="text-slate-400">-&gt;</span>
+                    <span className="text-muted-foreground">-&gt;</span>
                     <StatusBadge status={node.status_after} />
                   </div>
                 </td>
@@ -135,7 +135,7 @@ function NodeDiffTable({ nodes }: { nodes: NodeDiff[] }) {
 function EdgeTable({ edges }: { edges: EdgeInfo[] }) {
   if (edges.length === 0) {
     return (
-      <p className="text-xs text-slate-500 dark:text-slate-400 text-center py-4">
+      <p className="text-xs text-muted-foreground text-center py-4">
         None
       </p>
     );
@@ -145,18 +145,18 @@ function EdgeTable({ edges }: { edges: EdgeInfo[] }) {
     <div className="overflow-x-auto">
       <table className="w-full text-xs">
         <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-700">
-            <th className="text-left py-1.5 px-2 font-medium text-slate-500 dark:text-slate-400">Source</th>
-            <th className="text-left py-1.5 px-2 font-medium text-slate-500 dark:text-slate-400">Target</th>
-            <th className="text-left py-1.5 px-2 font-medium text-slate-500 dark:text-slate-400">Relationship</th>
+          <tr className="border-b border-border">
+            <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Source</th>
+            <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Target</th>
+            <th className="text-left py-1.5 px-2 font-medium text-muted-foreground">Relationship</th>
           </tr>
         </thead>
         <tbody>
           {edges.map((edge, i) => (
-            <tr key={`${edge.source}-${edge.target}-${i}`} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50">
-              <td className="py-1.5 px-2 text-slate-700 dark:text-slate-200 truncate max-w-[200px]">{edge.source}</td>
-              <td className="py-1.5 px-2 text-slate-700 dark:text-slate-200 truncate max-w-[200px]">{edge.target}</td>
-              <td className="py-1.5 px-2 text-slate-600 dark:text-slate-400">{edge.relationship}</td>
+            <tr key={`${edge.source}-${edge.target}-${i}`} className="border-b border-border/50 hover:bg-muted/50">
+              <td className="py-1.5 px-2 text-foreground truncate max-w-[200px]">{edge.source}</td>
+              <td className="py-1.5 px-2 text-foreground truncate max-w-[200px]">{edge.target}</td>
+              <td className="py-1.5 px-2 text-muted-foreground">{edge.relationship}</td>
             </tr>
           ))}
         </tbody>
@@ -179,23 +179,23 @@ export default function DiffBreakdown({ result }: DiffBreakdownProps) {
   if (totalChanges === 0) return null;
 
   return (
-    <div className="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+    <div className="border-t border-border bg-card">
       {/* Collapse toggle */}
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center justify-between w-full px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+        className="flex items-center justify-between w-full px-4 py-2 text-sm font-medium text-foreground hover:bg-muted/50 transition-colors"
       >
         <span>
           Diff Breakdown
-          <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">
+          <span className="ml-2 text-xs text-muted-foreground">
             ({totalChanges} change{totalChanges !== 1 ? 's' : ''})
           </span>
         </span>
         {isExpanded ? (
-          <ChevronDown className="h-4 w-4 text-slate-400" />
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
         ) : (
-          <ChevronUp className="h-4 w-4 text-slate-400" />
+          <ChevronUp className="h-4 w-4 text-muted-foreground" />
         )}
       </button>
 
@@ -235,7 +235,7 @@ export default function DiffBreakdown({ result }: DiffBreakdownProps) {
                 <Unlink className="h-3 w-3" />
                 Edges Lost
                 {edgesLostCount > 0 && (
-                  <span className="ml-1 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-1.5 text-xs font-semibold">
+                  <span className="ml-1 rounded-full bg-muted text-muted-foreground px-1.5 text-xs font-semibold">
                     {edgesLostCount}
                   </span>
                 )}

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { Link2, Search, RefreshCw, MoreHorizontal,
  WifiOff, Plus, ChevronDown, Filter, List, Layers, CheckSquare, Trash2 } from 'lucide-react';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
@@ -315,7 +316,7 @@ export default function RoleBindings() {
 
  return (
  <>
- <div className="space-y-6">
+ <PageLayout label="Role Bindings">
  <ListPageHeader
  icon={<Link2 className="h-6 w-6 text-primary" />}
  title="Role Bindings"
@@ -540,7 +541,7 @@ export default function RoleBindings() {
  </Table>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
 
  <DeleteConfirmDialog
  open={deleteDialog.open}

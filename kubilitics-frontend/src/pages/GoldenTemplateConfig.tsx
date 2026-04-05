@@ -16,6 +16,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -155,16 +156,16 @@ export default function GoldenTemplateConfig() {
 
   if (templatesQuery.isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <PageLayout label="Golden Templates">
         <Skeleton className="h-8 w-64" />
         <Skeleton className="h-48" />
         <Skeleton className="h-64" />
-      </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <PageLayout label="Golden Templates">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -369,6 +370,6 @@ export default function GoldenTemplateConfig() {
           </CardContent>
         </Card>
       )}
-    </div>
+    </PageLayout>
   );
 }

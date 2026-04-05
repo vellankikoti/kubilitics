@@ -7,6 +7,19 @@ interface HealthRingProps {
     showText?: boolean;
 }
 
+/** Maps score thresholds to design-system HSL token values */
+function getScoreColor(s: number): string {
+    if (s >= 80) return 'hsl(142, 71%, 45%)';   // --success
+    if (s >= 50) return 'hsl(38, 92%, 50%)';    // --warning
+    return 'hsl(0, 84%, 60%)';                   // --destructive
+}
+
+function getScoreGlow(s: number): string {
+    if (s >= 80) return 'drop-shadow(0 0 8px hsl(142, 71%, 45%))';
+    if (s >= 50) return 'drop-shadow(0 0 8px hsl(38, 92%, 50%))';
+    return 'drop-shadow(0 0 8px hsl(0, 84%, 60%))';
+}
+
 export function HealthRing({
     score,
     size = 64,
@@ -17,24 +30,17 @@ export function HealthRing({
     const circumference = radius * 2 * Math.PI;
     const offset = circumference - (score / 100) * circumference;
 
-    const getColor = (s: number) => {
-        if (s >= 80) return '#10b981'; // emerald-500
-        if (s >= 50) return '#f59e0b'; // amber-500
-        return '#ef4444'; // red-500
-    };
-
-    const getBgColor = (s: number) => {
-        if (s >= 80) return 'rgba(16, 185, 129, 0.1)';
-        if (s >= 50) return 'rgba(245, 158, 11, 0.1)';
-        return 'rgba(239, 68, 68, 0.1)';
-    };
-
-    const color = getColor(score);
-    const bgColor = getBgColor(score);
+    const color = getScoreColor(score);
+    const glowFilter = getScoreGlow(score);
 
     return (
         <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
-            <svg width={size} height={size} className="transform -rotate-90">
+            <svg
+                width={size}
+                height={size}
+                className="transform -rotate-90"
+                style={{ filter: glowFilter }}
+            >
                 <circle
                     cx={size / 2}
                     cy={size / 2}
@@ -59,20 +65,25 @@ export function HealthRing({
                 />
             </svg>
             {showText && (
-                <div className="absolute inset-0 flex items-center justify-center flex-col leading-none">
+                <motion.div
+                    className="absolute inset-0 flex items-center justify-center flex-col leading-none"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.8, duration: 0.4, ease: 'easeOut' }}
+                >
                     <span
-                        className="font-bold tracking-tight tabular-nums text-slate-900 dark:text-slate-100"
+                        className="font-bold tracking-tight tabular-nums text-foreground"
                         style={{ fontSize: `${Math.max(12, size * 0.28)}px` }}
                     >
                         {score}
                     </span>
                     <span
-                        className="uppercase tracking-[0.1em] text-slate-400 font-bold"
+                        className="uppercase tracking-[0.1em] text-muted-foreground font-bold"
                         style={{ fontSize: `${Math.max(7, size * 0.08)}px`, marginTop: `${size * 0.05}px` }}
                     >
                         Score
                     </span>
-                </div>
+                </motion.div>
             )}
         </div>
     );

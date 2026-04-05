@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search, Filter, RefreshCw, MoreHorizontal, CheckCircle2, XCircle, Clock, Loader2, WifiOff, Plus,
  ChevronDown, ChevronRight, CheckSquare, Trash2, RotateCcw, History, Server, FileText, List, Layers, Box, SlidersHorizontal, Gauge,
@@ -384,7 +385,8 @@ spec:
  const isSomeSelected = multiSelect.isSomeSelected(allItemKeys);
 
  return (
- <div className="space-y-6" role="main" aria-label="DaemonSets Resources">
+ <PageLayout label="DaemonSets">
+ <div className="space-y-6">
  <ListPageHeader
  icon={<DaemonSetIcon className="h-6 w-6 text-primary" />}
  title="DaemonSets"
@@ -785,5 +787,6 @@ spec:
  />
  )}
  </div>
+ </PageLayout>
  );
 }

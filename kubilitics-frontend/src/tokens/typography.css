@@ -23,29 +23,29 @@
   /* Heading 1: Page titles */
   --text-h1: 1.5rem;              /* 24px */
   --text-h1-leading: 2rem;        /* 32px */
-  --text-h1-tracking: -0.02em;
+  --text-h1-tracking: -0.025em;
   --text-h1-weight: 700;
 
   /* Heading 2: Section headers */
   --text-h2: 1.25rem;             /* 20px */
   --text-h2-leading: 1.75rem;     /* 28px */
-  --text-h2-tracking: -0.015em;
+  --text-h2-tracking: -0.025em;
   --text-h2-weight: 600;
 
   /* Heading 3: Card titles, subsections */
   --text-h3: 1rem;                /* 16px */
   --text-h3-leading: 1.5rem;      /* 24px */
-  --text-h3-tracking: -0.01em;
+  --text-h3-tracking: -0.025em;
   --text-h3-weight: 600;
 
   /* Body Large: Emphasis text */
   --text-body-lg: 0.9375rem;      /* 15px */
-  --text-body-lg-leading: 1.625rem; /* 26px */
+  --text-body-lg-leading: 1.547rem; /* ~24.75px — 1.65 line-height */
   --text-body-lg-weight: 400;
 
   /* Body: Default text */
   --text-body: 0.875rem;          /* 14px */
-  --text-body-leading: 1.375rem;  /* 22px */
+  --text-body-leading: 1.44rem;   /* ~23px — 1.65 line-height for readability */
   --text-body-weight: 400;
 
   /* Body Small: Secondary text */
@@ -81,4 +81,10 @@
   --text-metric-sm-leading: 1.5rem; /* 24px */
   --text-metric-sm-tracking: -0.015em;
   --text-metric-sm-weight: 600;
+
+  /* ─── Semantic Tokens ─── */
+  --tracking-tight: -0.025em;     /* Headings h1-h3 */
+  --tracking-normal: 0;           /* Body text */
+  --leading-relaxed: 1.65;        /* Comfortable body reading */
+  --leading-tight: 1.2;           /* Headings */
 }

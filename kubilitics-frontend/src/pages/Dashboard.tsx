@@ -16,6 +16,9 @@ import { HealthScoreCard } from '@/components/dashboard/HealthScoreCard';
 import { ClusterDetailsPanel } from '@/components/dashboard/ClusterDetailsPanel';
 import { DashboardTour, useDashboardTour } from '@/components/onboarding/DashboardTour';
 import { useClusterOverview } from '@/hooks/useClusterOverview';
+import { RecentEventsCard } from '@/components/events/RecentEventsCard';
+import { InsightsBanner } from '@/components/events/InsightsBanner';
+import { useActiveInsights, useDismissInsight } from '@/hooks/useEventsIntelligence';
 
 const container = {
   hidden: { opacity: 0 },
@@ -35,7 +38,9 @@ export default function Dashboard() {
   const { activeCluster } = useClusterStore();
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const { showTour, completeTour, skipTour } = useDashboardTour();
-  
+  const { data: insights } = useActiveInsights();
+  const dismissInsight = useDismissInsight();
+
   // Test cluster accessibility - redirect to connect if cluster is invalid
   const overviewQuery = useClusterOverview(currentClusterId || undefined);
 
@@ -83,14 +88,31 @@ export default function Dashboard() {
           {/* Zone 1: Page header with live indicator */}
           <motion.div variants={item} className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--ring))] shadow-lg shadow-[hsl(var(--ring)/0.25)]">
+              <motion.div
+                initial={{ scale: 0.7, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 18, delay: 0.15 }}
+                className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(var(--primary))] to-[hsl(var(--ring))] shadow-lg shadow-[hsl(var(--ring)/0.25)]"
+              >
                 <Zap className="h-5 w-5 text-white" aria-hidden />
-              </div>
+              </motion.div>
               <div>
-                <h1 className="font-h2 text-foreground tracking-tight">Gateway</h1>
-                <p className="font-caption text-muted-foreground mt-0.5">
+                <motion.h1
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+                  className="font-h2 text-foreground tracking-tight"
+                >
+                  Gateway
+                </motion.h1>
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.35, delay: 0.3 }}
+                  className="font-caption text-muted-foreground mt-0.5"
+                >
                   Command center for <span className="font-medium text-foreground">{activeCluster.name}</span>
-                </p>
+                </motion.p>
               </div>
             </div>
             <div
@@ -116,6 +138,18 @@ export default function Dashboard() {
           <motion.div variants={item}>
             <DashboardHero />
           </motion.div>
+
+          {/* Insights Banner */}
+          {insights && insights.length > 0 && (
+            <motion.div variants={item}>
+              <InsightsBanner
+                insights={insights}
+                onInvestigate={() => navigate('/events-intelligence')}
+                onDismiss={(id) => dismissInsight.mutate(id)}
+                isDismissing={dismissInsight.isPending}
+              />
+            </motion.div>
+          )}
 
           {/* Zone 4: Three-column command surface */}
           <motion.div
@@ -159,6 +193,11 @@ export default function Dashboard() {
           >
             <WorkloadCapacitySnapshot />
             <HealthScoreCard />
+          </motion.div>
+
+          {/* Zone 5b: Recent Events */}
+          <motion.div variants={item}>
+            <RecentEventsCard />
           </motion.div>
 
           {/* Zone 6: Cluster details strip */}

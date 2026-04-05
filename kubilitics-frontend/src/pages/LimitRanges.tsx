@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { Scale, Search, RefreshCw, MoreHorizontal,
  WifiOff, Plus, ChevronDown, Filter, List, Layers, CheckSquare, Trash2 } from 'lucide-react';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
@@ -306,7 +307,7 @@ export default function LimitRanges() {
 
  return (
  <>
- <div className="space-y-6">
+ <PageLayout label="Limit Ranges">
  <ListPageHeader
  icon={<Scale className="h-6 w-6 text-primary" />}
  title="Limit Ranges"
@@ -526,7 +527,7 @@ export default function LimitRanges() {
  </Table>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
 
  <DeleteConfirmDialog
  open={deleteDialog.open}

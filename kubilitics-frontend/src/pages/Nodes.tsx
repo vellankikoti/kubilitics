@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQueries } from '@tanstack/react-query';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { Server, Search, MoreHorizontal,
  Layers, Lock, Unlock, List, ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -553,8 +554,8 @@ export default function Nodes() {
  };
 
  return (
- <>
- <div className="space-y-6" role="main" aria-label="Nodes Resources">
+ <PageLayout label="Nodes">
+ <div className="space-y-6">
  <ListPageHeader
  icon={<NodeIcon className="h-6 w-6 text-primary" />}
  title="Nodes"
@@ -608,7 +609,7 @@ export default function Nodes() {
  label="Total Nodes"
  value={stats.total}
  icon={Server}
- iconColor="text-primary"
+ iconColor="text-emerald-600"
  selected={!hasActiveFilters}
  onClick={clearAllFilters}
  className={cn(!hasActiveFilters && !isLoading && 'ring-2 ring-primary')} isLoading={isLoading} />
@@ -853,6 +854,6 @@ export default function Nodes() {
  onConfirm={handleDelete}
  requireNameConfirmation={!deleteDialog.bulk}
  />
- </>
+ </PageLayout>
  );
 }

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  RefreshCw, MoreHorizontal, CheckCircle2, XCircle, Clock, Loader2, WifiOff, Plus,
  Trash2, FileText, Search, Filter, Layers, ChevronDown, ChevronRight, AlertTriangle,
@@ -356,7 +357,7 @@ spec:
  };
 
  return (
- <div className="space-y-6">
+ <PageLayout label="Replication Controllers">
  <Alert className="border-amber-500/50 bg-amber-500/10">
  <AlertTriangle className="h-4 w-4 text-amber-500" />
  <AlertTitle className="text-amber-600">Deprecated Resource</AlertTitle>
@@ -599,6 +600,6 @@ spec:
  namespace={deleteDialog.bulk ? undefined : deleteDialog.item?.namespace}
  onConfirm={handleDelete}
  />
- </div>
+ </PageLayout>
  );
 }

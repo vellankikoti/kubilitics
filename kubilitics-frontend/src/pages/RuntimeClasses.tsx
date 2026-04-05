@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  RefreshCw, MoreHorizontal, CheckCircle2, XCircle, Clock, Loader2, WifiOff, Plus,
  Trash2, FileText, Search, FolderCog, ChevronDown,
@@ -252,7 +253,7 @@ handler: ${d.handler}
  };
 
  return (
- <div className="space-y-6">
+ <PageLayout label="Runtime Classes">
  <div className="flex items-center justify-between flex-wrap gap-4">
  <div className="flex items-center gap-3 flex-wrap">
  <div className="p-2.5 rounded-xl bg-primary/10"><FolderCog className="h-6 w-6 text-primary" /></div>
@@ -402,10 +403,10 @@ handler: ${d.handler}
  <tr key={item.name} className={cn(resourceTableRowClassName, idx % 2 === 1 && 'bg-muted/5', isSelected && 'bg-primary/5')}>
  <TableCell onClick={(e) => { e.stopPropagation(); toggleSelection(item, e); }}><Checkbox checked={isSelected} tabIndex={-1} /></TableCell>
  <ResizableTableCell columnId="name">
- <span className="font-medium flex items-center gap-2 truncate cursor-pointer text-primary hover:underline" onClick={() => navigate(`/runtimeclasses/${item.name}`)}>
+ <button className="font-medium flex items-center gap-2 truncate cursor-pointer text-primary hover:underline bg-transparent border-none p-0 text-left" onClick={() => navigate(`/runtimeclasses/${item.name}`)}>
  <FolderCog className="h-4 w-4 text-muted-foreground flex-shrink-0" />
  <span className="truncate">{item.name}</span>
- </span>
+ </button>
  </ResizableTableCell>
  <ResizableTableCell columnId="status"><StatusPill variant="success" label="Active" /></ResizableTableCell>
  <ResizableTableCell columnId="handler">
@@ -468,6 +469,6 @@ handler: ${d.handler}
  namespace={undefined}
  onConfirm={handleDelete}
  />
- </div>
+ </PageLayout>
  );
 }

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search, RefreshCw, MoreHorizontal, Loader2, Layers, ChevronDown, CheckSquare, Trash2, FileText, Filter,
 } from 'lucide-react';
@@ -257,7 +258,7 @@ template:
  };
 
  return (
- <div className="space-y-6">
+ <PageLayout label="Pod Templates">
  <ListPageHeader
  icon={<Layers className="h-6 w-6 text-primary" />}
  title="Pod Templates"
@@ -457,6 +458,6 @@ template:
  defaultYaml={DEFAULT_YAMLS.PodTemplate}
  />
  )}
- </div>
+ </PageLayout>
  );
 }

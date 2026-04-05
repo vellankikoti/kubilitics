@@ -50,6 +50,7 @@ import { useNamespacesFromCluster } from '@/hooks/useNamespacesFromCluster';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { applyManifest } from '@/services/api/resources';
 import { cn } from '@/lib/utils';
+import { PageLayout } from '@/components/layout/PageLayout';
 import type { LucideIcon } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -703,7 +704,7 @@ export default function ResourceTemplates() {
   }, []);
 
   return (
-    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+    <PageLayout label="Resource Templates">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -763,6 +764,6 @@ export default function ResourceTemplates() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />
-    </div>
+    </PageLayout>
   );
 }

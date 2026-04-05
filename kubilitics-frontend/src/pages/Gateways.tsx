@@ -9,6 +9,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { ResourceExportDropdown, type ResourceExportConfig } from '@/components/list/ResourceExportDropdown';
 import {
   Search, RefreshCw, MoreHorizontal, Loader2, WifiOff, Plus,
@@ -479,7 +480,7 @@ export default function Gateways() {
   const totalRoutes = httpRoutes.length + grpcRoutes.length;
 
   return (
-    <div className="flex flex-col gap-4 p-4 md:p-6">
+    <PageLayout label="Gateway API">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -816,6 +817,6 @@ export default function Gateways() {
           </div>
         );
       })()}
-    </div>
+    </PageLayout>
   );
 }

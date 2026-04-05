@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search,
  RefreshCw,
@@ -237,7 +238,7 @@ export default function CustomResources() {
  // No CRD selected — show empty state with link to CRD definitions
  if (!crdName) {
  return (
- <div className="space-y-6">
+ <PageLayout label="Custom Resources">
  <div>
  <h1 className="text-2xl font-bold tracking-tight">Custom Resource Instances</h1>
  <p className="text-muted-foreground">Browse instances of a Custom Resource Definition</p>
@@ -255,14 +256,14 @@ export default function CustomResources() {
  </Link>
  </Button>
  </div>
- </div>
+ </PageLayout>
  );
  }
 
  // Backend not configured — CRD instances require backend
  if (!isBackendConfigured) {
  return (
- <div className="space-y-6">
+ <PageLayout label="Custom Resources">
  <div>
  <h1 className="text-2xl font-bold tracking-tight">{displayKind} Instances</h1>
  <p className="text-muted-foreground">Instances of {crdName}</p>
@@ -280,12 +281,12 @@ export default function CustomResources() {
  </Link>
  </Button>
  </div>
- </div>
+ </PageLayout>
  );
  }
 
  return (
- <div className="space-y-6">
+ <PageLayout label="Custom Resources">
  <div className="flex items-center gap-3 mb-2">
  <Button asChild variant="ghost" size="sm" className="gap-1.5 -ml-2">
  <Link to="/customresourcedefinitions">
@@ -608,6 +609,6 @@ export default function CustomResources() {
  </Table>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
  );
 }

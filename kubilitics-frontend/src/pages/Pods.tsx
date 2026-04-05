@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search, Filter, RefreshCw, MoreHorizontal, CheckCircle2, XCircle, Clock, Loader2, WifiOff, Box,
  ChevronDown, ChevronLeft, ChevronRight, Trash2, RotateCcw, Scale, History, Rocket, FileText,
@@ -728,7 +729,8 @@ export default function Pods() {
  }, [columnVisibility]);
 
  return (
- <div className="space-y-6" role="main" aria-label="Pods Resources">
+ <PageLayout label="Pods">
+ <div className="space-y-6">
  <ListPageHeader
  icon={<Box className="h-6 w-6 text-primary" />}
  title="Pods"
@@ -1527,5 +1529,6 @@ export default function Pods() {
  )}
  </AnimatePresence>
  </div>
+ </PageLayout>
  );
 }

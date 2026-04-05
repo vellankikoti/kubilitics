@@ -22,6 +22,8 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { SectionOverviewHeader } from '@/components/layout/SectionOverviewHeader';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -49,7 +51,7 @@ function healthBg(score: number): string {
 function TrendIcon({ trend }: { trend: TrendDirection }) {
   if (trend === 'up') return <ArrowUpRight className="h-4 w-4 text-emerald-500" />;
   if (trend === 'down') return <ArrowDownRight className="h-4 w-4 text-red-500" />;
-  return <Minus className="h-4 w-4 text-slate-400" />;
+  return <Minus className="h-4 w-4 text-muted-foreground" />;
 }
 
 function SortIndicator({ active, dir }: { active: boolean; dir: SortDir }) {
@@ -168,7 +170,7 @@ export default function FleetXRayDashboard() {
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <PageLayout label="Fleet X-Ray">
         <Skeleton className="h-8 w-64" />
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -176,53 +178,52 @@ export default function FleetXRayDashboard() {
           ))}
         </div>
         <Skeleton className="h-96" />
-      </div>
+      </PageLayout>
     );
   }
 
   if (isError) {
     return (
-      <div className="p-6">
+      <PageLayout label="Fleet X-Ray">
         <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6 text-center">
           <AlertTriangle className="h-8 w-8 text-red-500 mx-auto mb-3" />
           <p className="text-sm font-medium text-red-700 dark:text-red-300">
             Failed to load Fleet X-Ray dashboard. The backend may not have the X-Ray endpoints enabled yet.
           </p>
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Fleet X-Ray</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Deep structural health analysis across all clusters
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={selected.size < 2}
-            onClick={handleCompare}
-          >
-            <GitCompareArrows className="h-4 w-4 mr-1.5" />
-            Compare Selected
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleTemplateMatch}
-          >
-            <ShieldCheck className="h-4 w-4 mr-1.5" />
-            Golden Template Match
-          </Button>
-        </div>
-      </div>
+    <PageLayout label="Fleet X-Ray">
+      <SectionOverviewHeader
+        title="Fleet X-Ray"
+        description="Deep structural health analysis across all clusters"
+        icon={Activity}
+        iconClassName="bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400"
+        extraActions={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={selected.size < 2}
+              onClick={handleCompare}
+            >
+              <GitCompareArrows className="h-4 w-4 mr-1.5" />
+              Compare Selected
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleTemplateMatch}
+            >
+              <ShieldCheck className="h-4 w-4 mr-1.5" />
+              Golden Template Match
+            </Button>
+          </div>
+        }
+      />
 
       {/* Summary bar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -250,7 +251,7 @@ export default function FleetXRayDashboard() {
       </div>
 
       {/* Cluster ranking table */}
-      <Card className="border-0 shadow-sm">
+      <Card className="border-none soft-shadow glass-panel">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -328,6 +329,6 @@ export default function FleetXRayDashboard() {
           </div>
         </CardContent>
       </Card>
-    </div>
+    </PageLayout>
   );
 }

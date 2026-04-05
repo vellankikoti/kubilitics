@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { Shield, Search, RefreshCw, MoreHorizontal,
  WifiOff, Plus, ChevronDown, Filter, List, Layers, CheckSquare, Trash2 } from 'lucide-react';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
@@ -320,7 +321,7 @@ export default function Roles() {
 
  return (
  <>
- <div className="space-y-6">
+ <PageLayout label="Roles">
  <ListPageHeader
  icon={<Shield className="h-6 w-6 text-primary" />}
  title="Roles"
@@ -535,7 +536,7 @@ export default function Roles() {
  </Table>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
 
  <DeleteConfirmDialog
  open={deleteDialog.open}

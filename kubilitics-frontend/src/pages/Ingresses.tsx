@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
-import { 
- Search, 
+import { PageLayout } from '@/components/layout/PageLayout';
+import {
+ Search,
  Filter,
  RefreshCw, 
  MoreHorizontal,
@@ -347,6 +348,7 @@ spec:
  const isSomeSelected = multiSelect.isSomeSelected(allIngressKeys);
 
  return (
+ <PageLayout label="Ingresses">
  <div className="space-y-6">
  <ListPageHeader
  icon={<IngressIcon className="h-6 w-6 text-primary" />}
@@ -769,5 +771,6 @@ spec:
  requireNameConfirmation={!deleteDialog.bulk}
  />
  </div>
+ </PageLayout>
  );
 }

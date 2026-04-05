@@ -136,7 +136,7 @@ export function EmptyState({
       role="status"
       aria-label={title}
       className={cn(
-        "flex flex-col items-center justify-center text-center",
+        "flex flex-col items-center justify-center text-center rounded-xl bg-gradient-to-b from-transparent to-muted/10",
         s.wrapper,
         s.gap,
         className,
@@ -148,8 +148,9 @@ export function EmptyState({
           <div
             className={cn(
               "flex items-center justify-center rounded-full",
-              "bg-muted/60 dark:bg-muted/30",
-              size === "sm" ? "p-2" : size === "md" ? "p-3" : "p-4",
+              "bg-gradient-to-br from-muted/80 to-muted/40 dark:from-muted/40 dark:to-muted/20",
+              "ring-1 ring-border/50",
+              size === "sm" ? "p-2" : size === "md" ? "p-3.5" : "p-5",
             )}
             aria-hidden="true"
           >
@@ -169,7 +170,7 @@ export function EmptyState({
         <h3
           className={cn(
             s.title,
-            "text-foreground dark:text-foreground",
+            "text-foreground/80 dark:text-foreground/80",
           )}
         >
           {title}

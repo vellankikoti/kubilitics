@@ -39,9 +39,9 @@ import {
   RolloutActionsDialog,
   SectionCard,
   DetailRow,
-  LogViewer,
   MultiPodLogViewer,
   DetailPodTable,
+  WorkloadLogsTab,
   type CustomTab,
   type ResourceContext,
   type ContainerInfo,
@@ -223,8 +223,6 @@ export default function DeploymentDetail() {
 
   const [showScaleDialog, setShowScaleDialog] = useState(false);
   const [showRolloutDialog, setShowRolloutDialog] = useState(false);
-  const [selectedLogPod, setSelectedLogPod] = useState<string>('');
-  const [selectedLogContainer, setSelectedLogContainer] = useState<string>('');
   const [selectedTerminalPod, setSelectedTerminalPod] = useState<string>('');
   const [selectedTerminalContainer, setSelectedTerminalContainer] = useState<string>('');
 
@@ -718,43 +716,15 @@ export default function DeploymentDetail() {
           if (!owners || owners.length === 0) return false;
           return owners.some((ref) => ref.kind === 'ReplicaSet' && ref.name?.startsWith(deploymentName + '-'));
         });
-        const containers: ContainerInfo[] = (deployment.spec?.template?.spec?.containers || []).map(c => ({
-          name: c.name, image: c.image, ready: true, restartCount: 0, state: 'running', ports: c.ports || [], resources: c.resources || {},
-        }));
-        const firstPodName = deploymentPods[0]?.metadata?.name ?? '';
-        const logPod = selectedLogPod || firstPodName;
-        const logPodContainers = (deploymentPods.find((p) => p.metadata?.name === logPod) as { spec?: { containers?: Array<{ name: string }> } } | undefined)?.spec?.containers?.map((c) => c.name) ?? containers.map((c) => c.name);
+        const templateContainers = (deployment.spec?.template?.spec?.containers || []).map(c => c.name);
 
         return (
-          <SectionCard icon={FileText} title="Logs" tooltip={<p className="text-xs text-muted-foreground">Stream logs from deployment pods</p>}>
-            {deploymentPods.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No pods available. Select a deployment with running pods to view logs.</p>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex flex-wrap gap-4 items-end">
-                  <div className="space-y-2">
-                    <Label>Pod</Label>
-                    <Select value={logPod} onValueChange={setSelectedLogPod}>
-                      <SelectTrigger className="w-[280px]"><SelectValue placeholder="Select pod" /></SelectTrigger>
-                      <SelectContent>
-                        {deploymentPods.map((p) => (<SelectItem key={p.metadata?.name} value={p.metadata?.name ?? ''}>{p.metadata?.name}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Container</Label>
-                    <Select value={selectedLogContainer || logPodContainers[0]} onValueChange={setSelectedLogContainer}>
-                      <SelectTrigger className="w-[180px]"><SelectValue placeholder="Select container" /></SelectTrigger>
-                      <SelectContent>
-                        {logPodContainers.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <LogViewer podName={logPod} namespace={namespace ?? undefined} containerName={selectedLogContainer || logPodContainers[0]} containers={logPodContainers} onContainerChange={setSelectedLogContainer} />
-              </div>
-            )}
-          </SectionCard>
+          <WorkloadLogsTab
+            pods={deploymentPods}
+            namespace={namespace ?? undefined}
+            kindLabel="Deployment"
+            templateContainers={templateContainers}
+          />
         );
       },
     },

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { FileCode, Search, RefreshCw, MoreHorizontal,
  WifiOff, ChevronDown, CheckSquare, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -258,7 +259,7 @@ export default function APIServices() {
 
  return (
  <>
- <div className="space-y-6">
+ <PageLayout label="API Services">
  <ListPageHeader
  icon={<FileCode className="h-6 w-6 text-primary" />}
  title="API Services"
@@ -448,7 +449,7 @@ export default function APIServices() {
  </Table>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
 
  <DeleteConfirmDialog
  open={deleteDialog.open}

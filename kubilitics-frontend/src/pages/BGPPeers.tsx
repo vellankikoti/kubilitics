@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search, RefreshCw, MoreHorizontal, Loader2, Network, ChevronDown, CheckSquare, Trash2, FileText,
 } from 'lucide-react';
@@ -217,7 +218,7 @@ export default function BGPPeers() {
  };
 
  return (
- <div className="space-y-6">
+ <PageLayout label="BGP Peers">
  <ListPageHeader
  icon={<Network className="h-6 w-6 text-primary" />}
  title="BGP Peers"
@@ -401,6 +402,6 @@ export default function BGPPeers() {
  namespace={deleteDialog.item?.namespace}
  onConfirm={handleDelete}
  />
- </div>
+ </PageLayout>
  );
 }

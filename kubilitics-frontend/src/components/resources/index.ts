@@ -2,6 +2,7 @@ export { ResourceStatusCard, ResourceStatusCards, type ResourceStatusCardProps, 
 export { ResourceTabs, type TabConfig, type ResourceTabsProps } from './ResourceTabs';
 export { LogViewer, type LogEntry, type LogViewerProps } from './LogViewer';
 export { MultiPodLogViewer, type PodTarget, type MultiPodLogViewerProps } from './MultiPodLogViewer';
+export { WorkloadLogsTab, type WorkloadLogsTabProps, type WorkloadPod } from './WorkloadLogsTab';
 export { DeleteConfirmDialog, type DeleteConfirmDialogProps } from './DeleteConfirmDialog';
 export { PortForwardDialog, type PortInfo, type PortForwardDialogProps } from './PortForwardDialog';
 export { DebugContainerDialog, type DebugContainerDialogProps } from './DebugContainerDialog';

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search, Filter, RefreshCw, MoreHorizontal, CheckCircle2, XCircle, Clock, Loader2, WifiOff, Plus,
  ChevronDown, ChevronRight, CheckSquare, Trash2, FileText, Play, Pause, Timer, List, Layers, Box, Gauge, CalendarCheck,
@@ -453,7 +454,8 @@ spec:
  const isSomeSelected = multiSelect.isSomeSelected(allItemKeys);
 
  return (
- <div className="space-y-6" role="main" aria-label="CronJobs Resources">
+ <PageLayout label="CronJobs">
+ <div className="space-y-6">
  <ListPageHeader
  icon={<CronJobIcon className="h-6 w-6 text-primary" />}
  title="CronJobs"
@@ -904,5 +906,6 @@ spec:
  )}
  <DeleteConfirmDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, item: open ? deleteDialog.item : null })} resourceType="CronJob" resourceName={deleteDialog.bulk ? `${selectedItems.size} cronjobs` : (deleteDialog.item?.name || '')} namespace={deleteDialog.bulk ? undefined : deleteDialog.item?.namespace} onConfirm={handleDelete} requireNameConfirmation={!deleteDialog.bulk} />
  </div>
+ </PageLayout>
  );
 }

@@ -39,6 +39,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { toast } from '@/components/ui/sonner';
 
@@ -547,10 +548,11 @@ export default function AlertConfiguration() {
   const historyTotalPages = Math.ceil(historyTotal / 20);
 
   return (
+    <PageLayout label="Alert Configuration">
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-6 max-w-4xl"
+      className="space-y-6"
     >
       {/* Header */}
       <div className="flex items-start justify-between">
@@ -776,5 +778,6 @@ export default function AlertConfiguration() {
         </div>
       )}
     </motion.div>
+    </PageLayout>
   );
 }

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search, RefreshCw, MoreHorizontal, Loader2, Network, ChevronDown, CheckSquare, Trash2, FileText,
 } from 'lucide-react';
@@ -229,7 +230,7 @@ export default function IPAddressPools() {
  };
 
  return (
- <div className="space-y-6">
+ <PageLayout label="IP Address Pools">
  <ListPageHeader
  icon={<Network className="h-6 w-6 text-primary" />}
  title="IP Address Pools"
@@ -428,6 +429,6 @@ export default function IPAddressPools() {
  namespace={deleteDialog.item?.namespace}
  onConfirm={handleDelete}
  />
- </div>
+ </PageLayout>
  );
 }

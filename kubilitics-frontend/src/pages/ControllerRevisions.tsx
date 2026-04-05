@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search, RefreshCw, MoreHorizontal, Loader2, History, ChevronDown, CheckSquare, Trash2, FileText, Filter,
 } from 'lucide-react';
@@ -259,7 +260,7 @@ export default function ControllerRevisions() {
  };
 
  return (
- <div className="space-y-6">
+ <PageLayout label="Controller Revisions">
  <ListPageHeader
  icon={<History className="h-6 w-6 text-primary" />}
  title="Controller Revisions"
@@ -474,6 +475,6 @@ export default function ControllerRevisions() {
  defaultYaml={DEFAULT_YAMLS.ControllerRevision}
  />
  )}
- </div>
+ </PageLayout>
  );
 }

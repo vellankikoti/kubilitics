@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { Activity, Search, RefreshCw, MoreHorizontal,
  WifiOff, ChevronDown, Plus, Filter, List, Layers, CheckSquare, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -310,7 +311,7 @@ export default function Leases() {
 
  return (
  <>
- <div className="space-y-6">
+ <PageLayout label="Leases">
  <ListPageHeader
  icon={<Activity className="h-6 w-6 text-primary" />}
  title="Leases"
@@ -535,7 +536,7 @@ export default function Leases() {
  </Table>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
 
  <DeleteConfirmDialog
  open={deleteDialog.open}

@@ -39,8 +39,8 @@ import {
   RolloutActionsDialog,
   SectionCard,
   DetailRow,
-  LogViewer,
   DetailPodTable,
+  WorkloadLogsTab,
   type CustomTab,
   type ResourceContext,
   type ContainerInfo,
@@ -216,8 +216,7 @@ export default function StatefulSetDetail() {
 
   const [showScaleDialog, setShowScaleDialog] = useState(false);
   const [showRolloutDialog, setShowRolloutDialog] = useState(false);
-  const [selectedLogPod, setSelectedLogPod] = useState<string>('');
-  const [selectedLogContainer, setSelectedLogContainer] = useState<string>('');
+
   const [selectedTerminalPod, setSelectedTerminalPod] = useState<string>('');
   const [selectedTerminalContainer, setSelectedTerminalContainer] = useState<string>('');
   const [partitionInput, setPartitionInput] = useState<string>('');
@@ -565,45 +564,15 @@ export default function StatefulSetDetail() {
           const labels = pod.metadata?.labels ?? {};
           return Object.entries(stsMatchLabels).every(([k, v]) => labels[k] === v);
         });
-        const containers: ContainerInfo[] = (sts.spec?.template?.spec?.containers || []).map(c => ({
-          name: c.name, image: c.image, ready: true, restartCount: 0, state: 'running',
-          ports: c.ports?.map(p => ({ containerPort: p.containerPort, protocol: p.protocol || 'TCP' })) || [],
-          resources: c.resources || {},
-        }));
-        const firstPodName = stsPods[0]?.metadata?.name ?? '';
-        const logPod = selectedLogPod || firstPodName;
-        const logPodContainers = (stsPods.find((p) => p.metadata?.name === logPod) as { spec?: { containers?: Array<{ name: string }> } } | undefined)?.spec?.containers?.map((c) => c.name) ?? containers.map((c) => c.name);
+        const templateContainers = (sts.spec?.template?.spec?.containers || []).map(c => c.name);
 
         return (
-          <SectionCard icon={FileText} title="Logs" tooltip={<p className="text-xs text-muted-foreground">Stream logs from StatefulSet pods</p>}>
-            {stsPods.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No pods available to view logs.</p>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex flex-wrap gap-4 items-end">
-                  <div className="space-y-2">
-                    <Label>Pod</Label>
-                    <Select value={logPod} onValueChange={setSelectedLogPod}>
-                      <SelectTrigger className="w-[280px]"><SelectValue placeholder="Select pod" /></SelectTrigger>
-                      <SelectContent>
-                        {stsPods.map((p) => (<SelectItem key={p.metadata?.name} value={p.metadata?.name ?? ''}>{p.metadata?.name}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Container</Label>
-                    <Select value={selectedLogContainer || logPodContainers[0]} onValueChange={setSelectedLogContainer}>
-                      <SelectTrigger className="w-[180px]"><SelectValue placeholder="Select container" /></SelectTrigger>
-                      <SelectContent>
-                        {logPodContainers.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <LogViewer podName={logPod} namespace={namespace ?? undefined} containerName={selectedLogContainer || logPodContainers[0]} containers={logPodContainers} onContainerChange={setSelectedLogContainer} />
-              </div>
-            )}
-          </SectionCard>
+          <WorkloadLogsTab
+            pods={stsPods}
+            namespace={namespace ?? undefined}
+            kindLabel="StatefulSet"
+            templateContainers={templateContainers}
+          />
         );
       },
     },

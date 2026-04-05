@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { 
  Search, 
  RefreshCw, 
@@ -278,7 +279,7 @@ spec:
  };
 
  return (
- <div className="space-y-6">
+ <PageLayout label="Ingress Classes">
  <ListPageHeader
  icon={<IngressIcon className="h-6 w-6 text-primary" />}
  title="Ingress Classes"
@@ -604,6 +605,6 @@ spec:
  onSubmit={() => { setShowCreateWizard(false); refetch(); }}
  />
  )}
- </div>
+ </PageLayout>
  );
 }

@@ -3,6 +3,9 @@
 @import './tokens/typography.css';
 @import './tokens/spacing.css';
 @import './tokens/motion.css';
+@import './tokens/shadows.css';
+@import './tokens/radius.css';
+@import './tokens/zindex.css';
 
 @tailwind base;
 @tailwind components;
@@ -39,15 +42,6 @@
     --border: 214.3 31.8% 88%;
     --input: 214.3 31.8% 88%;
     --ring: 221.2 83.2% 53.3%;
-
-    --radius: 1rem;
-
-    /* ─── Elevation System (5 levels) ─── */
-    --shadow-1: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
-    --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.03);
-    --shadow-3: 0 8px 32px -4px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
-    --shadow-4: 0 16px 48px -8px rgba(0, 0, 0, 0.1), 0 8px 20px -6px rgba(0, 0, 0, 0.06);
-    --shadow-5: 0 24px 64px -12px rgba(0, 0, 0, 0.14), 0 12px 28px -8px rgba(0, 0, 0, 0.08);
 
     /* ─── Glassmorphism Tokens ─── */
     --glass-bg: rgba(255, 255, 255, 0.85);
@@ -88,8 +82,6 @@
     --space-16: 4rem;     /* 64px */
 
     /* ─── Card System ─── */
-    --card-radius: 1.25rem;        /* 20px — unified */
-    --card-radius-lg: 1.5rem;      /* 24px — hero cards */
     --card-padding: 1.5rem;        /* 24px */
     --card-padding-sm: 1.25rem;    /* 20px */
     --card-border: hsl(214 32% 91% / 0.8);
@@ -143,13 +135,6 @@
     --input: 228 14% 24%;
     --ring: 217 91% 60%;
 
-    /* ─── Dark Elevation System ─── */
-    --shadow-1: 0 1px 3px 0 rgba(0, 0, 0, 0.2), 0 1px 2px -1px rgba(0, 0, 0, 0.15);
-    --shadow-2: 0 4px 12px -2px rgba(0, 0, 0, 0.3), 0 2px 6px -1px rgba(0, 0, 0, 0.15);
-    --shadow-3: 0 8px 32px -4px rgba(0, 0, 0, 0.35), 0 4px 12px -2px rgba(0, 0, 0, 0.2);
-    --shadow-4: 0 16px 48px -8px rgba(0, 0, 0, 0.4), 0 8px 20px -6px rgba(0, 0, 0, 0.25);
-    --shadow-5: 0 24px 64px -12px rgba(0, 0, 0, 0.5), 0 12px 28px -8px rgba(0, 0, 0, 0.3);
-
     /* ─── Dark Glassmorphism ─── */
     --glass-bg: rgba(15, 15, 25, 0.85);
     --glass-border: rgba(255, 255, 255, 0.08);
@@ -188,7 +173,7 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased selection:bg-blue-100 selection:text-blue-900 dark:selection:bg-blue-900 dark:selection:text-blue-100;
+    @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -210,6 +195,54 @@
       transition-duration: 0.01ms !important;
       scroll-behavior: auto !important;
     }
+  }
+
+  /* ─── Reduced Motion: disable shimmer, pulse, and ping animations ─── */
+  @media (prefers-reduced-motion: reduce) {
+    .skeleton-shimmer::after {
+      animation: none !important;
+    }
+
+    .status-dot-live,
+    .status-dot-warning,
+    .status-dot-error {
+      animation: none !important;
+    }
+
+    .animate-pulse {
+      animation: none !important;
+    }
+
+    .animate-ping {
+      animation: none !important;
+    }
+  }
+
+  /* ─── Premium Selection Colors ─── */
+  ::selection {
+    background: hsl(var(--primary) / 0.15);
+    color: hsl(var(--primary));
+  }
+
+  :is(.dark) ::selection {
+    background: hsl(var(--primary) / 0.25);
+    color: hsl(var(--primary-foreground));
+  }
+
+  /* ─── Smooth Interactive Element Transitions ─── */
+  a, button, input, select, textarea, [role="button"], [tabindex] {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ─── Softer Dividers — Apple-style subtle separators ─── */
+  .border-subtle {
+    border-color: hsl(var(--border) / 0.5);
+  }
+
+  hr, [role="separator"] {
+    border-color: hsl(var(--border) / 0.6);
   }
 
   /* Smooth scrolling */
@@ -236,6 +269,18 @@
     box-shadow: var(--shadow-5);
     background: var(--glass-hover);
     border-color: rgba(0, 0, 0, 0.04);
+  }
+
+  /* ─── Glass Panel (lighter glass for Card overlays) ─── */
+  .glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* ─── Soft Shadow utility ─── */
+  .soft-shadow {
+    box-shadow: var(--shadow-2);
   }
 
   /* ─── Premium Card System ─── */
@@ -272,10 +317,14 @@
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.5) 50%,
+      transparent 25%,
+      rgba(255, 255, 255, 0.45) 45%,
+      rgba(255, 255, 255, 0.6) 50%,
+      rgba(255, 255, 255, 0.45) 55%,
+      transparent 75%,
       transparent 100%
     );
-    animation: shimmer 1.8s ease-in-out infinite;
+    animation: shimmer 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
     transform: translateX(-100%);
   }
 
@@ -283,7 +332,11 @@
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.06) 50%,
+      transparent 25%,
+      rgba(255, 255, 255, 0.04) 45%,
+      rgba(255, 255, 255, 0.07) 50%,
+      rgba(255, 255, 255, 0.04) 55%,
+      transparent 75%,
       transparent 100%
     );
   }
@@ -415,12 +468,16 @@
     transition: box-shadow var(--duration-emphasis) var(--ease-default);
   }
 
+  .icon-box-sm {
+    @apply h-8 w-8 rounded-lg flex items-center justify-center;
+  }
+
   .icon-box-md {
-    @apply h-11 w-11 icon-box;
+    @apply h-10 w-10 rounded-xl flex items-center justify-center;
   }
 
   .icon-box-lg {
-    @apply h-12 w-12 icon-box;
+    @apply h-12 w-12 rounded-xl flex items-center justify-center;
   }
 
   /* ─── Table Standardization ─── */
@@ -467,16 +524,30 @@
   /* ─── Page Layout ─── */
   .page-container {
     @apply min-h-screen;
-    background: linear-gradient(to bottom, hsl(210 50% 98.5%), white 40%, hsl(217 100% 98% / 0.2));
+    background:
+      radial-gradient(ellipse at 0% 0%, hsl(var(--primary) / 0.03) 0%, transparent 50%),
+      radial-gradient(ellipse at 100% 100%, hsl(var(--cosmic-purple) / 0.02) 0%, transparent 50%),
+      hsl(var(--background));
   }
 
   :is(.dark) .page-container {
-    background: linear-gradient(to bottom, hsl(228 14% 7%), hsl(228 14% 9%) 40%, hsl(228 14% 8% / 0.8));
+    background:
+      radial-gradient(ellipse at 0% 0%, hsl(var(--primary) / 0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 100% 100%, hsl(var(--cosmic-purple) / 0.03) 0%, transparent 50%),
+      hsl(var(--background));
   }
 
   .page-inner {
     @apply flex flex-col gap-0 w-full mx-auto;
     max-width: 1600px;
+  }
+
+  /* Tablet (768-1024px): tighter horizontal padding */
+  @media (min-width: 768px) and (max-width: 1024px) {
+    .page-inner {
+      padding-left: 1rem;
+      padding-right: 1rem;
+    }
   }
 
   .page-header {
@@ -485,6 +556,75 @@
 
   .page-section {
     padding: var(--space-8) var(--space-8) var(--space-2);
+  }
+
+  /* ─── Card Top Accent Bars ─── */
+  .card-accent {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-accent::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--ring)));
+    opacity: 0.6;
+    z-index: 1;
+  }
+
+  .card-accent-success {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-accent-success::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, hsl(var(--success)), hsl(var(--success) / 0.5));
+    opacity: 0.6;
+    z-index: 1;
+  }
+
+  .card-accent-warning {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-accent-warning::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, hsl(var(--warning)), hsl(var(--warning) / 0.5));
+    opacity: 0.6;
+    z-index: 1;
+  }
+
+  .card-accent-danger {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card-accent-danger::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, hsl(var(--destructive)), hsl(var(--destructive) / 0.5));
+    opacity: 0.6;
+    z-index: 1;
   }
 }
 
@@ -623,8 +763,8 @@
 }
 
 @keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
 }
 
 @keyframes pulse-ring {
@@ -710,6 +850,45 @@
   animation: row-fade-out 0.3s ease-out forwards;
 }
 
+/* ─── Ambient Blob Animations (onboarding, backgrounds) ─── */
+@keyframes blob-drift {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(30px, -20px) scale(1.05); }
+}
+@keyframes blob-drift-reverse {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(-25px, 15px) scale(1.08); }
+}
+@keyframes blob-pulse {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
+}
+
+/* ─── Custom Scrollbars — Apple-like subtle scrollbars ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.2);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.35);
+}
+
+/* Hide scrollbar until hover */
+.scroll-subtle {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+.scroll-subtle:hover {
+  scrollbar-color: hsl(var(--muted-foreground) / 0.2) transparent;
+}
+
 /* ─── Tauri WKWebView: Monaco Editor stacking context fix ──────────────────
    WKWebView doesn't properly clip position:absolute children (line numbers,
    scroll decorations) within overflow:hidden containers. Force a compositing
@@ -762,7 +941,9 @@
     0 12px 36px rgba(0, 0, 0, 0.08) !important;
   border-radius: 14px !important;
   padding: 13px 16px 13px 18px !important;
-  background: rgba(255, 255, 255, 0.97) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
   min-width: 300px !important;
   max-width: 380px !important;
   position: relative !important;
@@ -823,7 +1004,9 @@
 
 /* Dark mode */
 .dark [data-sonner-toaster] [data-sonner-toast] {
-  background: rgba(28, 28, 30, 0.97) !important;
+  background: rgba(28, 28, 30, 0.88) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
   box-shadow:
     0 0 0 0.5px rgba(255, 255, 255, 0.08),
     0 4px 16px rgba(0, 0, 0, 0.40),

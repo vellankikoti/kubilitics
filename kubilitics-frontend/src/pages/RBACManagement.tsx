@@ -56,6 +56,7 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useBackendConfigStore } from '@/stores/backendConfigStore';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -366,7 +367,7 @@ export default function RBACManagement() {
   }
 
   return (
-    <div className="container py-8 space-y-6">
+    <PageLayout label="RBAC Management">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -697,6 +698,6 @@ export default function RBACManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageLayout>
   );
 }

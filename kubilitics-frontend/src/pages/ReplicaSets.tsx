@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { 
  Search, Filter, RefreshCw, MoreHorizontal, CheckCircle2, XCircle, Clock, Loader2, WifiOff,
  ChevronDown, ChevronRight, CheckSquare, Trash2, Scale, Layers, Plus, FileText, List, GitBranch, EyeOff,
@@ -348,7 +349,7 @@ spec:
  const isSomeSelected = multiSelect.isSomeSelected(allItemKeys);
 
  return (
- <div className="space-y-6" role="main" aria-label="ReplicaSets Resources">
+ <PageLayout label="ReplicaSets">
  <ListPageHeader
  icon={<ReplicaSetIcon className="h-6 w-6 text-primary" />}
  title="ReplicaSets"
@@ -745,6 +746,6 @@ spec:
  }}
  />
  )}
- </div>
+ </PageLayout>
  );
 }

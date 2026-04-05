@@ -44,7 +44,10 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { SectionOverviewHeader } from '@/components/layout/SectionOverviewHeader';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
+import { ApiError } from '@/components/ui/error-state';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -131,7 +134,7 @@ const COLORS = [
 const TrendIndicator = ({ change }: { change: number }) => {
   if (change > 2) return <TrendingUp className="h-3 w-3 text-red-500" />;
   if (change < -2) return <TrendingDown className="h-3 w-3 text-emerald-500" />;
-  return <Minus className="h-3 w-3 text-slate-400" />;
+  return <Minus className="h-3 w-3 text-muted-foreground" />;
 };
 
 // ─── Efficiency Bar ──────────────────────────────────────────────────────────
@@ -141,7 +144,7 @@ function EfficiencyBar({ efficiency }: { efficiency: number }) {
   const color = percent >= 70 ? 'bg-emerald-500' : percent >= 40 ? 'bg-amber-500' : 'bg-red-500';
   return (
     <div className="flex items-center gap-2">
-      <div className="h-1.5 w-16 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+      <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${percent}%` }}
@@ -225,56 +228,56 @@ export default function CostDashboard() {
 
   const currency = data?.currency ?? 'USD';
 
+  if (error) {
+    return (
+      <PageLayout label="Cost Dashboard">
+        <ApiError onRetry={() => refetch()} message={(error as Error)?.message} />
+      </PageLayout>
+    );
+  }
+
   return (
+    <PageLayout label="Cost Dashboard">
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-6 max-w-6xl"
+      className="space-y-6"
     >
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-green-100 dark:bg-green-950/40">
-            <DollarSign className="h-6 w-6 text-green-600 dark:text-green-400" />
+      <SectionOverviewHeader
+        title="Cost Dashboard"
+        description="Resource cost attribution by namespace and workload"
+        icon={DollarSign}
+        iconClassName="bg-green-100 dark:bg-green-950/40 text-green-600 dark:text-green-400"
+        onSync={() => refetch()}
+        isSyncing={isLoading}
+        extraActions={
+          <div className="flex items-center gap-2">
+            {data && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  'text-xs gap-1',
+                  data.openCostAvailable
+                    ? 'text-emerald-700 dark:text-emerald-400'
+                    : 'text-amber-700 dark:text-amber-400',
+                )}
+              >
+                {data.openCostAvailable ? 'OpenCost' : 'Estimated'}
+              </Badge>
+            )}
+            <Select value={period} onValueChange={setPeriod}>
+              <SelectTrigger className="w-[100px] h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1d">1 Day</SelectItem>
+                <SelectItem value="7d">7 Days</SelectItem>
+                <SelectItem value="30d">30 Days</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-              Cost Dashboard
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Resource cost attribution by namespace and workload
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {data && (
-            <Badge
-              variant="outline"
-              className={cn(
-                'text-xs gap-1',
-                data.openCostAvailable
-                  ? 'text-emerald-700 dark:text-emerald-400'
-                  : 'text-amber-700 dark:text-amber-400',
-              )}
-            >
-              {data.openCostAvailable ? 'OpenCost' : 'Estimated'}
-            </Badge>
-          )}
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[100px] h-8 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="1d">1 Day</SelectItem>
-              <SelectItem value="7d">7 Days</SelectItem>
-              <SelectItem value="30d">30 Days</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm" className="gap-1.5" onClick={() => refetch()} disabled={isLoading}>
-            <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {error && (
         <Card className="border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20">
@@ -288,7 +291,7 @@ export default function CostDashboard() {
       {/* Top KPI Cards */}
       {data && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Card>
+          <Card className="border-none soft-shadow glass-panel">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-green-100 dark:bg-green-950/40">
@@ -296,14 +299,14 @@ export default function CostDashboard() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Total Cost</p>
-                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+                  <p className="text-lg font-bold text-foreground tabular-nums">
                     {formatCost(data.totalCost, currency)}
                   </p>
                   <div className="flex items-center gap-1">
                     <TrendIndicator change={data.costChange} />
                     <span className={cn(
                       'text-[10px] font-medium tabular-nums',
-                      data.costChange > 0 ? 'text-red-500' : data.costChange < 0 ? 'text-emerald-500' : 'text-slate-400',
+                      data.costChange > 0 ? 'text-red-500' : data.costChange < 0 ? 'text-emerald-500' : 'text-muted-foreground',
                     )}>
                       {data.costChange > 0 ? '+' : ''}{data.costChange.toFixed(1)}%
                     </span>
@@ -312,7 +315,7 @@ export default function CostDashboard() {
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-none soft-shadow glass-panel">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-blue-100 dark:bg-blue-950/40">
@@ -320,14 +323,14 @@ export default function CostDashboard() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Namespaces</p>
-                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+                  <p className="text-lg font-bold text-foreground tabular-nums">
                     {data.namespaces.length}
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-none soft-shadow glass-panel">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-purple-100 dark:bg-purple-950/40">
@@ -335,14 +338,14 @@ export default function CostDashboard() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">CPU Cost/core-hr</p>
-                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+                  <p className="text-lg font-bold text-foreground tabular-nums">
                     {formatCost(data.cpuCostPerCoreHour, currency)}
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
+          <Card className="border-none soft-shadow glass-panel">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-950/40">
@@ -350,7 +353,7 @@ export default function CostDashboard() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Mem Cost/GiB-hr</p>
-                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">
+                  <p className="text-lg font-bold text-foreground tabular-nums">
                     {formatCost(data.memoryCostPerGiBHour, currency)}
                   </p>
                 </div>
@@ -364,7 +367,7 @@ export default function CostDashboard() {
       {data && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Cost Trend */}
-          <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2 border-none soft-shadow glass-panel">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-green-500" />
@@ -375,9 +378,9 @@ export default function CostDashboard() {
               {data.trend.length > 0 ? (
                 <ResponsiveContainer width="100%" height={220}>
                   <AreaChart data={data.trend}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-700" />
-                    <XAxis dataKey="date" tick={{ fontSize: 10 }} className="text-slate-500 dark:text-slate-400" />
-                    <YAxis tick={{ fontSize: 10 }} className="text-slate-500 dark:text-slate-400" width={50} tickFormatter={(v) => formatCostCompact(v)} />
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} className="text-muted-foreground" />
+                    <YAxis tick={{ fontSize: 10 }} className="text-muted-foreground" width={50} tickFormatter={(v) => formatCostCompact(v)} />
                     <Tooltip
                       contentStyle={{
                         backgroundColor: 'var(--chart-tooltip-bg)',
@@ -403,7 +406,7 @@ export default function CostDashboard() {
           </Card>
 
           {/* Namespace Pie */}
-          <Card>
+          <Card className="border-none soft-shadow glass-panel">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <PieChart className="h-4 w-4 text-purple-500" />
@@ -460,13 +463,13 @@ export default function CostDashboard() {
 
       {/* View Toggle + Search */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700">
+        <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5 border border-border">
           <button
             className={cn(
               'px-3 py-1 rounded-md text-xs font-medium transition-colors',
               view === 'namespace'
-                ? 'bg-white dark:bg-slate-700 text-foreground shadow-sm border border-slate-200 dark:border-slate-600'
-                : 'text-slate-600 dark:text-slate-400 hover:text-foreground hover:bg-slate-50 dark:hover:bg-slate-700/50',
+                ? 'bg-background text-foreground shadow-sm border border-border'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/60',
             )}
             onClick={() => setView('namespace')}
           >
@@ -476,8 +479,8 @@ export default function CostDashboard() {
             className={cn(
               'px-3 py-1 rounded-md text-xs font-medium transition-colors',
               view === 'workload'
-                ? 'bg-white dark:bg-slate-700 text-foreground shadow-sm border border-slate-200 dark:border-slate-600'
-                : 'text-slate-600 dark:text-slate-400 hover:text-foreground hover:bg-slate-50 dark:hover:bg-slate-700/50',
+                ? 'bg-background text-foreground shadow-sm border border-border'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/60',
             )}
             onClick={() => setView('workload')}
           >
@@ -510,26 +513,26 @@ export default function CostDashboard() {
 
       {/* Namespace View */}
       {view === 'namespace' && (
-        <Card>
+        <Card className="border-none soft-shadow glass-panel">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b bg-slate-50/60 dark:bg-slate-800/40">
-                    <th className="text-left p-3 font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Namespace</th>
-                    <th className="text-right p-3 font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">CPU</th>
-                    <th className="text-right p-3 font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Memory</th>
-                    <th className="text-right p-3 font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Storage</th>
-                    <th className="text-right p-3 font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Network</th>
-                    <th className="text-right p-3 font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Total</th>
-                    <th className="text-right p-3 font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Trend</th>
+                  <tr className="border-b bg-muted/60">
+                    <th className="text-left p-3 font-bold uppercase tracking-widest text-muted-foreground">Namespace</th>
+                    <th className="text-right p-3 font-bold uppercase tracking-widest text-muted-foreground">CPU</th>
+                    <th className="text-right p-3 font-bold uppercase tracking-widest text-muted-foreground">Memory</th>
+                    <th className="text-right p-3 font-bold uppercase tracking-widest text-muted-foreground">Storage</th>
+                    <th className="text-right p-3 font-bold uppercase tracking-widest text-muted-foreground">Network</th>
+                    <th className="text-right p-3 font-bold uppercase tracking-widest text-muted-foreground">Total</th>
+                    <th className="text-right p-3 font-bold uppercase tracking-widest text-muted-foreground">Trend</th>
                   </tr>
                 </thead>
                 <tbody>
                   {sortedNamespaces.map((ns) => (
-                    <tr key={ns.namespace} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/60 dark:hover:bg-slate-800/30">
+                    <tr key={ns.namespace} className="border-b border-border/50 hover:bg-muted/40">
                       <td className="p-3">
-                        <span className="font-medium text-slate-900 dark:text-slate-100">{ns.namespace}</span>
+                        <span className="font-medium text-foreground">{ns.namespace}</span>
                         <span className="ml-2 text-muted-foreground">({ns.workloads.length} workloads)</span>
                       </td>
                       <td className="p-3 text-right tabular-nums">{formatCost(ns.cpuCost, currency)}</td>
@@ -542,7 +545,7 @@ export default function CostDashboard() {
                           <TrendIndicator change={ns.trend} />
                           <span className={cn(
                             'tabular-nums',
-                            ns.trend > 0 ? 'text-red-500' : ns.trend < 0 ? 'text-emerald-500' : 'text-slate-400',
+                            ns.trend > 0 ? 'text-red-500' : ns.trend < 0 ? 'text-emerald-500' : 'text-muted-foreground',
                           )}>
                             {ns.trend > 0 ? '+' : ''}{ns.trend.toFixed(1)}%
                           </span>
@@ -564,25 +567,25 @@ export default function CostDashboard() {
 
       {/* Workload View */}
       {view === 'workload' && (
-        <Card>
+        <Card className="border-none soft-shadow glass-panel">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b bg-slate-50/60 dark:bg-slate-800/40">
-                    <th className="text-left p-3 font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Workload</th>
-                    <th className="text-left p-3 font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Namespace</th>
-                    <th className="text-left p-3 font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Kind</th>
-                    <th className="text-right p-3 font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">CPU</th>
-                    <th className="text-right p-3 font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Memory</th>
-                    <th className="text-right p-3 font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Total</th>
-                    <th className="text-center p-3 font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Efficiency</th>
+                  <tr className="border-b bg-muted/60">
+                    <th className="text-left p-3 font-bold uppercase tracking-widest text-muted-foreground">Workload</th>
+                    <th className="text-left p-3 font-bold uppercase tracking-widest text-muted-foreground">Namespace</th>
+                    <th className="text-left p-3 font-bold uppercase tracking-widest text-muted-foreground">Kind</th>
+                    <th className="text-right p-3 font-bold uppercase tracking-widest text-muted-foreground">CPU</th>
+                    <th className="text-right p-3 font-bold uppercase tracking-widest text-muted-foreground">Memory</th>
+                    <th className="text-right p-3 font-bold uppercase tracking-widest text-muted-foreground">Total</th>
+                    <th className="text-center p-3 font-bold uppercase tracking-widest text-muted-foreground">Efficiency</th>
                   </tr>
                 </thead>
                 <tbody>
                   {allWorkloads.slice(0, 50).map((wl, idx) => (
-                    <tr key={`${wl.namespace}/${wl.name}-${idx}`} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/60 dark:hover:bg-slate-800/30">
-                      <td className="p-3 font-medium text-slate-900 dark:text-slate-100">{wl.name}</td>
+                    <tr key={`${wl.namespace}/${wl.name}-${idx}`} className="border-b border-border/50 hover:bg-muted/40">
+                      <td className="p-3 font-medium text-foreground">{wl.name}</td>
                       <td className="p-3 text-muted-foreground">{wl.namespace}</td>
                       <td className="p-3">
                         <Badge variant="outline" className="text-[9px]">{wl.kind}</Badge>
@@ -605,5 +608,6 @@ export default function CostDashboard() {
         </Card>
       )}
     </motion.div>
+    </PageLayout>
   );
 }

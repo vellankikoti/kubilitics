@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search,
  RefreshCw,
@@ -335,7 +336,7 @@ export default function PersistentVolumes() {
  }
 
  return (
- <>
+ <PageLayout label="Persistent Volumes">
  <div className="space-y-6">
  <ListPageHeader
  icon={<StorageIcon className="h-6 w-6 text-primary" />}
@@ -369,7 +370,7 @@ export default function PersistentVolumes() {
  />
 
  <div className={cn('grid grid-cols-2 sm:grid-cols-5 gap-4', !isConnected && 'opacity-60')}>
- <ListPageStatCard label="Total PVs" value={stats.total} icon={HardDrive} iconColor="text-primary" selected={!hasActiveFilters} onClick={clearAllFilters} className={cn(!hasActiveFilters && !isLoading && 'ring-2 ring-primary')} isLoading={isLoading} />
+ <ListPageStatCard label="Total PVs" value={stats.total} icon={HardDrive} iconColor="text-purple-600" selected={!hasActiveFilters} onClick={clearAllFilters} className={cn(!hasActiveFilters && !isLoading && 'ring-2 ring-primary')} isLoading={isLoading} />
  <ListPageStatCard label="Bound" value={stats.bound} icon={HardDrive} iconColor="text-emerald-600" valueClassName="text-emerald-600" selected={columnFilters.status?.size === 1 && columnFilters.status.has('Bound')} onClick={() => setColumnFilter('status', new Set(['Bound']))} className={cn(columnFilters.status?.size === 1 && columnFilters.status.has('Bound') && 'ring-2 ring-emerald-500')} isLoading={isLoading} />
  <ListPageStatCard label="Available" value={stats.available} icon={HardDrive} iconColor="text-muted-foreground" selected={columnFilters.status?.size === 1 && columnFilters.status.has('Available')} onClick={() => setColumnFilter('status', new Set(['Available']))} className={cn(columnFilters.status?.size === 1 && columnFilters.status.has('Available') && 'ring-2 ring-muted-foreground')} isLoading={isLoading} />
  <ListPageStatCard label="Released" value={stats.released} icon={HardDrive} iconColor="text-amber-600" valueClassName="text-amber-600" selected={columnFilters.status?.size === 1 && columnFilters.status.has('Released')} onClick={() => setColumnFilter('status', new Set(['Released']))} className={cn(columnFilters.status?.size === 1 && columnFilters.status.has('Released') && 'ring-2 ring-amber-600')} isLoading={isLoading} />
@@ -626,6 +627,6 @@ export default function PersistentVolumes() {
  onConfirm={handleDeleteConfirm}
  requireNameConfirmation={!deleteDialog.bulk}
  />
- </>
+ </PageLayout>
  );
 }

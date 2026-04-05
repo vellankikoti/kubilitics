@@ -47,6 +47,7 @@ import {
   CalendarClock,
   FlaskConical,
   Bot,
+  GitBranch,
 } from 'lucide-react';
 import {
   K8sPodIcon, K8sDeploymentIcon, K8sReplicaSetIcon, K8sStatefulSetIcon,
@@ -173,7 +174,7 @@ function NavItem({ to, icon: Icon, label, count, onNavigate }: NavItemProps) {
       onMouseLeave={hoverCancel}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
-        'flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-300 group relative overflow-hidden h-10',
+        'flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-200 ease-out group relative overflow-hidden h-10',
         isActive
           ? 'text-primary bg-primary/8 dark:bg-primary/15 border border-primary/15 dark:border-primary/25 shadow-sm'
           : 'text-slate-800 dark:text-slate-300 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-100 border border-transparent hover:translate-x-0.5'
@@ -182,7 +183,8 @@ function NavItem({ to, icon: Icon, label, count, onNavigate }: NavItemProps) {
       {isActive && (
         <motion.div
           layoutId="activeNavLine"
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-primary"
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-full bg-primary"
+          transition={{ type: "spring", stiffness: 350, damping: 30 }}
         />
       )}
       <Icon className={cn("h-5 w-5 transition-colors relative z-10 shrink-0", isActive ? "text-primary" : "text-slate-700 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100")} />
@@ -317,14 +319,14 @@ function ResourceSubCategory({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {totalCount > 0 && !isExpanded && (
-            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 tabular-nums">
+            <span className="text-[10px] font-bold text-muted-foreground tabular-nums">
               {totalCount}
             </span>
           )}
           <ChevronRight
             className={cn(
               'h-3.5 w-3.5 transition-transform duration-200',
-              isCategoryActive ? colors.icon : 'text-slate-400 dark:text-slate-400',
+              isCategoryActive ? colors.icon : 'text-muted-foreground',
               isExpanded && 'rotate-90'
             )}
           />
@@ -427,7 +429,7 @@ function TopLevelNavLink({
     <NavLink
       to={to}
       className={cn(
-        "flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-300 group border h-12",
+        "flex items-center gap-3 px-4 py-1.5 rounded-lg transition-all duration-200 group border h-9",
         isActive
           ? "bg-white dark:bg-slate-800 text-foreground border-slate-200/60 dark:border-slate-700/40 shadow-apple"
           : "bg-transparent text-slate-800 dark:text-slate-300 hover:bg-slate-100/60 dark:hover:bg-slate-800/60 border-transparent hover:border-slate-100 dark:hover:border-slate-700/50"
@@ -712,7 +714,7 @@ function SidebarContent({
   const filteredCategories = categories;
 
   return (
-    <div className="flex flex-col gap-5 pb-6 w-full">
+    <div className="flex flex-col gap-2 pb-6 w-full">
       {/* Project scope indicator */}
       {activeProject && (
         <div className="rounded-xl border border-primary/20 bg-primary/5 dark:bg-primary/10 p-3 space-y-2">
@@ -736,7 +738,7 @@ function SidebarContent({
       <SyncingIndicator isLoading={isLoading} isInitialLoad={isInitialLoad} />
 
       {/* Top-level navigation */}
-      <div className="space-y-1.5">
+      <div className="space-y-0.5">
         <TopLevelNavLink to="/dashboard" icon={LayoutDashboard} label="Dashboard" isActive={isDashboardActive} />
         <TopLevelNavLink to="/fleet" icon={Layers} label="Fleet" isActive={isFleetActive} />
         <TopLevelNavLink to="/topology" icon={Network} label="Topology" isActive={isTopologyActive} />
@@ -747,13 +749,15 @@ function SidebarContent({
       <div className="space-y-1">
         <div className="flex items-center gap-2.5 px-2 pt-3 pb-1.5">
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200/80 to-slate-200/80 dark:via-slate-700/80 dark:to-slate-700/80" />
-          <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.18em] select-none">Intelligence</span>
+          <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-[0.08em] select-none">Intelligence</span>
           <div className="h-px flex-1 bg-gradient-to-l from-transparent via-slate-200/80 to-slate-200/80 dark:via-slate-700/80 dark:to-slate-700/80" />
         </div>
         <div className="space-y-0.5 px-1">
           <NavItem to="/health" icon={HeartPulse} label="Health Scores" onNavigate={() => {}} />
           <NavItem to="/risk-ranking" icon={BarChart3} label="Risk Ranking" onNavigate={() => {}} />
           <NavItem to="/spof-inventory" icon={FileWarning} label="SPOF Inventory" onNavigate={() => {}} />
+          <NavItem to="/events-intelligence" icon={Activity} label="Events" onNavigate={() => {}} />
+          <NavItem to="/traces" icon={GitBranch} label="Traces" onNavigate={() => {}} />
           <NavItem to="/simulation" icon={FlaskConical} label="Simulation" onNavigate={() => {}} />
           <NavItem to="/auto-pilot" icon={Bot} label="Auto-Pilot" onNavigate={() => {}} />
           <NavItem to="/report-schedules" icon={CalendarClock} label="Reports" onNavigate={() => {}} />
@@ -775,7 +779,7 @@ function SidebarContent({
         {/* Section divider label */}
         <div className="flex items-center gap-2.5 px-2 pt-3 pb-1.5">
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200/80 to-slate-200/80 dark:via-slate-700/80 dark:to-slate-700/80" />
-          <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-[0.18em] select-none">Kubernetes</span>
+          <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-[0.08em] select-none">Kubernetes</span>
           <div className="h-px flex-1 bg-gradient-to-l from-transparent via-slate-200/80 to-slate-200/80 dark:via-slate-700/80 dark:to-slate-700/80" />
         </div>
         <button
@@ -900,7 +904,8 @@ export function Sidebar() {
 
   const fullContent = (
     <div className="flex flex-col flex-1 min-h-0 bg-slate-50/10 dark:bg-transparent">
-      <div className="flex-1 min-h-0 overflow-y-auto px-5 py-6 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-300 dark:hover:scrollbar-thumb-slate-600">
+      {/* Traffic light clearance handled by Header.tsx pl-[78px] */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-1 pb-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-300 dark:hover:scrollbar-thumb-slate-600">
         <SidebarContent counts={counts} isLoading={isLoading} isInitialLoad={isInitialLoad} metallbInstalled={metallbInstalled} />
       </div>
 
@@ -965,17 +970,17 @@ export function Sidebar() {
     return (
       <>
         <aside
-          className="w-[5.5rem] h-full border-r border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-[hsl(228,14%,9%)] backdrop-blur-3xl flex flex-col items-center py-6 gap-4 shrink-0 z-40 shadow-apple"
+          className="w-[5.5rem] h-full border-r border-border/40 bg-white/95 dark:bg-[hsl(228,14%,9%)] backdrop-blur-3xl flex flex-col items-center py-6 gap-4 shrink-0 z-40 shadow-apple"
           onMouseEnter={handleFlyoutEnter}
           onMouseLeave={() => setFlyoutOpen(false)}
           role="navigation"
           aria-label="Main navigation"
         >
           {/* Logo icon — always visible in collapsed state */}
-          <NavLink to="/dashboard" className="mb-2 flex items-center justify-center group/logo" title="Kubilitics — Go to Dashboard">
+          <NavLink to="/dashboard" className="mb-2 flex items-center justify-center group/logo border-b border-border/30 pb-4" title="Kubilitics — Go to Dashboard">
             <BrandLogo mark height={36} className="rounded-lg transition-transform duration-200 group-hover/logo:scale-105 group-active/logo:scale-95" draggable={false} />
           </NavLink>
-          <div className="w-12 h-px bg-border/50 mb-1" />
+          <div className="w-12 h-px bg-border/30 mb-1" />
 
           <NavItemIconOnly to="/dashboard" icon={LayoutDashboard} label="Dashboard" iconColor="text-blue-600 group-hover:text-blue-700" />
           <NavItemIconOnly to="/fleet" icon={Layers} label="Fleet" iconColor="text-indigo-600 group-hover:text-indigo-700" />
@@ -1009,10 +1014,10 @@ export function Sidebar() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              className="fixed left-[5.5rem] top-20 bottom-0 z-40 w-72 border-r border-slate-200/40 dark:border-slate-700/40 bg-white/70 dark:bg-[hsl(228,14%,9%)]/90 backdrop-blur-3xl shadow-apple-xl elevation-3 ring-1 ring-black/5 dark:ring-white/5"
+              className="fixed left-[5.5rem] top-14 bottom-0 z-40 w-72 border-r border-slate-200/40 dark:border-slate-700/40 bg-white/70 dark:bg-[hsl(228,14%,9%)]/90 backdrop-blur-3xl shadow-apple-xl elevation-3 ring-1 ring-black/5 dark:ring-white/5"
               onMouseEnter={handleFlyoutEnter}
               onMouseLeave={() => setFlyoutOpen(false)}
-              style={{ height: 'calc(100vh - 5rem)' }}
+              style={{ height: 'calc(100vh - 3.5rem)' }}
               role="navigation"
               aria-label="Main navigation"
             >
@@ -1025,7 +1030,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-72 h-full flex flex-col border-r border-slate-100 dark:border-slate-800 bg-white/95 dark:bg-[hsl(228,14%,9%)] backdrop-blur-3xl shrink-0 z-40 transition-[width] duration-300 ease-out" role="navigation" aria-label="Main navigation">
+    <aside className="w-72 h-full flex flex-col border-r border-border/40 bg-white/95 dark:bg-[hsl(228,14%,9%)] backdrop-blur-3xl shrink-0 z-40 transition-[width] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]" role="navigation" aria-label="Main navigation">
       {fullContent}
     </aside>
   );

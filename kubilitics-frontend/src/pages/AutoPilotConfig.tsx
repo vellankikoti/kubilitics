@@ -30,6 +30,7 @@ import {
 } from '@/hooks/useAutoPilot';
 import type { AutoPilotRuleConfig } from '@/services/api/autopilot';
 import { cn } from '@/lib/utils';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { toast } from '@/components/ui/sonner';
 
 // ── Mode badge colors ────────────────────────────────────────────────────────
@@ -130,7 +131,7 @@ const AutoPilotConfig = () => {
   const isLoading = configLoading || rulesLoading;
 
   return (
-    <div className="p-6 space-y-6 max-w-5xl mx-auto">
+    <PageLayout label="Auto-Pilot Configuration">
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -343,7 +344,7 @@ const AutoPilotConfig = () => {
           </Card>
         </>
       )}
-    </div>
+    </PageLayout>
   );
 };
 

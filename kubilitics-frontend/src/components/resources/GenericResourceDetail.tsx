@@ -19,11 +19,12 @@
 
 import { useState, useCallback, useEffect, ReactNode } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { LucideIcon, Clock, Download, Trash2, Edit, FileCode, GitCompare, Network, Zap, Copy, Loader2, FlaskConical } from 'lucide-react';
+import { LucideIcon, Clock, Download, Trash2, Edit, FileCode, GitCompare, Network, Zap, Copy, Loader2, FlaskConical, Activity, GitBranch } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
   Dialog,
   DialogContent,
@@ -58,6 +59,8 @@ import { useResourceDetail, useResourceEvents } from '@/hooks/useK8sResourceDeta
 import { useDeleteK8sResource, useUpdateK8sResource, type KubernetesResource, type ResourceType } from '@/hooks/useKubernetes';
 import { normalizeKindForTopology } from '@/utils/resourceKindMapper';
 import { BlastRadiusTab } from '@/components/resources/BlastRadiusTab';
+import { ResourceEventsTab } from '@/components/events/ResourceEventsTab';
+import { ResourceTracesTab } from '@/components/traces/ResourceTracesTab';
 import { PreApplyPanel } from '@/components/blast-radius/PreApplyPanel';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { useClusterStore } from '@/stores/clusterStore';
@@ -519,6 +522,7 @@ export function GenericResourceDetail<T extends KubernetesResource>({
   // --- Loading state ---
   if (isLoading) {
     return (
+      <PageLayout label={`${kind} Detail`}>
       <div className="space-y-6">
         <Skeleton className="h-20 w-full" />
         <div className={`grid grid-cols-${Math.min(loadingCardCount, 4)} gap-4`}>
@@ -528,6 +532,7 @@ export function GenericResourceDetail<T extends KubernetesResource>({
         </div>
         <Skeleton className="h-96" />
       </div>
+      </PageLayout>
     );
   }
 
@@ -541,7 +546,8 @@ export function GenericResourceDetail<T extends KubernetesResource>({
       namespace,
     });
     return (
-      <div className="space-y-4 p-6">
+      <PageLayout label={`${kind} Detail`}>
+      <div className="space-y-4">
         <Breadcrumbs segments={breadcrumbSegments} className="mb-2" />
         <Card>
           <CardContent className="pt-6 space-y-3">
@@ -569,13 +575,15 @@ export function GenericResourceDetail<T extends KubernetesResource>({
           </CardContent>
         </Card>
       </div>
+      </PageLayout>
     );
   }
 
   // --- Not-found state ---
   if (isConnected && name && !resource?.metadata?.name) {
     return (
-      <div className="space-y-4 p-6">
+      <PageLayout label={`${kind} Detail`}>
+      <div className="space-y-4">
         <Breadcrumbs segments={breadcrumbSegments} className="mb-2" />
         <Card>
           <CardContent className="pt-6">
@@ -586,6 +594,7 @@ export function GenericResourceDetail<T extends KubernetesResource>({
           </CardContent>
         </Card>
       </div>
+      </PageLayout>
     );
   }
 
@@ -601,6 +610,32 @@ export function GenericResourceDetail<T extends KubernetesResource>({
       icon: Clock,
       badge: events?.length || undefined,
       content: <EventsSection events={events} />,
+    },
+    {
+      id: 'events-intelligence',
+      label: 'Events Intelligence',
+      icon: Activity,
+      content: (
+        <ResourceEventsTab
+          resourceKind={kind}
+          resourceName={ctx.name}
+          namespace={ctx.namespace}
+          clusterId={clusterId ?? null}
+        />
+      ),
+    },
+    {
+      id: 'traces',
+      label: 'Traces',
+      icon: GitBranch,
+      content: (
+        <ResourceTracesTab
+          resourceKind={kind}
+          resourceName={ctx.name}
+          namespace={ctx.namespace}
+          clusterId={clusterId ?? null}
+        />
+      ),
     },
     {
       id: 'yaml',
@@ -707,10 +742,8 @@ export function GenericResourceDetail<T extends KubernetesResource>({
 
   // --- Render ---
   return (
-    <>
+    <PageLayout label={`${kind} Detail`}>
       <ResourceDetailLayout
-        role="main"
-        aria-label={`${kind} Detail`}
         resourceType={kind}
         resourceIcon={resourceIcon}
         name={ctx.name}
@@ -759,6 +792,6 @@ export function GenericResourceDetail<T extends KubernetesResource>({
         isBackendConfigured={isBackendConfiguredVal}
       />
       {extraDialogs?.({ ...ctx, showDeleteDialog, setShowDeleteDialog })}
-    </>
+    </PageLayout>
   );
 }

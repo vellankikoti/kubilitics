@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search, Filter, RefreshCw, MoreHorizontal, CheckCircle2, XCircle, Clock, Loader2, WifiOff, Plus,
  ChevronDown, ChevronLeft, ChevronRight, Trash2, RotateCcw, Scale, History, Rocket, FileText, FileCode,
@@ -571,7 +572,8 @@ spec:
  }, [columnVisibility.visibleColumns]);
 
  return (
- <div className="space-y-6" role="main" aria-label="Deployments Resources">
+ <PageLayout label="Deployments">
+ <div className="space-y-6">
  <ListPageHeader
  icon={<DeploymentIcon className="h-6 w-6 text-primary" />}
  title="Deployments"
@@ -1256,5 +1258,6 @@ spec:
  />
  )}
  </div>
+ </PageLayout>
  );
 }

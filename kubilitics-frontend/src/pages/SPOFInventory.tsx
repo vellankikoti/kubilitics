@@ -44,7 +44,10 @@ import {
 import { SPOFSummaryCards } from '@/components/spof/SPOFSummaryCards';
 import { useSPOFInventory } from '@/hooks/useSPOFInventory';
 import { ListPagination } from '@/components/list/ListPagination';
+import { SectionOverviewHeader } from '@/components/layout/SectionOverviewHeader';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { cn } from '@/lib/utils';
+import { ApiError } from '@/components/ui/error-state';
 import type { SPOFItem } from '@/services/api/spof';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -405,37 +408,26 @@ export default function SPOFInventory() {
 
   const rowKey = (item: SPOFItem) => `${item.kind}/${item.namespace}/${item.name}`;
 
+  if (error) {
+    return (
+      <PageLayout label="SPOF Inventory">
+        <ApiError onRetry={() => refetch()} message={(error as Error)?.message} />
+      </PageLayout>
+    );
+  }
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="h-full w-full flex flex-col min-h-0 bg-background text-foreground"
-    >
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6 pb-6 scroll-smooth w-full">
-        <div className="w-full space-y-6">
+    <PageLayout label="SPOF Inventory">
           {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Shield className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-foreground">SPOF Inventory</h1>
-                <p className="text-sm text-muted-foreground">
-                  Single points of failure detected in your cluster
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => refetch()}
-              disabled={isFetching}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isFetching ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-          </div>
+          <SectionOverviewHeader
+            title="SPOF Inventory"
+            description="Single points of failure detected in your cluster."
+            icon={Shield}
+            iconClassName="from-rose-500/20 to-rose-500/5 text-rose-600 border-rose-500/10"
+            onSync={() => refetch()}
+            isSyncing={isFetching}
+            showAiButton={false}
+          />
 
           {/* Summary Cards */}
           <SPOFSummaryCards
@@ -496,7 +488,7 @@ export default function SPOFInventory() {
 
           {/* Error State */}
           {error && (
-            <Card className="border-red-500/30">
+            <Card className="border-red-500/30 soft-shadow glass-panel">
               <CardContent className="py-4">
                 <p className="text-sm text-red-500">
                   Failed to load SPOF inventory: {error.message}
@@ -506,7 +498,7 @@ export default function SPOFInventory() {
           )}
 
           {/* SPOF Table */}
-          <Card>
+          <Card className="border-none soft-shadow glass-panel card-accent-danger">
             <CardContent className="p-0">
               <Table>
                 <TableHeader>
@@ -633,8 +625,6 @@ export default function SPOFInventory() {
               />
             </div>
           )}
-        </div>
-      </div>
-    </motion.div>
+    </PageLayout>
   );
 }

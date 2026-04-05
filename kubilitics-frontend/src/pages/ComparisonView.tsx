@@ -14,6 +14,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -168,19 +169,19 @@ export default function ComparisonView() {
 
   if (dashboardQuery.isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <PageLayout label="Cluster Comparison">
         <Skeleton className="h-8 w-48" />
         <div className="grid grid-cols-2 gap-6">
           <Skeleton className="h-12" />
           <Skeleton className="h-12" />
         </div>
         <Skeleton className="h-96" />
-      </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <PageLayout label="Cluster Comparison">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Cluster Comparison</h1>
@@ -320,6 +321,6 @@ export default function ComparisonView() {
           </p>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }

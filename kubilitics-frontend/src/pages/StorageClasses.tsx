@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search,
  RefreshCw,
@@ -297,7 +298,7 @@ export default function StorageClasses() {
 
  return (
  <>
- <div className="space-y-6">
+ <PageLayout label="Storage Classes">
  <ListPageHeader
  icon={<StorageIcon className="h-6 w-6 text-primary" />}
  title="Storage Classes"
@@ -546,7 +547,7 @@ export default function StorageClasses() {
  </Table>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
 
  {showCreateWizard && <ResourceCreator resourceKind="StorageClass" defaultYaml={DEFAULT_YAMLS.StorageClass} onClose={() => setShowCreateWizard(false)} onApply={() => { toast.success('StorageClass created'); setShowCreateWizard(false); refetch(); }} />}
  <DeleteConfirmDialog

@@ -36,6 +36,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 // topologyCacheEntry stores a cached topology response with an expiration time.
@@ -95,6 +96,16 @@ func TopologyCacheInvalidateForCluster(clusterID string) {
 	})
 }
 
+// ClusterLifecycleHook is called by the REST handler when a cluster is
+// connected, reconnected, or removed. PipelineManager implements this
+// interface so that event pipelines start/stop with cluster lifecycle.
+type ClusterLifecycleHook interface {
+	// OnClusterConnected is called after a cluster is successfully added or reconnected.
+	OnClusterConnected(clientset kubernetes.Interface, clusterID string) error
+	// OnClusterDisconnected is called after a cluster is removed.
+	OnClusterDisconnected(clusterID string)
+}
+
 // Handler manages HTTP request handlers
 type Handler struct {
 	clusterService        service.ClusterService
@@ -117,6 +128,7 @@ type Handler struct {
 	graphEngines          map[string]*graph.ClusterGraphEngine // clusterId -> engine
 	snapshotStore         diff.SnapshotStore                   // topology diff snapshot persistence
 	scheduleHandler       *ScheduleHandler                     // optional: report schedule CRUD (nil = disabled)
+	lifecycleHook         ClusterLifecycleHook                 // optional: events pipeline lifecycle (nil = disabled)
 }
 
 // NewHandler creates a new HTTP handler. unifiedMetricsService can be nil; then metrics summary uses legacy per-resource endpoints. projSvc can be nil; then project routes return 501. addonService can be nil; then addon routes return 404 or 501. repo can be nil if auth is disabled. snapshotStore can be nil; then topology snapshot endpoints return 503.
@@ -148,6 +160,31 @@ func NewHandler(cs service.ClusterService, ts service.TopologyService, cfg *conf
 // Call this before SetupRoutes. When nil, schedule routes are not registered.
 func (h *Handler) SetScheduleHandler(sh *ScheduleHandler) {
 	h.scheduleHandler = sh
+}
+
+// SetLifecycleHook attaches a ClusterLifecycleHook (typically PipelineManager) so
+// that event pipelines start/stop when clusters are added/removed/reconnected.
+func (h *Handler) SetLifecycleHook(hook ClusterLifecycleHook) {
+	h.lifecycleHook = hook
+}
+
+// notifyClusterConnected tells the lifecycle hook (events pipeline manager) that
+// a cluster has been connected or reconnected. It fetches the K8s client from the
+// cluster service and calls the hook asynchronously to avoid blocking the HTTP response.
+func (h *Handler) notifyClusterConnected(clusterID string) {
+	if h.lifecycleHook == nil {
+		return
+	}
+	client, err := h.clusterService.GetClient(clusterID)
+	if err != nil {
+		fmt.Printf("[handler] lifecycle hook: cannot get client for cluster %s: %v\n", clusterID, err)
+		return
+	}
+	go func() {
+		if err := h.lifecycleHook.OnClusterConnected(client.Clientset, clusterID); err != nil {
+			fmt.Printf("[handler] lifecycle hook: failed to start pipeline for cluster %s: %v\n", clusterID, err)
+		}
+	}()
 }
 
 // wsCheckOrigin validates a WebSocket upgrade request's Origin header against the
@@ -511,10 +548,9 @@ func SetupRoutes(router *mux.Router, h *Handler) {
 		json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
 	}).Methods("GET")
 
-	// API 404: return JSON so frontend never sees Go default "404 page not found"
-	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		respondError(w, http.StatusNotFound, "Not found")
-	})
+	// NOTE: NotFoundHandler moved to cmd/server/main.go (set AFTER all routes
+	// including events-intelligence and otel are registered). Setting it here
+	// would shadow routes registered by other packages on the same router.
 }
 
 // ListClusters handles GET /clusters (BE-AUTHZ-001: filters by user permissions).
@@ -669,6 +705,9 @@ func (h *Handler) AddCluster(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// Start events pipeline for the newly added cluster.
+		h.notifyClusterConnected(cluster.ID)
+
 		respondJSON(w, http.StatusCreated, cluster)
 		return
 	}
@@ -695,6 +734,9 @@ func (h *Handler) AddCluster(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Start events pipeline for the newly added cluster.
+	h.notifyClusterConnected(cluster.ID)
+
 	respondJSON(w, http.StatusCreated, cluster)
 }
 
@@ -710,6 +752,11 @@ func (h *Handler) RemoveCluster(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		respondError(w, http.StatusNotFound, err.Error())
 		return
+	}
+
+	// Stop events pipeline before removing the cluster.
+	if h.lifecycleHook != nil {
+		h.lifecycleHook.OnClusterDisconnected(resolvedID)
 	}
 
 	if err := h.clusterService.RemoveCluster(r.Context(), resolvedID); err != nil {
@@ -740,6 +787,10 @@ func (h *Handler) ReconnectCluster(w http.ResponseWriter, r *http.Request) {
 		respondErrorWithRequestID(w, r, http.StatusServiceUnavailable, ErrCodeInternalError, err.Error())
 		return
 	}
+
+	// Restart events pipeline for the reconnected cluster.
+	h.notifyClusterConnected(cluster.ID)
+
 	respondJSON(w, http.StatusOK, cluster)
 }
 

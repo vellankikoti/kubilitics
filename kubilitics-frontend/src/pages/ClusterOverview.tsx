@@ -45,8 +45,9 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { SectionOverviewHeader } from "@/components/layout/SectionOverviewHeader";
 import { ListPagination } from "@/components/list/ListPagination";
-import { ConnectionRequiredBanner } from "@/components/layout/ConnectionRequiredBanner";
+import { PageLayout } from "@/components/layout/PageLayout";
 import { PageLoadingState } from "@/components/PageLoadingState";
+import { ApiError } from "@/components/ui/error-state";
 
 /* ─── Constants ────────────────────────────────────────────────────────────── */
 
@@ -242,7 +243,7 @@ export default function ClusterOverview() {
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const clusterId = currentClusterId ?? undefined;
 
-  const { data, isLoading } = useClusterOverviewData();
+  const { data, isLoading, isError } = useClusterOverviewData();
   const { utilization } = useClusterUtilization(clusterId);
 
   const handleSync = useCallback(() => {
@@ -296,6 +297,14 @@ export default function ClusterOverview() {
   const isAllSelected =
     itemsOnPage.length > 0 && selectedItems.size === itemsOnPage.length;
 
+  if (isError) {
+    return (
+      <PageLayout label="Cluster Overview">
+        <ApiError onRetry={() => queryClient.invalidateQueries({ queryKey: ["k8s"] })} />
+      </PageLayout>
+    );
+  }
+
   if (isLoading) {
     return <PageLoadingState message="Loading cluster data..." />;
   }
@@ -343,9 +352,7 @@ export default function ClusterOverview() {
       : AlertCircle;
 
   return (
-    <div className="page-container" role="main" aria-label="Cluster Overview">
-      <div className="page-inner p-6 gap-6 flex flex-col">
-        <ConnectionRequiredBanner />
+    <PageLayout label="Cluster Overview">
 
         {/* ── Header ── */}
         <SectionOverviewHeader
@@ -832,7 +839,6 @@ export default function ClusterOverview() {
             )}
           </Card>
         </section>
-      </div>
-    </div>
+    </PageLayout>
   );
 }

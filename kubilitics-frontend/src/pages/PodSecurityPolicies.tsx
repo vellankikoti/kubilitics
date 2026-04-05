@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  RefreshCw, MoreHorizontal, CheckCircle2, XCircle, Clock, Loader2, WifiOff, Plus,
  Trash2, FileText, Search, Shield, ChevronDown, AlertTriangle,
@@ -218,7 +219,7 @@ spec:
  };
 
  return (
- <div className="space-y-6">
+ <PageLayout label="Pod Security Policies">
  <Alert className="border-amber-500/50 bg-amber-500/10">
  <AlertTriangle className="h-4 w-4 text-amber-500" />
  <AlertTitle className="text-amber-600">Deprecated Resource</AlertTitle>
@@ -367,10 +368,10 @@ spec:
  <tr key={item.name} className={cn(resourceTableRowClassName, idx % 2 === 1 && 'bg-muted/5', isSelected && 'bg-primary/5')}>
  <TableCell><Checkbox checked={isSelected} onCheckedChange={() => toggleSelection(item)} /></TableCell>
  <ResizableTableCell columnId="name">
- <span className="font-medium flex items-center gap-2 truncate cursor-pointer text-primary hover:underline" onClick={() => navigate(`/podsecuritypolicies/${item.name}`)}>
+ <button className="font-medium flex items-center gap-2 truncate cursor-pointer text-primary hover:underline bg-transparent border-none p-0 text-left" onClick={() => navigate(`/podsecuritypolicies/${item.name}`)}>
  <Shield className="h-4 w-4 text-muted-foreground flex-shrink-0" />
  <span className="truncate">{item.name}</span>
- </span>
+ </button>
  </ResizableTableCell>
  {columnVisibility.isColumnVisible('privileged') && <ResizableTableCell columnId="privileged"><Badge variant={item.privileged ? 'destructive' : 'secondary'} className="text-xs">{item.privileged ? 'Yes' : 'No'}</Badge></ResizableTableCell>}
  {columnVisibility.isColumnVisible('volumes') && <ResizableTableCell columnId="volumes" className="text-xs text-muted-foreground truncate max-w-[220px]" title={item.volumes}>{item.volumes}</ResizableTableCell>}
@@ -425,6 +426,6 @@ spec:
  namespace={undefined}
  onConfirm={handleDelete}
  />
- </div>
+ </PageLayout>
  );
 }

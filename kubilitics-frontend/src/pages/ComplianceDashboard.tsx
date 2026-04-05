@@ -28,6 +28,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { ApiError } from '@/components/ui/error-state';
+import { SectionOverviewHeader } from '@/components/layout/SectionOverviewHeader';
 import { useBackendConfigStore } from '@/stores/backendConfigStore';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -95,6 +98,7 @@ export default function ComplianceDashboard() {
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const [categories, setCategories] = useState<ComplianceCategory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [lastScanned, setLastScanned] = useState<string>(new Date().toISOString());
 
@@ -102,15 +106,15 @@ export default function ComplianceDashboard() {
 
   const fetchCompliance = useCallback(async () => {
     setIsLoading(true);
+    setFetchError(null);
     try {
       const res = await fetch(`${backendBaseUrl}/api/v1/compliance/overview`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.categories) setCategories(data.categories);
-        if (data.lastScanned) setLastScanned(data.lastScanned);
-      }
-    } catch {
-      // API unavailable — keep empty state
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.categories) setCategories(data.categories);
+      if (data.lastScanned) setLastScanned(data.lastScanned);
+    } catch (err) {
+      setFetchError((err as Error)?.message ?? 'Failed to fetch compliance data');
     } finally {
       setIsLoading(false);
     }
@@ -131,29 +135,29 @@ export default function ComplianceDashboard() {
   const totalFailed = categories.reduce((sum, c) => sum + c.failed, 0);
   const totalWarnings = categories.reduce((sum, c) => sum + c.warnings, 0);
 
+  if (fetchError) {
+    return (
+      <PageLayout label="Compliance Dashboard">
+        <ApiError onRetry={fetchCompliance} message={fetchError} />
+      </PageLayout>
+    );
+  }
+
   return (
-    <div className="container py-8 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Shield className="h-7 w-7 text-primary" />
-          <div>
-            <h1 className="text-2xl font-bold">Compliance Dashboard</h1>
-            <p className="text-sm text-muted-foreground">
-              Security compliance overview for your Kubernetes cluster
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
+    <PageLayout label="Compliance Dashboard">
+      <SectionOverviewHeader
+        title="Compliance Dashboard"
+        description="Security compliance overview for your Kubernetes cluster"
+        icon={Shield}
+        iconClassName="bg-amber-100 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400"
+        onSync={fetchCompliance}
+        isSyncing={isLoading}
+        extraActions={
           <span className="text-xs text-muted-foreground">
             Last scan: {new Date(lastScanned).toLocaleString()}
           </span>
-          <Button variant="outline" onClick={fetchCompliance} disabled={isLoading}>
-            <RefreshCw className={cn('h-4 w-4 mr-2', isLoading && 'animate-spin')} />
-            Rescan
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Overall score card */}
       <motion.div
@@ -161,7 +165,7 @@ export default function ComplianceDashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
       >
-        <Card className="overflow-hidden">
+        <Card className="overflow-hidden border-none soft-shadow glass-panel card-accent">
           <CardContent className="p-6">
             <div className="flex items-center gap-8">
               {/* Score ring */}
@@ -216,7 +220,7 @@ export default function ComplianceDashboard() {
 
       {/* Empty state */}
       {categories.length === 0 && !isLoading && (
-        <Card>
+        <Card className="border-none soft-shadow glass-panel">
           <CardContent className="flex flex-col items-center justify-center gap-3 p-12">
             <Shield className="h-12 w-12 text-muted-foreground/50" />
             <p className="text-sm font-medium text-foreground">No compliance data available</p>
@@ -239,7 +243,7 @@ export default function ComplianceDashboard() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: idx * 0.1 }}
             >
-              <Card className="overflow-hidden">
+              <Card className="overflow-hidden border-none soft-shadow glass-panel">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -343,6 +347,6 @@ export default function ComplianceDashboard() {
           );
         })}
       </div>
-    </div>
+    </PageLayout>
   );
 }

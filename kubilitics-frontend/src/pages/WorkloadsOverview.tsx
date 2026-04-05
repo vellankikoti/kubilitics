@@ -49,7 +49,7 @@ import { motion } from 'framer-motion';
 import { useWorkloadsOverview } from '@/hooks/useWorkloadsOverview';
 import { useClusterStore } from '@/stores/clusterStore';
 import { getDetailPath } from '@/utils/resourceKindMapper';
-import { ConnectionRequiredBanner } from '@/components/layout/ConnectionRequiredBanner';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { SectionOverviewHeader } from '@/components/layout/SectionOverviewHeader';
@@ -232,9 +232,7 @@ export default function WorkloadsOverview() {
   }
 
   return (
-    <div className="page-container" role="main" aria-label="Workloads Overview">
-      <div className="page-inner p-6 gap-6 flex flex-col">
-        <ConnectionRequiredBanner />
+    <PageLayout label="Workloads Overview">
 
         {/* Header */}
         <SectionOverviewHeader
@@ -246,11 +244,11 @@ export default function WorkloadsOverview() {
         />
 
         {/* Hero Section: Workload Health Pulse */}
-        <Card className="overflow-hidden border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900 elevation-2" aria-live="polite">
+        <Card className="overflow-hidden border-none bg-card elevation-2" aria-live="polite">
           <CardHeader className="flex flex-row items-center justify-between pb-4 pt-8 px-8">
             <div>
-              <CardTitle className="text-h4 text-slate-900 dark:text-slate-100">Workload Health</CardTitle>
-              <p className="text-body-sm text-slate-500 dark:text-slate-400 mt-1">Overall health across all running workloads</p>
+              <CardTitle className="text-h4 text-foreground">Workload Health</CardTitle>
+              <p className="text-body-sm text-muted-foreground mt-1">Overall health across all running workloads</p>
             </div>
             {pulse && (
               <div className="flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 text-xs font-semibold uppercase tracking-wider border border-emerald-100 dark:border-emerald-800">
@@ -263,26 +261,26 @@ export default function WorkloadsOverview() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
               <div className="relative">
                 <WorkloadPulse data={pulse} />
-                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 h-1 w-24 bg-slate-100 dark:bg-slate-700 rounded-full blur-[1px]" />
+                <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 h-1 w-24 bg-muted rounded-full blur-[1px]" />
               </div>
 
               <div className="space-y-10 pr-4">
                 <div className="relative pl-6">
-                  <span className="block text-5xl font-bold text-slate-900 dark:text-slate-100 tracking-tighter leading-none">{pulse?.total ?? 0}</span>
+                  <span className="block text-5xl font-bold text-foreground tracking-tighter leading-none">{pulse?.total ?? 0}</span>
                   <span className="label-xs mt-3 block">Total Workloads</span>
                   <div className="absolute left-0 top-1 bottom-1 w-1 bg-blue-500 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.3)]" />
                 </div>
 
-                <div className="grid grid-cols-3 gap-8 py-8 border-y border-slate-100 dark:border-slate-700 relative">
+                <div className="grid grid-cols-3 gap-8 py-8 border-y border-border/60 relative">
                   <div className="space-y-1.5">
                     <span className="label-xs block">Healthy</span>
                     <span className="text-2xl font-bold text-emerald-600">{pulse?.healthy ?? 0}</span>
                   </div>
-                  <div className="space-y-1.5 border-l border-slate-100 dark:border-slate-700 pl-6">
+                  <div className="space-y-1.5 border-l border-border/60 pl-6">
                     <span className="label-xs block">Warning</span>
                     <span className="text-2xl font-bold text-amber-500">{pulse?.warning ?? 0}</span>
                   </div>
-                  <div className="space-y-1.5 border-l border-slate-100 dark:border-slate-700 pl-6">
+                  <div className="space-y-1.5 border-l border-border/60 pl-6">
                     <span className="label-xs block">Critical</span>
                     <span className="text-2xl font-bold text-rose-600">{pulse?.critical ?? 0}</span>
                   </div>
@@ -293,7 +291,7 @@ export default function WorkloadsOverview() {
                     <span className="label-xs">Health Score</span>
                     <span className="text-sm font-bold text-emerald-600 tabular-nums">{pulse?.optimal_percent.toFixed(1)}%</span>
                   </div>
-                  <div className="h-2.5 w-full bg-slate-50 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-100 dark:border-slate-700">
+                  <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden p-0.5 border border-border/60">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${pulse?.optimal_percent ?? 0}%` }}
@@ -309,7 +307,7 @@ export default function WorkloadsOverview() {
 
         {/* Resources Overview: Pod Distribution & Efficiency */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <Card className="lg:col-span-8 border-slate-200/80 dark:border-slate-700/80 overflow-hidden bg-white dark:bg-slate-900 elevation-2">
+          <Card className="lg:col-span-8 border-none overflow-hidden bg-card elevation-2">
             <PodStatusDistribution />
           </Card>
           <div className="lg:col-span-4">
@@ -319,18 +317,18 @@ export default function WorkloadsOverview() {
 
         {/* Workloads Explorer */}
         <div className="section-card overflow-hidden !p-0">
-          <div className="p-6 border-b border-slate-100 dark:border-slate-700">
+          <div className="p-6 border-b border-border/60">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h3 className="text-h5 text-slate-900 dark:text-slate-100">Workloads Explorer</h3>
-                <p className="text-body-sm text-slate-500 dark:text-slate-400 mt-0.5">All controllers and their current state</p>
+                <h3 className="text-h5 text-foreground">Workloads Explorer</h3>
+                <p className="text-body-sm text-muted-foreground mt-0.5">All controllers and their current state</p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="relative flex-1 min-w-[300px]">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" aria-hidden />
                   <Input
                     placeholder="Search controllers..."
-                    className="pl-10 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-300 dark:focus:border-blue-600 h-10 text-sm"
+                    className="pl-10 bg-muted border-border rounded-xl focus:bg-card focus:ring-2 focus:ring-blue-500/10 focus:border-blue-300 dark:focus:border-blue-600 h-10 text-sm"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     aria-label="Search workload controllers"
@@ -348,19 +346,19 @@ export default function WorkloadsOverview() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/80 dark:bg-slate-800/80">
-                  <th className="px-6 py-3.5 border-b border-slate-100 dark:border-slate-700 w-10">
+                <tr className="bg-muted/60">
+                  <th className="px-6 py-3.5 border-b border-border/60 w-10">
                     <Checkbox checked={isAllSelected} onCheckedChange={toggleAll} />
                   </th>
-                  <th className="px-6 py-3.5 table-header-cell border-b border-slate-100 dark:border-slate-700">Controller</th>
-                  <th className="px-6 py-3.5 table-header-cell border-b border-slate-100 dark:border-slate-700">Namespace</th>
-                  <th className="px-6 py-3.5 table-header-cell border-b border-slate-100 dark:border-slate-700">Status</th>
-                  <th className="px-6 py-3.5 table-header-cell border-b border-slate-100 dark:border-slate-700 text-right">Replicas</th>
-                  <th className="px-6 py-3.5 table-header-cell border-b border-slate-100 dark:border-slate-700 text-right">Pressure</th>
-                  <th className="px-6 py-3.5 border-b border-slate-100 dark:border-slate-700"></th>
+                  <th className="px-6 py-3.5 table-header-cell border-b border-border/60">Controller</th>
+                  <th className="px-6 py-3.5 table-header-cell border-b border-border/60">Namespace</th>
+                  <th className="px-6 py-3.5 table-header-cell border-b border-border/60">Status</th>
+                  <th className="px-6 py-3.5 table-header-cell border-b border-border/60 text-right">Replicas</th>
+                  <th className="px-6 py-3.5 table-header-cell border-b border-border/60 text-right">Pressure</th>
+                  <th className="px-6 py-3.5 border-b border-border/60"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+              <tbody className="divide-y divide-border/30">
                 {itemsOnPage.map((w, i) => {
                   const Icon = KIND_ICONS[w.kind] ?? Container;
                   const detailPath = getDetailPath(w.kind, w.name, w.namespace);
@@ -372,18 +370,18 @@ export default function WorkloadsOverview() {
                       initial={{ opacity: 0, y: 4 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: i * 0.02 }}
-                      className={cn("group hover:bg-slate-50/80 dark:hover:bg-slate-800/80 transition-colors", isSelected && "bg-blue-50/40 dark:bg-blue-900/20")}
+                      className={cn("group hover:bg-muted/40 transition-colors", isSelected && "bg-blue-50/40 dark:bg-blue-900/20")}
                     >
                       <td className="px-6 py-3.5">
                         <Checkbox checked={isSelected} onCheckedChange={() => toggleSelection(w)} />
                       </td>
                       <td className="px-6 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-slate-500 dark:text-slate-400 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center text-muted-foreground group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                             <Icon className="h-4 w-4" />
                           </div>
                           <div>
-                            <Link to={detailPath || '#'} className="font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors block leading-tight">
+                            <Link to={detailPath || '#'} className="font-semibold text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors block leading-tight">
                               {w.name}
                             </Link>
                             <span className="label-xs text-xs mt-0.5 block">{w.kind}</span>
@@ -391,7 +389,7 @@ export default function WorkloadsOverview() {
                         </div>
                       </td>
                       <td className="px-6 py-3.5">
-                        <span className="font-mono text-xs font-medium text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md">
+                        <span className="font-mono text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-md">
                           {w.namespace}
                         </span>
                       </td>
@@ -439,7 +437,7 @@ export default function WorkloadsOverview() {
             </table>
           </div>
 
-          <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-4 border-t border-border/60 bg-muted/40 flex flex-col sm:flex-row items-center justify-between gap-4">
             <ListPagination
               rangeLabel={`${totalFiltered} ${totalFiltered === 1 ? 'workload' : 'workloads'}`}
               hasPrev={safePageIndex > 0}
@@ -451,19 +449,18 @@ export default function WorkloadsOverview() {
               onPageChange={(p) => setPageIndex(p - 1)}
             />
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" asChild className="h-9 px-4 font-medium border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-all press-effect">
+              <Button variant="outline" size="sm" asChild className="h-9 px-4 font-medium border-border text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-all press-effect">
                 <Link to="/deployments">Deployments</Link>
               </Button>
-              <Button variant="outline" size="sm" asChild className="h-9 px-4 font-medium border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-all press-effect">
+              <Button variant="outline" size="sm" asChild className="h-9 px-4 font-medium border-border text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-all press-effect">
                 <Link to="/statefulsets">StatefulSets</Link>
               </Button>
-              <Button variant="outline" size="sm" asChild className="h-9 px-4 font-medium border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-all press-effect">
+              <Button variant="outline" size="sm" asChild className="h-9 px-4 font-medium border-border text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 rounded-xl transition-all press-effect">
                 <Link to="/pods">All Pods</Link>
               </Button>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </PageLayout>
   );
 }

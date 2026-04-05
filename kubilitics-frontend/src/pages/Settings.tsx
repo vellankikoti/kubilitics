@@ -32,6 +32,7 @@ import { isTauri } from '@/lib/tauri';
 import { useThemeStore, type Theme } from '@/stores/themeStore';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { ClusterAppearanceSettings } from '@/components/settings/ClusterAppearance';
 
 const settingsSchema = z.object({
@@ -327,7 +328,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="container max-w-5xl py-8 space-y-8">
+    <PageLayout label="Settings" showBanner={false} className="max-w-5xl mx-auto">
       {/* ━━━ Hero Header ━━━ */}
       <div className="relative overflow-hidden rounded-2xl border border-border/40 bg-gradient-to-br from-slate-50 via-white to-blue-50/80 dark:from-slate-900 dark:via-slate-900/95 dark:to-blue-950/30 shadow-lg shadow-blue-500/5">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-100/40 via-transparent to-transparent dark:from-blue-900/20" />
@@ -843,7 +844,7 @@ export default function Settings() {
           onOpenChange={(open) => !open && setSettingsProject(null)}
         />
       )}
-    </div>
+    </PageLayout>
   );
 }
 

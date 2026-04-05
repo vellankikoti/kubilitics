@@ -10,6 +10,14 @@ const (
 	NotificationChannelSlack   NotificationChannelType = "slack"
 )
 
+// KnownNotificationEventTypes enumerates all event type strings that channels
+// can subscribe to.  This is informational — the notifier does not reject
+// unknown types, so new types can be added without a migration.
+var KnownNotificationEventTypes = []string{
+	"install", "upgrade", "uninstall", "failed", "health_change",
+	"insight_critical", "insight_warning", "insight_info",
+}
+
 // NotificationChannel is a configured endpoint that receives addon lifecycle events.
 type NotificationChannel struct {
 	ID   string                  `json:"id"         db:"id"`
@@ -17,7 +25,8 @@ type NotificationChannel struct {
 	Type NotificationChannelType `json:"type"       db:"type"`
 	URL  string                  `json:"url"        db:"url"`
 	// Events is the set of event names this channel subscribes to.
-	// Recognised values: "install", "upgrade", "uninstall", "failed", "health_change".
+	// Recognised values: "install", "upgrade", "uninstall", "failed", "health_change",
+	// "insight_critical", "insight_warning", "insight_info".
 	Events    []string  `json:"events"     db:"-"`
 	EventsRaw string    `json:"-"          db:"events"` // JSON-encoded, stored in DB
 	Enabled   bool      `json:"enabled"    db:"-"`

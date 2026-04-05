@@ -39,6 +39,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { SectionOverviewHeader } from '@/components/layout/SectionOverviewHeader';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -126,7 +128,7 @@ function SLOCard({ status }: { status: SLOStatus }) {
 
   return (
     <Card className={cn(
-      'overflow-hidden transition-colors',
+      'overflow-hidden transition-colors border-none soft-shadow glass-panel',
       !isHealthy && 'border-red-200 dark:border-red-900/40',
     )}>
       <CardContent className="p-4 space-y-3">
@@ -139,7 +141,7 @@ function SLOCard({ status }: { status: SLOStatus }) {
               <XCircle className="h-4 w-4 text-red-500 shrink-0" />
             )}
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+              <p className="text-sm font-semibold text-foreground truncate">
                 {status.sliName}
               </p>
               <p className="text-[10px] text-muted-foreground">
@@ -161,12 +163,12 @@ function SLOCard({ status }: { status: SLOStatus }) {
         {/* Error Budget Bar */}
         <div className="space-y-1">
           <div className="flex items-center justify-between text-[10px]">
-            <span className="font-semibold text-slate-600 dark:text-slate-400">Error Budget</span>
+            <span className="font-semibold text-muted-foreground">Error Budget</span>
             <span className={cn('font-bold', getBudgetColor(budgetPercent))}>
               {formatPercent(budgetPercent, 1)} remaining
             </span>
           </div>
-          <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+          <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${budgetPercent * 100}%` }}
@@ -180,24 +182,24 @@ function SLOCard({ status }: { status: SLOStatus }) {
         <div className="grid grid-cols-2 gap-2">
           <div className={cn(
             'rounded-lg p-2 text-center',
-            status.burnRate1h > 1 ? 'bg-red-50 dark:bg-red-950/20' : 'bg-slate-50 dark:bg-slate-800/40',
+            status.burnRate1h > 1 ? 'bg-red-50 dark:bg-red-950/20' : 'bg-muted/50',
           )}>
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">1h Burn Rate</p>
             <p className={cn(
               'text-sm font-bold tabular-nums',
-              status.burnRate1h > 1 ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-300',
+              status.burnRate1h > 1 ? 'text-red-600 dark:text-red-400' : 'text-foreground',
             )}>
               {status.burnRate1h.toFixed(2)}x
             </p>
           </div>
           <div className={cn(
             'rounded-lg p-2 text-center',
-            status.burnRate6h > 1 ? 'bg-amber-50 dark:bg-amber-950/20' : 'bg-slate-50 dark:bg-slate-800/40',
+            status.burnRate6h > 1 ? 'bg-amber-50 dark:bg-amber-950/20' : 'bg-muted/50',
           )}>
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">6h Burn Rate</p>
             <p className={cn(
               'text-sm font-bold tabular-nums',
-              status.burnRate6h > 1 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-700 dark:text-slate-300',
+              status.burnRate6h > 1 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground',
             )}>
               {status.burnRate6h.toFixed(2)}x
             </p>
@@ -278,37 +280,20 @@ export default function SLODashboard() {
   }, [data]);
 
   return (
+    <PageLayout label="SLO Dashboard">
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-6 max-w-6xl"
+      className="space-y-6"
     >
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-emerald-100 dark:bg-emerald-950/40">
-            <Target className="h-6 w-6 text-emerald-600 dark:text-emerald-400" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
-              SLO Dashboard
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Service Level Objectives, Indicators, and Error Budgets
-            </p>
-          </div>
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => refetch()}
-          disabled={isLoading}
-        >
-          <RefreshCw className={cn('h-3.5 w-3.5', isLoading && 'animate-spin')} />
-          Refresh
-        </Button>
-      </div>
+      <SectionOverviewHeader
+        title="SLO Dashboard"
+        description="Service Level Objectives, Indicators, and Error Budgets"
+        icon={Target}
+        iconClassName="bg-emerald-100 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400"
+        onSync={() => refetch()}
+        isSyncing={isLoading}
+      />
 
       {error && (
         <Card className="border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20">
@@ -321,11 +306,11 @@ export default function SLODashboard() {
       {/* Stats Strip */}
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-xl border p-3 flex items-center gap-3 bg-slate-50 dark:bg-slate-800/30">
-            <Target className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+          <div className="rounded-xl border p-3 flex items-center gap-3 bg-muted/40">
+            <Target className="h-4 w-4 text-muted-foreground" />
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Total SLOs</p>
-              <p className="text-lg font-bold text-slate-900 dark:text-slate-100 tabular-nums">{stats.total}</p>
+              <p className="text-lg font-bold text-foreground tabular-nums">{stats.total}</p>
             </div>
           </div>
           <div className="rounded-xl border p-3 flex items-center gap-3 bg-emerald-50 dark:bg-emerald-950/20">
@@ -368,7 +353,7 @@ export default function SLODashboard() {
           ))}
         </div>
       ) : (
-        <Card>
+        <Card className="border-none soft-shadow glass-panel">
           <CardContent className="flex flex-col items-center gap-3 py-12">
             <Target className="h-10 w-10 text-slate-300 dark:text-slate-600" />
             <p className="text-sm font-medium text-muted-foreground">No SLOs configured</p>
@@ -382,7 +367,7 @@ export default function SLODashboard() {
 
       {/* Error Budget Trend */}
       {budgetTrendData.length >= 2 && (
-        <Card>
+        <Card className="border-none soft-shadow glass-panel">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-amber-500" />
@@ -395,12 +380,12 @@ export default function SLODashboard() {
           <CardContent>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={budgetTrendData}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-700" />
-                <XAxis dataKey="time" tick={{ fontSize: 10 }} className="text-slate-500 dark:text-slate-400" />
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="time" tick={{ fontSize: 10 }} className="text-muted-foreground" />
                 <YAxis
                   tick={{ fontSize: 10 }}
                   domain={[0, 100]}
-                  className="text-slate-500 dark:text-slate-400"
+                  className="text-muted-foreground"
                   width={35}
                   unit="%"
                 />
@@ -431,7 +416,7 @@ export default function SLODashboard() {
 
       {/* SLI Definitions */}
       {data?.slis && data.slis.length > 0 && (
-        <Card>
+        <Card className="border-none soft-shadow glass-panel">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <Shield className="h-4 w-4 text-indigo-500" />
@@ -446,10 +431,10 @@ export default function SLODashboard() {
               {data.slis.map((sli) => (
                 <div
                   key={sli.id}
-                  className="flex items-center justify-between rounded-xl border p-3 bg-slate-50/50 dark:bg-slate-800/30"
+                  className="flex items-center justify-between rounded-xl border p-3 bg-muted/40"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{sli.name}</p>
+                    <p className="text-sm font-medium text-foreground">{sli.name}</p>
                     <p className="text-[10px] text-muted-foreground">{sli.description}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
@@ -464,5 +449,6 @@ export default function SLODashboard() {
         </Card>
       )}
     </motion.div>
+    </PageLayout>
   );
 }

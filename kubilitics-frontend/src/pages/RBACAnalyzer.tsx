@@ -27,6 +27,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useK8sResourceList, type KubernetesResource } from '@/hooks/useKubernetes';
 
 // ─── RBAC Types ──────────────────────────────────────────────
@@ -421,17 +422,19 @@ export default function RBACAnalyzer() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Loading RBAC data...</p>
+      <PageLayout label="RBAC Analyzer">
+        <div className="flex items-center justify-center h-[60vh]">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Loading RBAC data...</p>
+          </div>
         </div>
-      </div>
+      </PageLayout>
     );
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
+    <PageLayout label="RBAC Analyzer">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -889,6 +892,6 @@ export default function RBACAnalyzer() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+    </PageLayout>
   );
 }

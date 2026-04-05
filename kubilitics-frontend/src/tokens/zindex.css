@@ -1,0 +1,21 @@
+/**
+ * Kubilitics Design Token: Z-Index
+ *
+ * Layered z-index scale to prevent stacking context conflicts.
+ * Use these tokens instead of arbitrary z-index values.
+ *
+ * Hierarchy (low to high):
+ *   base → dropdown → sticky → fixed → overlay → modal → popover → toast → tooltip
+ */
+
+:root {
+  --z-base: 0;
+  --z-dropdown: 50;
+  --z-sticky: 100;
+  --z-fixed: 150;
+  --z-overlay: 200;
+  --z-modal: 300;
+  --z-popover: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+}

@@ -2,6 +2,16 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Card component with design-system elevation tokens.
+ *
+ * Glass-panel styling:
+ *   Add `glass-panel` for glassmorphism (blur + translucent bg).
+ *   Add `soft-shadow` for a subtle elevated shadow.
+ *   Convention: `<Card className="border-none soft-shadow glass-panel">`
+ *
+ * See also: `.glass-card` in index.css for a heavier glass effect.
+ */
 const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
   <div
     ref={ref}

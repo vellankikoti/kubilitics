@@ -16,7 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SectionOverviewHeader } from '@/components/layout/SectionOverviewHeader';
-import { ConnectionRequiredBanner } from '@/components/layout/ConnectionRequiredBanner';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
   useAutoPilotFindings,
   useAutoPilotActions,
@@ -28,6 +28,7 @@ import {
 import { RemediationDetail } from '@/components/autopilot/RemediationDetail';
 import type { AutoPilotAction } from '@/services/api/autopilot';
 import { cn } from '@/lib/utils';
+import { ApiError } from '@/components/ui/error-state';
 
 // ── Severity helpers ─────────────────────────────────────────────────────────
 
@@ -114,11 +115,18 @@ const AutoPilotDashboard = () => {
   };
 
   const isLoading = findingsLoading || pendingLoading || recentLoading;
+  const hasError = findingsError || pendingError || recentError;
+
+  if (hasError) {
+    return (
+      <PageLayout label="Auto-Pilot Dashboard">
+        <ApiError onRetry={() => window.location.reload()} message={(findingsError as Error)?.message ?? (pendingError as Error)?.message ?? (recentError as Error)?.message} />
+      </PageLayout>
+    );
+  }
 
   return (
-    <div className="page-container" role="main" aria-label="Auto-Pilot Dashboard">
-      <div className="page-inner p-6 gap-6 flex flex-col">
-      <ConnectionRequiredBanner />
+    <PageLayout label="Auto-Pilot Dashboard">
 
       {/* Page Header */}
       <SectionOverviewHeader
@@ -427,8 +435,7 @@ const AutoPilotDashboard = () => {
           setDetailOpen(false);
         }}
       />
-      </div>
-    </div>
+    </PageLayout>
   );
 };
 

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search,
  Filter,
@@ -478,7 +479,7 @@ export default function PersistentVolumeClaims() {
  };
 
  return (
- <>
+ <PageLayout label="Persistent Volume Claims">
  <div className="space-y-6">
  <ListPageHeader
  icon={<StorageIcon className="h-6 w-6 text-primary" />}
@@ -665,6 +666,6 @@ export default function PersistentVolumeClaims() {
 
  {showCreateWizard && <ResourceCreator resourceKind="PersistentVolumeClaim" defaultYaml={DEFAULT_YAMLS.PersistentVolumeClaim} onClose={() => setShowCreateWizard(false)} onApply={() => { toast.success('PersistentVolumeClaim created'); setShowCreateWizard(false); refetch(); }} />}
  <DeleteConfirmDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, item: open ? deleteDialog.item : null, bulk: open ? deleteDialog.bulk : false })} resourceType="PersistentVolumeClaim" resourceName={deleteDialog.bulk ? `${selectedItems.size} selected` : (deleteDialog.item?.name || '')} namespace={deleteDialog.bulk ? undefined : deleteDialog.item?.namespace} onConfirm={handleDelete} requireNameConfirmation={!deleteDialog.bulk} />
- </>
+ </PageLayout>
  );
 }

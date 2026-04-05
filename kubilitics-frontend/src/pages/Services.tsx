@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search,
  Filter,
@@ -477,7 +478,8 @@ spec:
  const isSomeSelected = multiSelect.isSomeSelected(allServiceKeys);
 
  return (
- <div className="space-y-6" role="main" aria-label="Services Resources">
+ <PageLayout label="Services">
+ <div className="space-y-6">
  {/* Page Header: title + selection hint, toolbar (Export, Download YAML, Delete, Refresh, Create) */}
  <ListPageHeader
  icon={<ServiceIcon className="h-6 w-6 text-primary" />}
@@ -1004,5 +1006,6 @@ spec:
  </DialogContent>
  </Dialog>
  </div>
+ </PageLayout>
  );
 }

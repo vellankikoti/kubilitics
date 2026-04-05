@@ -30,6 +30,9 @@ import {
   History,
   X,
   AlertTriangle,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Layers,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -42,6 +45,14 @@ import { useLogFilterStore } from '@/stores/logFilterStore';
 import { useLogFilterHistory } from '@/hooks/useLogFilterHistory';
 import { useTheme } from '@/hooks/useTheme';
 import { toast } from '@/components/ui/sonner';
+import { useLogParser } from '@/hooks/useLogParser';
+import type { ParsedLog } from '@/hooks/useLogParser';
+import { StructuredLogRow } from '@/components/logs/StructuredLogRow';
+import { LogFieldFacets } from '@/components/logs/LogFieldFacets';
+import { LogQueryBar } from '@/components/logs/LogQueryBar';
+import { SystemEventMarker } from '@/components/logs/SystemEventMarker';
+import { useEventsQuery } from '@/hooks/useEventsIntelligence';
+import type { WideEvent } from '@/services/api/eventsIntelligence';
 
 export type { LogEntry };
 
@@ -530,6 +541,12 @@ export function LogViewer({
   const [showTimestamps, setShowTimestamps] = useState(true);
   const [wrapLines, setWrapLines] = useState(false);
 
+  // ── Structured log view state ───────────────────────────────────────────
+  const [structuredViewEnabled, setStructuredViewEnabled] = useState(true); // auto-enable when structured
+  const [showFacetSidebar, setShowFacetSidebar] = useState(true);
+  const [structuredFilters, setStructuredFilters] = useState<Record<string, string>>({});
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+
   // ── Auto-reconnect state ─────────────────────────────────────────────────
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
   const [isReconnecting, setIsReconnecting] = useState(false);
@@ -618,6 +635,98 @@ export function LogViewer({
   }, [isLive, parsedLogs, propLogs]);
 
   const hasJsonLogs = useMemo(() => displayLogs.some(l => l.isJson), [displayLogs]);
+
+  // ── Structured log parsing ──────────────────────────────────────────────
+  const rawLineStrings = useMemo(
+    () => displayLogs.map((l) => l.raw ?? l.message),
+    [displayLogs],
+  );
+  const { parsedLogs: structuredLogs, detectedFields, isStructured } = useLogParser(rawLineStrings);
+  const showStructured = isStructured && structuredViewEnabled;
+
+  // ── Events for system event markers ─────────────────────────────────────
+  const eventsQuery = useEventsQuery({
+    namespace: namespace || undefined,
+    name: podName || undefined,
+    limit: 50,
+  });
+  const systemEvents: WideEvent[] = eventsQuery.data ?? [];
+
+  // ── Structured filter handlers ──────────────────────────────────────────
+  const handleStructuredFilterAdd = useCallback((field: string, value: string) => {
+    setStructuredFilters((prev) => ({ ...prev, [field]: value }));
+  }, []);
+  const handleStructuredFilterRemove = useCallback((field: string) => {
+    setStructuredFilters((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  }, []);
+  const handleStructuredFilterClear = useCallback(() => {
+    setStructuredFilters({});
+  }, []);
+  const handleToggleExpandRow = useCallback((index: number) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  }, []);
+  const handleNavigateToEvents = useCallback((_traceId: string) => {
+    // TODO: navigate to events intelligence page filtered by trace
+    toast.info('Navigate to Events Intelligence (coming soon)');
+  }, []);
+  const handleEventNavigate = useCallback((_eventId: string) => {
+    toast.info('Navigate to Events Intelligence (coming soon)');
+  }, []);
+
+  // ── Filter structured logs ──────────────────────────────────────────────
+  const filteredStructuredLogs = useMemo(() => {
+    if (!showStructured) return structuredLogs;
+    const filterEntries = Object.entries(structuredFilters);
+    if (filterEntries.length === 0) return structuredLogs;
+
+    return structuredLogs.filter((log) => {
+      for (const [field, value] of filterEntries) {
+        if (field === 'level') {
+          if (log.level !== value) return false;
+        } else {
+          const fieldVal = log.fields[field];
+          const strVal = fieldVal === null || fieldVal === undefined ? 'null' : typeof fieldVal === 'object' ? JSON.stringify(fieldVal) : String(fieldVal);
+          if (strVal !== value) return false;
+        }
+      }
+      return true;
+    });
+  }, [showStructured, structuredLogs, structuredFilters]);
+
+  // ── Merge system events into log timeline ───────────────────────────────
+  type TimelineItem = { type: 'log'; log: ParsedLog } | { type: 'event'; event: WideEvent };
+  const structuredTimeline = useMemo<TimelineItem[]>(() => {
+    if (!showStructured) return [];
+    const items: TimelineItem[] = filteredStructuredLogs.map((log) => ({ type: 'log' as const, log }));
+
+    if (systemEvents.length === 0) return items;
+
+    // Insert events at correct timestamp positions
+    const eventItems: TimelineItem[] = systemEvents.map((e) => ({ type: 'event' as const, event: e }));
+
+    // Merge by timestamp
+    const all = [...items, ...eventItems];
+    all.sort((a, b) => {
+      const tsA = a.type === 'log'
+        ? (a.log.timestamp ? new Date(a.log.timestamp).getTime() || 0 : 0)
+        : (a.event.timestamp > 1e12 ? a.event.timestamp : a.event.timestamp * 1000);
+      const tsB = b.type === 'log'
+        ? (b.log.timestamp ? new Date(b.log.timestamp).getTime() || 0 : 0)
+        : (b.event.timestamp > 1e12 ? b.event.timestamp : b.event.timestamp * 1000);
+      return tsA - tsB;
+    });
+
+    return all;
+  }, [showStructured, filteredStructuredLogs, systemEvents]);
 
   // ── Pre-computed level counts (single pass, avoids O(n) per pill) ────────
   const levelCounts = useMemo(() => computeLevelCounts(displayLogs), [displayLogs]);
@@ -851,6 +960,7 @@ export function LogViewer({
 
         {/* Display toggles */}
         <button onClick={togglePrettifyJson} disabled={!hasJsonLogs} className={cn('h-8 flex items-center gap-1.5 px-2.5 rounded-lg text-xs font-medium shrink-0 transition-colors', !hasJsonLogs ? 'opacity-30 cursor-not-allowed' : prettifyJson ? activeBtnCls : btnCls)} title={hasJsonLogs ? 'Prettify JSON logs' : 'No JSON logs detected'}><Braces className="h-4 w-4" /> JSON</button>
+        <button onClick={() => setStructuredViewEnabled(v => !v)} disabled={!isStructured} className={cn('h-8 flex items-center gap-1.5 px-2.5 rounded-lg text-xs font-medium shrink-0 transition-colors', !isStructured ? 'opacity-30 cursor-not-allowed' : structuredViewEnabled ? activeBtnCls : btnCls)} title={isStructured ? 'Toggle structured log view' : 'No structured logs detected'}><Layers className="h-4 w-4" /> Structured</button>
         <button onClick={() => setShowTimestamps(v => !v)} className={cn('h-8 flex items-center gap-1.5 px-2.5 rounded-lg text-xs font-medium shrink-0 transition-colors', showTimestamps ? activeBtnCls : btnCls)} title="Timestamps"><Clock className="h-4 w-4" /> Time</button>
         <button onClick={() => setWrapLines(v => !v)} className={cn('h-8 flex items-center gap-1.5 px-2.5 rounded-lg text-xs font-medium shrink-0 transition-colors', wrapLines ? activeBtnCls : btnCls)} title="Wrap"><AlignJustify className="h-4 w-4" /> Wrap</button>
 
@@ -918,125 +1028,240 @@ export function LogViewer({
         </span>
       </div>
 
+      {/* ── Structured query bar (replaces plain search when structured) ── */}
+      {showStructured && (
+        <LogQueryBar
+          detectedFields={detectedFields}
+          activeFilters={structuredFilters}
+          onFilterAdd={handleStructuredFilterAdd}
+          onFilterRemove={handleStructuredFilterRemove}
+          onClearAll={handleStructuredFilterClear}
+          textQuery={searchQuery}
+          onTextQueryChange={setSearchQuery}
+        />
+      )}
+
       {/* ── Log content area ─────────────────────────────────────────────── */}
-      <div
-        ref={logContainerRef}
-        className={cn('font-mono text-xs overflow-auto flex-1', logArea)}
-        style={{ minHeight: '320px', maxHeight: '520px' }}
-      >
-        {isLoading && isLive ? (
-          <div className="p-4 space-y-1.5">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="flex gap-3 items-center">
-                <Skeleton className={cn('h-3.5 w-6 rounded shrink-0', isDark ? 'bg-white/5' : 'bg-black/5')} />
-                <Skeleton className={cn('h-3.5 w-20 rounded shrink-0', isDark ? 'bg-white/5' : 'bg-black/5')} />
-                <Skeleton className={cn('h-3.5 w-8 rounded shrink-0', isDark ? 'bg-white/5' : 'bg-black/5')} />
-                <Skeleton className={cn(
-                  'h-3.5 rounded',
-                  isDark ? 'bg-white/5' : 'bg-black/5',
-                  ['w-2/3', 'w-1/2', 'w-full', 'w-3/4', 'w-4/5', 'w-1/3', 'w-5/6', 'w-2/5'][i % 8]
-                )} />
-              </div>
-            ))}
-          </div>
-        ) : error && reconnectAttempt >= RECONNECT_MAX_ATTEMPTS ? (
-          <div className="flex flex-col items-center justify-center h-48 gap-3">
-            <p className={cn('text-sm font-medium', isDark ? 'text-red-400/80' : 'text-red-500')}>Failed to fetch logs</p>
-            <p className={cn('text-xs max-w-sm text-center', isDark ? 'text-white/30' : 'text-black/40')}>{error.message}</p>
-            <button
-              onClick={() => { setReconnectAttempt(0); refetch(); }}
-              className={cn('px-3 py-1.5 rounded-md border text-xs transition-colors', isDark ? 'border-white/15 text-white/50 hover:text-white hover:border-white/30' : 'border-black/15 text-black/50 hover:text-black hover:border-black/30')}
-            >
-              Retry
-            </button>
-          </div>
-        ) : filteredLogs.length === 0 ? (
-          <div className={cn('flex flex-col items-center justify-center h-48 text-sm gap-2', isDark ? 'text-white/30' : 'text-black/30')}>
-            {searchQuery || selectedLevel ? (
-              <>
-                <span className="text-2xl">{'\u26A1'}</span>
-                <span>No logs match your filters</span>
+      {showStructured ? (
+        /* ── Structured view: facet sidebar + structured log rows ────────── */
+        <div className="flex flex-1" style={{ minHeight: '320px', maxHeight: '520px' }}>
+          {/* Facet sidebar */}
+          {showFacetSidebar && (
+            <div className={cn('shrink-0 border-r border-border/30 overflow-hidden', logArea)} style={{ width: 240 }}>
+              <div className="flex items-center justify-between px-2 py-1 border-b border-border/20">
+                <span className="text-[10px] text-muted-foreground font-medium">Fields</span>
                 <button
-                  onClick={() => { setSearchQuery(''); setSelectedLevel(null); }}
-                  className={cn('text-xs underline underline-offset-2 mt-1', isDark ? 'text-white/40 hover:text-white/70' : 'text-black/40 hover:text-black/70')}
+                  onClick={() => setShowFacetSidebar(false)}
+                  className="p-0.5 rounded hover:bg-muted transition-colors text-muted-foreground"
+                  title="Hide sidebar"
                 >
-                  Clear filters
+                  <PanelLeftClose className="h-3.5 w-3.5" />
                 </button>
-              </>
-            ) : !podName || !namespace ? (
-              <><span className="text-2xl">{'\uD83D\uDCCB'}</span><span>Select a pod to view logs</span></>
-            ) : !isConnected ? (
-              <><span className="text-2xl">{'\uD83D\uDD0C'}</span><span>Disconnected — reconnect to stream logs</span></>
+              </div>
+              <LogFieldFacets
+                fields={detectedFields}
+                activeFilters={structuredFilters}
+                onFilterAdd={handleStructuredFilterAdd}
+                onFilterRemove={handleStructuredFilterRemove}
+              />
+            </div>
+          )}
+
+          {/* Show sidebar toggle when hidden */}
+          {!showFacetSidebar && (
+            <button
+              className={cn('shrink-0 flex items-center justify-center w-8 border-r border-border/30 hover:bg-muted/50 transition-colors', logArea)}
+              onClick={() => setShowFacetSidebar(true)}
+              title="Show field sidebar"
+            >
+              <PanelLeftOpen className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          )}
+
+          {/* Structured log rows */}
+          <div className={cn('flex-1 overflow-auto font-mono text-xs', logArea)}>
+            {isLoading && isLive ? (
+              <div className="p-4 space-y-1.5">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="flex gap-3 items-center">
+                    <Skeleton className={cn('h-3.5 w-14 rounded shrink-0', isDark ? 'bg-white/5' : 'bg-black/5')} />
+                    <Skeleton className={cn('h-3.5 w-12 rounded shrink-0', isDark ? 'bg-white/5' : 'bg-black/5')} />
+                    <Skeleton className={cn('h-3.5 rounded flex-1', isDark ? 'bg-white/5' : 'bg-black/5')} />
+                  </div>
+                ))}
+              </div>
+            ) : structuredTimeline.length === 0 ? (
+              <div className={cn('flex flex-col items-center justify-center h-48 text-sm gap-2', isDark ? 'text-white/30' : 'text-black/30')}>
+                {Object.keys(structuredFilters).length > 0 ? (
+                  <>
+                    <span className="text-2xl">{'\u26A1'}</span>
+                    <span>No logs match your structured filters</span>
+                    <button
+                      onClick={handleStructuredFilterClear}
+                      className={cn('text-xs underline underline-offset-2 mt-1', isDark ? 'text-white/40 hover:text-white/70' : 'text-black/40 hover:text-black/70')}
+                    >
+                      Clear filters
+                    </button>
+                  </>
+                ) : (
+                  <><span className="text-2xl">{'\uD83D\uDCC4'}</span><span>No structured logs to display</span></>
+                )}
+              </div>
             ) : (
-              <><span className="text-2xl">{'\uD83D\uDCC4'}</span><span>No logs yet — they will appear here as they stream in</span></>
+              <div>
+                {structuredTimeline.map((item, i) => {
+                  if (item.type === 'event') {
+                    return (
+                      <SystemEventMarker
+                        key={`event-${item.event.event_id}`}
+                        event={item.event}
+                        onNavigate={handleEventNavigate}
+                      />
+                    );
+                  }
+                  return (
+                    <StructuredLogRow
+                      key={`log-${item.log.index}-${i}`}
+                      log={item.log}
+                      isExpanded={expandedRows.has(item.log.index)}
+                      onToggle={() => handleToggleExpandRow(item.log.index)}
+                      onFilterAdd={handleStructuredFilterAdd}
+                      onNavigateToEvents={handleNavigateToEvents}
+                    />
+                  );
+                })}
+                {/* Streaming indicator */}
+                {isStreaming && !error && (
+                  <div className={cn('px-3 py-1.5 flex items-center gap-2 text-[11px] select-none', isDark ? 'text-white/20' : 'text-black/30')}>
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                    Streaming&hellip;
+                  </div>
+                )}
+              </div>
             )}
           </div>
-        ) : (
-          /* PERF Area 4: Virtualized log rows — only visible rows exist in DOM */
-          <div
-            style={{
-              height: virtualizer.getTotalSize(),
-              width: '100%',
-              position: 'relative',
-            }}
-          >
-            {virtualizer.getVirtualItems().map((virtualRow) => {
-              const log = filteredLogs[virtualRow.index];
-              // Use pre-computed original index (O(1)) instead of indexOf (O(n))
-              const originalIndex = filteredOriginalIndices
-                ? filteredOriginalIndices[virtualRow.index]
-                : virtualRow.index;
-              const isContext = contextLines > 0 && searchQuery.trim()
-                ? !directMatchIndices.has(originalIndex)
-                : false;
+        </div>
+      ) : (
+        /* ── Plain text view (original) ─────────────────────────────────── */
+        <div
+          ref={logContainerRef}
+          className={cn('font-mono text-xs overflow-auto flex-1', logArea)}
+          style={{ minHeight: '320px', maxHeight: '520px' }}
+        >
+          {isLoading && isLive ? (
+            <div className="p-4 space-y-1.5">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex gap-3 items-center">
+                  <Skeleton className={cn('h-3.5 w-6 rounded shrink-0', isDark ? 'bg-white/5' : 'bg-black/5')} />
+                  <Skeleton className={cn('h-3.5 w-20 rounded shrink-0', isDark ? 'bg-white/5' : 'bg-black/5')} />
+                  <Skeleton className={cn('h-3.5 w-8 rounded shrink-0', isDark ? 'bg-white/5' : 'bg-black/5')} />
+                  <Skeleton className={cn(
+                    'h-3.5 rounded',
+                    isDark ? 'bg-white/5' : 'bg-black/5',
+                    ['w-2/3', 'w-1/2', 'w-full', 'w-3/4', 'w-4/5', 'w-1/3', 'w-5/6', 'w-2/5'][i % 8]
+                  )} />
+                </div>
+              ))}
+            </div>
+          ) : error && reconnectAttempt >= RECONNECT_MAX_ATTEMPTS ? (
+            <div className="flex flex-col items-center justify-center h-48 gap-3">
+              <p className={cn('text-sm font-medium', isDark ? 'text-red-400/80' : 'text-red-500')}>Failed to fetch logs</p>
+              <p className={cn('text-xs max-w-sm text-center', isDark ? 'text-white/30' : 'text-black/40')}>{error.message}</p>
+              <button
+                onClick={() => { setReconnectAttempt(0); refetch(); }}
+                className={cn('px-3 py-1.5 rounded-md border text-xs transition-colors', isDark ? 'border-white/15 text-white/50 hover:text-white hover:border-white/30' : 'border-black/15 text-black/50 hover:text-black hover:border-black/30')}
+              >
+                Retry
+              </button>
+            </div>
+          ) : filteredLogs.length === 0 ? (
+            <div className={cn('flex flex-col items-center justify-center h-48 text-sm gap-2', isDark ? 'text-white/30' : 'text-black/30')}>
+              {searchQuery || selectedLevel ? (
+                <>
+                  <span className="text-2xl">{'\u26A1'}</span>
+                  <span>No logs match your filters</span>
+                  <button
+                    onClick={() => { setSearchQuery(''); setSelectedLevel(null); }}
+                    className={cn('text-xs underline underline-offset-2 mt-1', isDark ? 'text-white/40 hover:text-white/70' : 'text-black/40 hover:text-black/70')}
+                  >
+                    Clear filters
+                  </button>
+                </>
+              ) : !podName || !namespace ? (
+                <><span className="text-2xl">{'\uD83D\uDCCB'}</span><span>Select a pod to view logs</span></>
+              ) : !isConnected ? (
+                <><span className="text-2xl">{'\uD83D\uDD0C'}</span><span>Disconnected — reconnect to stream logs</span></>
+              ) : (
+                <><span className="text-2xl">{'\uD83D\uDCC4'}</span><span>No logs yet — they will appear here as they stream in</span></>
+              )}
+            </div>
+          ) : (
+            /* PERF Area 4: Virtualized log rows — only visible rows exist in DOM */
+            <div
+              style={{
+                height: virtualizer.getTotalSize(),
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {virtualizer.getVirtualItems().map((virtualRow) => {
+                const log = filteredLogs[virtualRow.index];
+                // Use pre-computed original index (O(1)) instead of indexOf (O(n))
+                const originalIndex = filteredOriginalIndices
+                  ? filteredOriginalIndices[virtualRow.index]
+                  : virtualRow.index;
+                const isContext = contextLines > 0 && searchQuery.trim()
+                  ? !directMatchIndices.has(originalIndex)
+                  : false;
 
-              return (
+                return (
+                  <div
+                    key={virtualRow.index}
+                    data-index={virtualRow.index}
+                    ref={virtualizer.measureElement}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  >
+                    <LogRow
+                      log={log}
+                      index={virtualRow.index}
+                      isContext={isContext}
+                      showTimestamps={showTimestamps}
+                      wrapLines={wrapLines}
+                      prettifyJson={prettifyJson}
+                      searchRegex={searchRegex}
+                      isDark={isDark}
+                      onCopy={handleCopyLine}
+                    />
+                  </div>
+                );
+              })}
+
+              {/* Streaming indicator */}
+              {isStreaming && !error && (
                 <div
-                  key={virtualRow.index}
-                  data-index={virtualRow.index}
-                  ref={virtualizer.measureElement}
                   style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
                     width: '100%',
-                    transform: `translateY(${virtualRow.start}px)`,
+                    transform: `translateY(${virtualizer.getTotalSize()}px)`,
                   }}
+                  className={cn('px-3 py-1.5 flex items-center gap-2 text-[11px] select-none', isDark ? 'text-white/20' : 'text-black/30')}
                 >
-                  <LogRow
-                    log={log}
-                    index={virtualRow.index}
-                    isContext={isContext}
-                    showTimestamps={showTimestamps}
-                    wrapLines={wrapLines}
-                    prettifyJson={prettifyJson}
-                    searchRegex={searchRegex}
-                    isDark={isDark}
-                    onCopy={handleCopyLine}
-                  />
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                  Streaming&hellip;
                 </div>
-              );
-            })}
-
-            {/* Streaming indicator */}
-            {isStreaming && !error && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  transform: `translateY(${virtualizer.getTotalSize()}px)`,
-                }}
-                className={cn('px-3 py-1.5 flex items-center gap-2 text-[11px] select-none', isDark ? 'text-white/20' : 'text-black/30')}
-              >
-                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                Streaming&hellip;
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <div className={cn('border-t px-4 py-1.5 text-[11px] flex items-center justify-between', footer, isDark ? 'text-white/50' : 'text-black/50')}>

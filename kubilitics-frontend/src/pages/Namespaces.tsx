@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { Folder, Search, MoreHorizontal, ChevronDown, CheckSquare, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -345,7 +346,7 @@ export default function Namespaces() {
  };
 
  return (
- <>
+ <PageLayout label="Namespaces">
  {/* Resource Creator */}
  {showCreator && (
  <ResourceCreator
@@ -577,6 +578,6 @@ export default function Namespaces() {
  onConfirm={handleDelete}
  requireNameConfirmation={!deleteDialog.bulk}
  />
- </>
+ </PageLayout>
  );
 }

@@ -32,7 +32,7 @@ import {
   MetricsDashboard,
   SectionCard,
   DetailRow,
-  LogViewer,
+  WorkloadLogsTab,
   type CustomTab,
   type ResourceContext,
   type ContainerInfo,
@@ -545,38 +545,13 @@ function LogsTab({ resource: cronJob }: ResourceContext<CronJobResource>) {
   const cjPods = useCjPods(namespace, childJobNames);
   const containers = (cronJob.spec?.jobTemplate?.spec?.template?.spec?.containers || []).map(c => c.name);
 
-  const [selectedLogPod, setSelectedLogPod] = useState<string>('');
-  const [selectedLogContainer, setSelectedLogContainer] = useState<string>('');
-  const firstCjPodName = cjPods[0]?.metadata?.name ?? '';
-  const logPod = selectedLogPod || firstCjPodName;
-  const logPodContainers = cjPods.find((p) => p.metadata?.name === logPod)?.spec?.containers?.map((c) => c.name) ?? containers;
-
   return (
-    <SectionCard icon={FileText} title="Logs" tooltip={<p className="text-xs text-muted-foreground">Stream logs from CronJob Job pods</p>}>
-      {cjPods.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No pods available to view logs.</p>
-      ) : (
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-4 items-end">
-            <div className="space-y-2">
-              <Label>Pod</Label>
-              <Select value={logPod} onValueChange={setSelectedLogPod}>
-                <SelectTrigger className="w-[280px]"><SelectValue placeholder="Select pod" /></SelectTrigger>
-                <SelectContent>{cjPods.map((p) => (<SelectItem key={p.metadata?.name} value={p.metadata?.name ?? ''}>{p.metadata?.name}</SelectItem>))}</SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Container</Label>
-              <Select value={selectedLogContainer || logPodContainers[0]} onValueChange={setSelectedLogContainer}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Select container" /></SelectTrigger>
-                <SelectContent>{logPodContainers.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}</SelectContent>
-              </Select>
-            </div>
-          </div>
-          <LogViewer podName={logPod} namespace={namespace ?? undefined} containerName={selectedLogContainer || logPodContainers[0]} containers={logPodContainers} onContainerChange={setSelectedLogContainer} />
-        </div>
-      )}
-    </SectionCard>
+    <WorkloadLogsTab
+      pods={cjPods}
+      namespace={namespace ?? undefined}
+      kindLabel="CronJob"
+      templateContainers={containers}
+    />
   );
 }
 

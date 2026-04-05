@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { AlertTriangle, Search, RefreshCw, MoreHorizontal,
  WifiOff, Plus, ChevronDown, CheckSquare, Trash2 } from 'lucide-react';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
@@ -291,7 +292,7 @@ export default function PriorityClasses() {
 
  return (
  <>
- <div className="space-y-6">
+ <PageLayout label="Priority Classes">
  <ListPageHeader
  icon={<AlertTriangle className="h-6 w-6 text-primary" />}
  title="Priority Classes"
@@ -502,7 +503,7 @@ export default function PriorityClasses() {
  </Table>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
 
  <DeleteConfirmDialog
  open={deleteDialog.open}

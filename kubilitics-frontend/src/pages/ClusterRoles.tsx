@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { ShieldCheck, Search, RefreshCw, MoreHorizontal,
  WifiOff, Plus, ChevronDown, CheckSquare, Trash2 } from 'lucide-react';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
@@ -341,7 +342,7 @@ export default function ClusterRoles() {
 
  return (
  <>
- <div className="space-y-6">
+ <PageLayout label="Cluster Roles">
  <ListPageHeader
  icon={<ShieldCheck className="h-6 w-6 text-primary" />}
  title="Cluster Roles"
@@ -528,7 +529,7 @@ export default function ClusterRoles() {
  </Table>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
 
  <DeleteConfirmDialog
  open={deleteDialog.open}

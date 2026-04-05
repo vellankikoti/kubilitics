@@ -36,10 +36,11 @@ export function rowEntranceStyle(index: number): React.CSSProperties | undefined
  * soft border, padding, hover lift, transition. Use with <tr>.
  */
 export const resourceTableRowClassName = cn(
- 'border-b border-border/60 transition-colors duration-150',
- 'hover:bg-muted/40',
+ 'border-b border-border/60 transition-all duration-150',
+ 'hover:bg-muted/50 hover:shadow-[inset_3px_0_0_hsl(var(--primary)/0.3)]',
  'group cursor-pointer',
- 'data-[selected]:bg-primary/5'
+ 'data-[selected]:bg-primary/5 data-[selected]:shadow-[inset_3px_0_0_hsl(var(--primary)/0.5)]',
+ 'focus-visible:bg-primary/5 focus-visible:shadow-[var(--focus-ring)]',
 );
 
 export interface ResourceTableRowProps extends React.HTMLAttributes<HTMLTableRowElement> {

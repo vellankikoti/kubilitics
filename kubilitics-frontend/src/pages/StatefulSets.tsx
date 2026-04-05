@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search, Filter, RefreshCw, MoreHorizontal, CheckCircle2, XCircle, Clock, Loader2, WifiOff, Plus,
  ChevronDown, ChevronRight, CheckSquare, Trash2, RotateCcw, Scale, History, Database, FileText, List, Layers, HardDrive, Box,
@@ -469,7 +470,8 @@ spec:
  const isSomeSelected = multiSelect.isSomeSelected(allItemKeys);
 
  return (
- <div className="space-y-6" role="main" aria-label="StatefulSets Resources">
+ <PageLayout label="StatefulSets">
+ <div className="space-y-6">
  <ListPageHeader
  icon={<StatefulSetIcon className="h-6 w-6 text-primary" />}
  title="StatefulSets"
@@ -972,5 +974,6 @@ spec:
  />
  )}
  </div>
+ </PageLayout>
  );
 }

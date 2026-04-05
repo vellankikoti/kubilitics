@@ -8,6 +8,8 @@ interface SectionOverviewHeaderProps {
     title: string;
     description: string;
     icon?: LucideIcon;
+    /** Custom class for the icon well gradient + text color. Defaults to primary blue. */
+    iconClassName?: string;
     onSync?: () => void;
     isSyncing?: boolean;
     showAiButton?: boolean;
@@ -19,6 +21,7 @@ export function SectionOverviewHeader({
     title,
     description,
     icon: Icon,
+    iconClassName,
     onSync,
     isSyncing = false,
     showAiButton = false,
@@ -30,27 +33,51 @@ export function SectionOverviewHeader({
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, ease: 'easeOut' }}
-            className="flex flex-col md:flex-row md:items-center justify-between gap-4"
+            className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-border/40"
         >
             <div className="flex items-start gap-4">
                 {Icon && (
-                    <div className="p-3 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 text-primary shadow-sm border border-primary/10">
+                    <motion.div
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.1 }}
+                        className={cn("p-3 rounded-2xl bg-gradient-to-br shadow-sm border transition-colors duration-200", iconClassName ? iconClassName : "from-primary/20 to-primary/5 text-primary border-primary/10")}
+                    >
                         <Icon className="h-8 w-8" aria-hidden />
-                    </div>
+                    </motion.div>
                 )}
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                    <motion.h1
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.12 }}
+                        className="text-3xl font-bold tracking-tight bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent"
+                    >
                         {title}
-                    </h1>
-                    <p className="text-muted-foreground mt-1 flex items-center gap-2">
+                    </motion.h1>
+                    <motion.p
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.35, delay: 0.22 }}
+                        className="text-muted-foreground mt-1 flex items-center gap-2"
+                    >
                         {description}
                         <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 animate-in fade-in duration-500">
+                            <span className="relative flex h-1.5 w-1.5 mr-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[hsl(var(--success))] opacity-60" />
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[hsl(var(--success))]" />
+                            </span>
                             Live
                         </Badge>
-                    </p>
+                    </motion.p>
                 </div>
             </div>
-            <div className="flex items-center gap-3">
+            <motion.div
+                initial={{ opacity: 0, x: 8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.35, delay: 0.25 }}
+                className="flex items-center gap-3"
+            >
                 {extraActions}
                 {onSync && (
                     <Button variant="outline" className="gap-2 h-10 px-4 transition-all hover:bg-muted" onClick={onSync} disabled={isSyncing}>
@@ -64,7 +91,7 @@ export function SectionOverviewHeader({
                         {aiButtonText}
                     </Button>
                 )}
-            </div>
+            </motion.div>
         </motion.div>
     );
 }

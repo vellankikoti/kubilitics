@@ -22,6 +22,7 @@ import { KeyboardShortcutsOverlay } from '@/components/KeyboardShortcutsOverlay'
 import { useKeyboardShortcuts, type KeyboardShortcut } from '@/hooks/useKeyboardShortcuts';
 import { UpdateChecker } from '@/components/UpdateChecker';
 import { useClusterWatcher } from '@/hooks/useClusterWatcher';
+import { useInsightNotifications } from '@/hooks/useInsightNotifications';
 
 export function AppLayout() {
   useRecentlyVisited();
@@ -30,6 +31,8 @@ export function AppLayout() {
   // useClusterWatcher(); // Temporarily disabled — investigating hooks crash
   // PERF: Prefetch critical K8s resources on cluster connect so every page loads instantly from cache
   usePrefetchResources();
+  // Pipe Events Intelligence insights into the in-app notification center
+  useInsightNotifications();
   // PERF Area 7: Monitor memory and trim stale caches during long sessions
   useMemoryMonitor();
   // P0-005-T02: Auto-collapse sidebar at < 1280px, re-expand when viewport grows

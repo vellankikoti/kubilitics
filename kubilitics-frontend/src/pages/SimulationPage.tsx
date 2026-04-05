@@ -8,6 +8,7 @@
  * - Bottom drawer: DiffBreakdown (tabs: Removed/Modified/Added/Edges Lost)
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { FlaskConical } from 'lucide-react';
 import { TopologyCanvas } from '@/topology/TopologyCanvas';
@@ -16,11 +17,13 @@ import { useActiveClusterId } from '@/hooks/useActiveClusterId';
 import { useSimulationStore } from '@/stores/simulationStore';
 import { useRunSimulation } from '@/hooks/useSimulation';
 import { SectionOverviewHeader } from '@/components/layout/SectionOverviewHeader';
-import { ConnectionRequiredBanner } from '@/components/layout/ConnectionRequiredBanner';
+import { PageLayout } from '@/components/layout/PageLayout';
 import SimulationToolbar from '@/components/simulation/SimulationToolbar';
 import ScenarioList from '@/components/simulation/ScenarioList';
 import ImpactSummary from '@/components/simulation/ImpactSummary';
 import DiffBreakdown from '@/components/simulation/DiffBreakdown';
+import { InsightsBanner } from '@/components/events/InsightsBanner';
+import { useActiveInsights, useDismissInsight } from '@/hooks/useEventsIntelligence';
 import type { SimulationResult } from '@/services/api/simulation';
 
 /** Build simulation diff overlay from result for TopologyCanvas */
@@ -66,8 +69,11 @@ function buildAffectedNodes(result: SimulationResult | null): Set<string> | null
 }
 
 export default function SimulationPage() {
+  const navigate = useNavigate();
   const clusterId = useActiveClusterId();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const { data: insights } = useActiveInsights();
+  const dismissInsightMutation = useDismissInsight();
   const [loadingLong, setLoadingLong] = useState(false);
 
   const { scenarios, result, isRunning, error, autoRun, setResult, setRunning, setError } = useSimulationStore();
@@ -145,17 +151,26 @@ export default function SimulationPage() {
   const simulationAffectedNodes = useMemo(() => buildAffectedNodes(result), [result]);
 
   return (
-    <div className="page-container" role="main" aria-label="What-If Simulation">
-      <div className="page-inner p-6 gap-6 flex flex-col h-screen">
-        <ConnectionRequiredBanner />
+    <PageLayout label="What-If Simulation" className="h-screen">
 
         {/* Header */}
         <SectionOverviewHeader
           title="What-If Simulation"
           description="Simulate failure scenarios and visualise blast radius impact."
           icon={FlaskConical}
+          iconClassName="from-purple-500/20 to-purple-500/5 text-purple-600 border-purple-500/10"
           showAiButton={false}
         />
+
+        {/* Insights Banner */}
+        {insights && insights.length > 0 && (
+          <InsightsBanner
+            insights={insights}
+            onInvestigate={() => navigate('/events-intelligence')}
+            onDismiss={(id) => dismissInsightMutation.mutate(id)}
+            isDismissing={dismissInsightMutation.isPending}
+          />
+        )}
 
         {/* Toolbar */}
         {clusterId && (
@@ -171,7 +186,7 @@ export default function SimulationPage() {
         )}
 
         {/* Three-panel layout */}
-        <div className="flex-1 flex min-h-0 rounded-xl border border-border/50 overflow-hidden soft-shadow">
+        <div className="flex-1 flex min-h-0 rounded-xl border border-border/50 overflow-hidden soft-shadow card-accent">
           {/* Left panel: Scenario List */}
           <div className="w-64 flex-shrink-0 border-r border-border/50 bg-muted/30 overflow-hidden">
             <div className="flex items-center gap-2 px-3 py-2 border-b border-border/50">
@@ -240,7 +255,6 @@ export default function SimulationPage() {
         <div className="flex-shrink-0">
           <DiffBreakdown result={result} />
         </div>
-      </div>
-    </div>
+    </PageLayout>
   );
 }

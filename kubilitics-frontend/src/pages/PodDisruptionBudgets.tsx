@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { Shield, Search, RefreshCw, MoreHorizontal,
  WifiOff, Plus, ChevronDown, Filter, List, Layers, CheckSquare, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -304,7 +305,7 @@ export default function PodDisruptionBudgets() {
 
  return (
  <>
- <div className="space-y-6">
+ <PageLayout label="Pod Disruption Budgets">
  <ListPageHeader
  icon={<Shield className="h-6 w-6 text-primary" />}
  title="Pod Disruption Budgets"
@@ -542,7 +543,7 @@ export default function PodDisruptionBudgets() {
  </Table>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
 
  <DeleteConfirmDialog
  open={deleteDialog.open}

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useQuery } from '@tanstack/react-query';
 import { UserCircle, Search, RefreshCw, MoreHorizontal,
  WifiOff, Plus, ChevronDown, Filter, List, Layers, CheckSquare, Trash2 } from 'lucide-react';
@@ -335,7 +336,7 @@ export default function ServiceAccounts() {
 
  return (
  <>
- <div className="space-y-6">
+ <PageLayout label="Service Accounts">
  <ListPageHeader
  icon={<UserCircle className="h-6 w-6 text-primary" />}
  title="Service Accounts"
@@ -552,7 +553,7 @@ export default function ServiceAccounts() {
  </Table>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
 
  <DeleteConfirmDialog
  open={deleteDialog.open}

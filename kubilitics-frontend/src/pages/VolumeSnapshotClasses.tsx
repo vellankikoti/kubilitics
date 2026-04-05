@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search, RefreshCw, MoreHorizontal, Layers, Loader2, WifiOff, Plus,
  ChevronDown, CheckSquare, Trash2, FileText, Camera, Star,
@@ -232,7 +233,7 @@ deletionPolicy: ${v.deletionPolicy}
  };
 
  return (
- <div className="space-y-6">
+ <PageLayout label="Volume Snapshot Classes">
  <ListPageHeader
  icon={<VolumeSnapshotIcon className="h-6 w-6 text-primary" />}
  title="Volume Snapshot Classes"
@@ -444,6 +445,6 @@ deletionPolicy: ${v.deletionPolicy}
  namespace={undefined}
  onConfirm={handleDelete}
  />
- </div>
+ </PageLayout>
  );
 }

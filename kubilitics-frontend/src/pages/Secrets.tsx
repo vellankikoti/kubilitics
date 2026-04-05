@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search,
  Filter,
@@ -484,7 +485,7 @@ data: {}
  const namespaceCount = useMemo(() => new Set(filteredItems.map((i) => i.namespace)).size, [filteredItems]);
 
  return (
- <>
+ <PageLayout label="Secrets">
  <div className="space-y-6">
  <ListPageHeader
  icon={<SecretIcon className="h-6 w-6 text-primary" />}
@@ -971,6 +972,6 @@ data: {}
  onConfirm={handleDelete}
  requireNameConfirmation={!deleteDialog.bulk}
  />
- </>
+ </PageLayout>
  );
 }

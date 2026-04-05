@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search, Filter, RefreshCw, RotateCw, MoreHorizontal, CheckCircle2, XCircle, Clock, Loader2, WifiOff, Plus,
  ChevronDown, ChevronRight, CheckSquare, Trash2, Briefcase, FileText, List, Layers, Box, Gauge,
@@ -443,7 +444,8 @@ spec:
  const isSomeSelected = multiSelect.isSomeSelected(allItemKeys);
 
  return (
- <div className="space-y-6" role="main" aria-label="Jobs Resources">
+ <PageLayout label="Jobs">
+ <div className="space-y-6">
  <ListPageHeader
  icon={<JobIcon className="h-6 w-6 text-primary" />}
  title="Jobs"
@@ -825,5 +827,6 @@ spec:
  )}
  <DeleteConfirmDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, item: open ? deleteDialog.item : null })} resourceType="Job" resourceName={deleteDialog.bulk ? `${selectedItems.size} jobs` : (deleteDialog.item?.name || '')} namespace={deleteDialog.bulk ? undefined : deleteDialog.item?.namespace} onConfirm={handleDelete} requireNameConfirmation={!deleteDialog.bulk} />
  </div>
+ </PageLayout>
  );
 }

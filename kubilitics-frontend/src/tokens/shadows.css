@@ -1,0 +1,36 @@
+/**
+ * Kubilitics Design Token: Shadows / Elevation
+ *
+ * 5-level elevation system for consistent depth hierarchy.
+ * Level 1 is the subtlest (hover states), level 5 is the most dramatic (hero elements).
+ *
+ * Light mode uses softer, lower-opacity shadows.
+ * Dark mode uses deeper, higher-opacity shadows to maintain depth perception.
+ */
+
+:root {
+  /* ─── Light Elevation System (5 levels) ─── */
+  /* Blue-tinted shadows for a premium, Apple-like depth feel */
+  --shadow-1: 0 1px 3px 0 rgba(0, 10, 40, 0.04), 0 1px 2px -1px rgba(0, 10, 40, 0.03);
+  --shadow-2: 0 4px 12px -2px rgba(0, 10, 40, 0.06), 0 2px 6px -1px rgba(0, 10, 40, 0.03);
+  --shadow-3: 0 8px 32px -4px rgba(0, 10, 40, 0.08), 0 4px 12px -2px rgba(0, 10, 40, 0.04);
+  --shadow-4: 0 16px 48px -8px rgba(0, 10, 40, 0.1), 0 8px 20px -6px rgba(0, 10, 40, 0.06);
+  --shadow-5: 0 24px 64px -12px rgba(0, 10, 40, 0.14), 0 12px 28px -8px rgba(0, 10, 40, 0.08);
+
+  /* ─── Special Purpose Shadows ─── */
+  --shadow-ring: 0 0 0 3px hsl(var(--primary) / 0.1);
+  --shadow-inner: inset 0 1px 2px rgba(0, 10, 40, 0.06);
+}
+
+.dark {
+  /* ─── Dark Elevation System (5 levels) ─── */
+  --shadow-1: 0 1px 3px 0 rgba(0, 5, 20, 0.2), 0 1px 2px -1px rgba(0, 5, 20, 0.15);
+  --shadow-2: 0 4px 12px -2px rgba(0, 5, 20, 0.3), 0 2px 6px -1px rgba(0, 5, 20, 0.15);
+  --shadow-3: 0 8px 32px -4px rgba(0, 5, 20, 0.35), 0 4px 12px -2px rgba(0, 5, 20, 0.2);
+  --shadow-4: 0 16px 48px -8px rgba(0, 5, 20, 0.4), 0 8px 20px -6px rgba(0, 5, 20, 0.25);
+  --shadow-5: 0 24px 64px -12px rgba(0, 5, 20, 0.5), 0 12px 28px -8px rgba(0, 5, 20, 0.3);
+
+  /* ─── Dark Special Purpose Shadows ─── */
+  --shadow-ring: 0 0 0 3px hsl(var(--primary) / 0.15);
+  --shadow-inner: inset 0 1px 2px rgba(0, 5, 20, 0.12);
+}

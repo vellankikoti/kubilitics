@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search, RefreshCw, MoreHorizontal, Loader2, CheckCircle2, XCircle, Clock,
  ChevronDown, CheckSquare, Trash2, FileText, Camera,
@@ -270,7 +271,7 @@ export default function VolumeSnapshotContents() {
  };
 
  return (
- <div className="space-y-6">
+ <PageLayout label="Volume Snapshot Contents">
  <ListPageHeader
  icon={<Camera className="h-6 w-6 text-primary" />}
  title="Volume Snapshot Contents"
@@ -468,6 +469,6 @@ export default function VolumeSnapshotContents() {
  namespace={undefined}
  onConfirm={handleDelete}
  />
- </div>
+ </PageLayout>
  );
 }

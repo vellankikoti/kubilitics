@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { Scale, Search, RefreshCw, MoreHorizontal,
  WifiOff, Plus, ChevronDown, Filter, List, Layers, CheckSquare, Trash2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -283,7 +284,7 @@ export default function VerticalPodAutoscalers() {
 
  return (
  <>
- <div className="space-y-6">
+ <PageLayout label="Vertical Pod Autoscalers">
  <ListPageHeader
  icon={<Scale className="h-6 w-6 text-primary" />}
  title="Vertical Pod Autoscalers"
@@ -493,7 +494,7 @@ export default function VerticalPodAutoscalers() {
  </Table>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
 
  <DeleteConfirmDialog
  open={deleteDialog.open}

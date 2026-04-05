@@ -20,8 +20,9 @@ import { SectionOverviewHeader } from '@/components/layout/SectionOverviewHeader
 import { StorageRadial } from '@/components/storage/StorageRadial';
 import { StoragePerformanceSparkline } from '@/components/storage/StoragePerformanceSparkline';
 import { ListPagination } from '@/components/list/ListPagination';
-import { ConnectionRequiredBanner } from '@/components/layout/ConnectionRequiredBanner';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { PageLoadingState } from '@/components/PageLoadingState';
+import { ApiError } from '@/components/ui/error-state';
 
 type StorageResource = {
   kind: string;
@@ -42,7 +43,7 @@ export default function StorageOverview() {
   const [pageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
   const queryClient = useQueryClient();
-  const { data, isLoading } = useStorageOverview();
+  const { data, isLoading, isError } = useStorageOverview();
 
   const handleSync = useCallback(() => {
     setIsSyncing(true);
@@ -89,6 +90,14 @@ export default function StorageOverview() {
 
   const isAllSelected = itemsOnPage.length > 0 && selectedItems.size === itemsOnPage.length;
 
+  if (isError) {
+    return (
+      <PageLayout label="Storage Overview">
+        <ApiError onRetry={() => queryClient.invalidateQueries({ queryKey: ['k8s'] })} />
+      </PageLayout>
+    );
+  }
+
   if (isLoading) {
     return <PageLoadingState message="Loading storage resources..." />;
   }
@@ -97,8 +106,7 @@ export default function StorageOverview() {
   const pvCount = resources.filter((r) => r.kind === 'PersistentVolume').length;
 
   return (
-    <div className="flex flex-col gap-6 p-6" role="main" aria-label="Storage Overview">
-      <ConnectionRequiredBanner />
+    <PageLayout label="Storage Overview">
 
       <SectionOverviewHeader
         title="Storage Overview"
@@ -110,14 +118,14 @@ export default function StorageOverview() {
 
       {/* Hero: Capacity & Performance */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <Card className="lg:col-span-8 overflow-hidden border-slate-200/80 dark:border-slate-700/80 shadow-sm bg-white dark:bg-slate-900" aria-live="polite">
+        <Card className="lg:col-span-8 overflow-hidden border-none soft-shadow glass-panel" aria-live="polite">
           <CardHeader className="pb-0 pt-8 px-8">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Storage Capacity</CardTitle>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Volume allocation and provisioning health</p>
+                <CardTitle className="text-xl font-bold tracking-tight text-foreground">Storage Capacity</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Volume allocation and provisioning health</p>
               </div>
-              <Badge variant="outline" className="text-xs font-semibold border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
+              <Badge variant="outline" className="text-xs font-semibold border-border text-muted-foreground">
                 {pvcCount + pvCount} volumes
               </Badge>
             </div>
@@ -126,22 +134,22 @@ export default function StorageOverview() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center mt-6">
               <StorageRadial title="PVC Utilization" value={data?.pulse.optimal_percent ?? 0} subtext="Claims" />
               <div className="space-y-5 px-4">
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 flex items-center justify-between">
+                <div className="p-4 rounded-xl bg-muted border border-border/60 flex items-center justify-between">
                   <div>
-                    <span className="block text-2xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">{pvcCount}</span>
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Total PVCs</span>
+                    <span className="block text-2xl font-bold text-foreground tabular-nums">{pvcCount}</span>
+                    <span className="text-xs font-medium text-muted-foreground">Total PVCs</span>
                   </div>
                   <div>
-                    <span className="block text-2xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">{pvCount}</span>
-                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Persistent Volumes</span>
+                    <span className="block text-2xl font-bold text-foreground tabular-nums">{pvCount}</span>
+                    <span className="text-xs font-medium text-muted-foreground">Persistent Volumes</span>
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
+                  <div className="flex justify-between text-xs font-medium text-muted-foreground">
                     <span>Provisioning Health</span>
                     <span className="text-emerald-600 font-semibold">{data?.pulse.optimal_percent.toFixed(0)}%</span>
                   </div>
-                  <div className="h-2 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${data?.pulse.optimal_percent}%` }}
@@ -150,7 +158,7 @@ export default function StorageOverview() {
                     />
                   </div>
                 </div>
-                <Button variant="outline" asChild className="w-full h-9 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">
+                <Button variant="outline" asChild className="w-full h-9 border-border text-muted-foreground font-medium hover:bg-muted rounded-lg">
                   <Link to="/persistent-volume-claims">Manage PVCs</Link>
                 </Button>
               </div>
@@ -158,14 +166,14 @@ export default function StorageOverview() {
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-4 border-slate-200/80 dark:border-slate-700/80 shadow-sm bg-white dark:bg-slate-900 flex flex-col p-6 overflow-hidden">
+        <Card className="lg:col-span-4 border-none soft-shadow glass-panel flex flex-col p-6 overflow-hidden">
           <CardHeader className="p-0 mb-4">
-            <CardTitle className="text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Performance</CardTitle>
+            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Performance</CardTitle>
           </CardHeader>
           <CardContent className="p-0 flex-1 flex flex-col gap-4">
             <StoragePerformanceSparkline />
             <div className="mt-auto">
-              <Button variant="outline" asChild className="w-full h-9 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">
+              <Button variant="outline" asChild className="w-full h-9 border-border text-muted-foreground font-medium hover:bg-muted rounded-lg">
                 <Link to="/storage-classes">Storage Classes</Link>
               </Button>
             </div>
@@ -174,19 +182,19 @@ export default function StorageOverview() {
       </div>
 
       {/* Resources Table */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl overflow-hidden shadow-sm">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-700">
+      <div className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-sm">
+        <div className="p-6 border-b border-border/60">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h3 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">Storage Resources</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Volumes, claims, and storage classes</p>
+              <h3 className="text-lg font-bold tracking-tight text-foreground">Storage Resources</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">Volumes, claims, and storage classes</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="relative min-w-[280px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" aria-hidden />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
                 <Input
                   placeholder="Search storage resources..."
-                  className="pl-10 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-300 dark:focus:border-blue-600 h-10 text-sm"
+                  className="pl-10 bg-muted border-border rounded-xl focus:bg-card focus:ring-2 focus:ring-blue-500/10 focus:border-blue-300 dark:focus:border-blue-600 h-10 text-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   aria-label="Search storage resources"
@@ -204,19 +212,19 @@ export default function StorageOverview() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50/80 dark:bg-slate-800/80">
-                <th className="px-6 py-3.5 border-b border-slate-100 dark:border-slate-700 w-10">
+              <tr className="bg-muted/60">
+                <th className="px-6 py-3.5 border-b border-border/60 w-10">
                   <Checkbox checked={isAllSelected} onCheckedChange={toggleAll} />
                 </th>
-                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">Name</th>
-                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">Kind</th>
-                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">Namespace</th>
-                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">Status</th>
-                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">Capacity</th>
-                <th className="px-6 py-3.5 border-b border-slate-100 dark:border-slate-700"></th>
+                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/60">Name</th>
+                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/60">Kind</th>
+                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/60">Namespace</th>
+                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/60">Status</th>
+                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/60">Capacity</th>
+                <th className="px-6 py-3.5 border-b border-border/60"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50 dark:divide-slate-800 text-sm">
+            <tbody className="divide-y divide-border/30 text-sm">
               {itemsOnPage.map((resource, idx) => {
                 const isSelected = selectedItems.has(getResourceKey(resource));
                 return (
@@ -225,31 +233,31 @@ export default function StorageOverview() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.02 }}
                     key={getResourceKey(resource)}
-                    className={cn('group hover:bg-slate-50/80 dark:hover:bg-slate-800/80 transition-colors', isSelected && 'bg-blue-50/40 dark:bg-blue-900/20')}
+                    className={cn('group hover:bg-muted/40 transition-colors', isSelected && 'bg-blue-50/40 dark:bg-blue-900/20')}
                   >
                     <td className="px-6 py-3.5">
                       <Checkbox checked={isSelected} onCheckedChange={() => toggleSelection(resource)} />
                     </td>
                     <td className="px-6 py-3.5">
-                      <span className="font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{resource.name}</span>
+                      <span className="font-semibold text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{resource.name}</span>
                     </td>
                     <td className="px-6 py-3.5">
-                      <Badge variant="outline" className="text-xs uppercase tracking-wider font-semibold border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">{resource.kind}</Badge>
+                      <Badge variant="outline" className="text-xs uppercase tracking-wider font-semibold border-border text-muted-foreground">{resource.kind}</Badge>
                     </td>
                     <td className="px-6 py-3.5">
-                      <span className="font-mono text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">{resource.namespace}</span>
+                      <span className="font-mono text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-md">{resource.namespace}</span>
                     </td>
                     <td className="px-6 py-3.5">
                       <div className="flex items-center gap-2">
                         <div className={cn('h-1.5 w-1.5 rounded-full', ['Bound', 'Available', 'Active'].includes(resource.status) ? 'bg-emerald-500' : 'bg-amber-500')} />
-                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{resource.status}</span>
+                        <span className="text-xs font-medium text-foreground/80">{resource.status}</span>
                       </div>
                     </td>
                     <td className="px-6 py-3.5">
-                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 tabular-nums">{resource.capacity || '—'}</span>
+                      <span className="text-xs font-semibold text-muted-foreground tabular-nums">{resource.capacity || '—'}</span>
                     </td>
                     <td className="px-6 py-3.5 text-right">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm rounded-lg transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-600">
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-card hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm rounded-lg transition-all border border-transparent hover:border-border">
                         <ArrowUpRight className="h-4 w-4" aria-hidden />
                       </Button>
                     </td>
@@ -274,7 +282,7 @@ export default function StorageOverview() {
         </div>
 
         {totalFiltered > 0 && (
-          <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-4 border-t border-border/60 bg-muted/40 flex flex-col sm:flex-row items-center justify-between gap-4">
             <ListPagination
               rangeLabel={`${totalFiltered} ${totalFiltered === 1 ? 'resource' : 'resources'}`}
               hasPrev={safePageIndex > 0}
@@ -286,16 +294,16 @@ export default function StorageOverview() {
               onPageChange={(p) => setPageIndex(p - 1)}
             />
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" asChild className="h-9 px-4 font-medium border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-all">
+              <Button variant="outline" size="sm" asChild className="h-9 px-4 font-medium border-border text-muted-foreground hover:bg-card hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-all">
                 <Link to="/persistent-volumes">PVs</Link>
               </Button>
-              <Button variant="outline" size="sm" asChild className="h-9 px-4 font-medium border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-all">
+              <Button variant="outline" size="sm" asChild className="h-9 px-4 font-medium border-border text-muted-foreground hover:bg-card hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-all">
                 <Link to="/persistent-volume-claims">PVCs</Link>
               </Button>
             </div>
           </div>
         )}
       </div>
-    </div>
+    </PageLayout>
   );
 }

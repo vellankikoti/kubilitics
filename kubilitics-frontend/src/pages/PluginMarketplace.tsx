@@ -31,6 +31,8 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { ApiError } from '@/components/ui/error-state';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { usePluginRegistry, type PluginCategory, type PluginInfo } from '@/hooks/usePluginRegistry';
 import { toast } from '@/components/ui/sonner';
@@ -215,6 +217,7 @@ export default function PluginMarketplace() {
     plugins,
     allPlugins,
     isLoading,
+    error: registryError,
     searchQuery,
     setSearchQuery,
     install,
@@ -253,8 +256,16 @@ export default function PluginMarketplace() {
     return counts;
   }, [allPlugins]);
 
+  if (registryError) {
+    return (
+      <PageLayout label="Plugin Marketplace">
+        <ApiError onRetry={() => refetch()} message={(registryError as Error)?.message} />
+      </PageLayout>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-4 p-4 md:p-6">
+    <PageLayout label="Plugin Marketplace">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -388,6 +399,6 @@ export default function PluginMarketplace() {
           )}
         </TabsContent>
       </Tabs>
-    </div>
+    </PageLayout>
   );
 }

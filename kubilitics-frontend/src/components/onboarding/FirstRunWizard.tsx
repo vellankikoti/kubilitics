@@ -97,15 +97,25 @@ export function FirstRunWizard() {
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-background overflow-hidden">
-      {/* Background ambient mesh */}
-      <div className="absolute inset-0 pointer-events-none">
+      {/* Background ambient mesh — slow drifting blobs */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div
-          className="absolute top-[-15%] left-[-10%] w-[60%] h-[60%] bg-primary/[0.06] rounded-full blur-[140px] animate-pulse"
-          style={{ animationDuration: '8s' }}
+          className="absolute top-[-15%] left-[-10%] w-[60%] h-[60%] bg-primary/[0.06] rounded-full blur-[140px]"
+          style={{
+            animation: 'blob-drift 12s ease-in-out infinite alternate, blob-pulse 8s ease-in-out infinite',
+          }}
         />
         <div
-          className="absolute bottom-[-15%] right-[-10%] w-[60%] h-[60%] bg-[hsl(var(--cosmic-purple))]/[0.06] rounded-full blur-[140px] animate-pulse"
-          style={{ animationDuration: '10s', animationDelay: '2s' }}
+          className="absolute bottom-[-15%] right-[-10%] w-[60%] h-[60%] bg-[hsl(var(--cosmic-purple))]/[0.06] rounded-full blur-[140px]"
+          style={{
+            animation: 'blob-drift-reverse 14s ease-in-out infinite alternate, blob-pulse 10s ease-in-out 2s infinite',
+          }}
+        />
+        <div
+          className="absolute top-[40%] left-[30%] w-[40%] h-[40%] bg-[hsl(var(--success))]/[0.03] rounded-full blur-[120px]"
+          style={{
+            animation: 'blob-drift 16s ease-in-out 4s infinite alternate, blob-pulse 12s ease-in-out 3s infinite',
+          }}
         />
       </div>
 
@@ -165,7 +175,12 @@ function WelcomeStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => voi
         transition={{ duration: 0.6, ease }}
         className="mb-8 flex justify-center"
       >
-        <BrandLogo mark height={96} className="drop-shadow-[0_20px_40px_hsl(var(--primary)/0.3)]" />
+        <motion.div
+          animate={{ y: [0, -6, 0] }}
+          transition={{ duration: 4, ease: 'easeInOut', repeat: Infinity }}
+        >
+          <BrandLogo mark height={96} className="drop-shadow-[0_20px_40px_hsl(var(--primary)/0.3)]" />
+        </motion.div>
       </motion.div>
 
       <motion.h1
@@ -212,10 +227,13 @@ function WelcomeStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => voi
         <Button
           size="lg"
           onClick={onNext}
-          className="gap-2 px-8 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl h-12 font-semibold shadow-lg shadow-primary/20"
+          className="gap-2 px-8 bg-primary hover:bg-primary/90 text-primary-foreground rounded-2xl h-12 font-semibold shadow-lg shadow-primary/20 transition-transform"
+          asChild
         >
-          Get Started
-          <ArrowRight className="h-4 w-4" />
+          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} transition={{ type: 'spring', stiffness: 400, damping: 17 }}>
+            Get Started
+            <ArrowRight className="h-4 w-4" />
+          </motion.button>
         </Button>
       </motion.div>
     </motion.div>

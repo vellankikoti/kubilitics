@@ -8,6 +8,7 @@
  *   4. Namespace table: sortable, expandable per-namespace component breakdown
  */
 import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   Activity,
@@ -34,12 +35,16 @@ import {
 import { cn } from '@/lib/utils';
 import { ListPagination } from '@/components/list/ListPagination';
 import { SectionOverviewHeader } from '@/components/layout/SectionOverviewHeader';
-import { ConnectionRequiredBanner } from '@/components/layout/ConnectionRequiredBanner';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { PageLoadingState } from '@/components/PageLoadingState';
+import { ApiError } from '@/components/ui/error-state';
 import { HealthRing } from '@/components/HealthRing';
 import { HealthBadge } from '@/components/health/HealthBadge';
 import { useClusterHealth } from '@/hooks/useClusterHealth';
 import { useBackendConfigStore } from '@/stores/backendConfigStore';
+import { useActiveInsights, useDismissInsight } from '@/hooks/useEventsIntelligence';
+import { InsightsBanner } from '@/components/events/InsightsBanner';
+import { HealthChangesCard } from '@/components/events/HealthChangesCard';
 import type { ComponentScore, NamespaceHealth } from '@/services/api/clusterHealth';
 
 /* ─── Constants ───────────────────────────────────────────────────────────── */
@@ -57,13 +62,13 @@ const COMPONENT_LABELS: Record<string, string> = {
 
 const LEVEL_BADGE_STYLES: Record<string, string> = {
   healthy:
-    'text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/10',
+    'text-[hsl(var(--success))] border-[hsl(var(--success)/0.2)] bg-[hsl(var(--success)/0.08)]',
   warning:
-    'text-yellow-700 dark:text-yellow-400 border-yellow-200 dark:border-yellow-500/20 bg-yellow-50 dark:bg-yellow-500/10',
+    'text-[hsl(var(--warning))] border-[hsl(var(--warning)/0.2)] bg-[hsl(var(--warning)/0.08)]',
   degraded:
-    'text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-500/20 bg-orange-50 dark:bg-orange-500/10',
+    'text-[hsl(38,70%,42%)] border-[hsl(38,70%,42%,0.2)] bg-[hsl(38,70%,42%,0.08)]',
   critical:
-    'text-red-700 dark:text-red-400 border-red-200 dark:border-red-500/20 bg-red-50 dark:bg-red-500/10',
+    'text-[hsl(var(--destructive))] border-[hsl(var(--destructive)/0.2)] bg-[hsl(var(--destructive)/0.08)]',
 };
 
 const LEVEL_LABELS: Record<string, string> = {
@@ -88,10 +93,10 @@ function getLevelIcon(level: string) {
 }
 
 function getScoreBarColor(score: number): string {
-  if (score >= 0.8) return 'bg-emerald-500';
-  if (score >= 0.5) return 'bg-yellow-500';
-  if (score >= 0.25) return 'bg-orange-500';
-  return 'bg-red-500';
+  if (score >= 0.8) return 'bg-[hsl(var(--success))]';
+  if (score >= 0.5) return 'bg-[hsl(var(--warning))]';
+  if (score >= 0.25) return 'bg-[hsl(var(--warning)/0.8)]';
+  return 'bg-[hsl(var(--destructive))]';
 }
 
 type SortKey = 'namespace' | 'score' | 'level' | 'workload_count';
@@ -260,6 +265,7 @@ function SortHeader({
 /* ═══════════════════════════════════════════════════════════════════════════ */
 
 export default function HealthDashboard() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isSyncing, setIsSyncing] = useState(false);
   const [expandedNs, setExpandedNs] = useState<Set<string>>(new Set());
@@ -272,6 +278,8 @@ export default function HealthDashboard() {
 
   const currentClusterId = useBackendConfigStore((s) => s.currentClusterId);
   const { data, isLoading, error } = useClusterHealth(currentClusterId);
+  const { data: insights } = useActiveInsights();
+  const dismissInsightMutation = useDismissInsight();
 
   const handleSync = useCallback(() => {
     setIsSyncing(true);
@@ -355,6 +363,14 @@ export default function HealthDashboard() {
     onPageChange: (p: number) => setPageIndex(Math.max(0, Math.min(p - 1, totalPages - 1))),
   };
 
+  if (error) {
+    return (
+      <PageLayout label="Health Dashboard">
+        <ApiError onRetry={() => queryClient.invalidateQueries({ queryKey: ['cluster-health'] })} message={(error as Error)?.message} />
+      </PageLayout>
+    );
+  }
+
   if (isLoading) {
     return <PageLoadingState message="Loading cluster health..." />;
   }
@@ -364,19 +380,28 @@ export default function HealthDashboard() {
   const LevelIcon = getLevelIcon(level);
 
   return (
-    <div className="page-container" role="main" aria-label="Health Dashboard">
-      <div className="page-inner p-6 gap-6 flex flex-col">
-        <ConnectionRequiredBanner />
+    <PageLayout label="Health Dashboard">
 
         {/* Header */}
         <SectionOverviewHeader
           title="Health Dashboard"
           description="Cluster operational health score and component breakdown."
           icon={Activity}
+          iconClassName="from-emerald-500/20 to-emerald-500/5 text-emerald-600 border-emerald-500/10"
           onSync={handleSync}
           isSyncing={isSyncing}
           showAiButton={false}
         />
+
+        {/* Insights Banner */}
+        {insights && insights.length > 0 && (
+          <InsightsBanner
+            insights={insights}
+            onInvestigate={() => navigate('/events-intelligence')}
+            onDismiss={(id) => dismissInsightMutation.mutate(id)}
+            isDismissing={dismissInsightMutation.isPending}
+          />
+        )}
 
         {/* Error state */}
         {error && (
@@ -398,16 +423,17 @@ export default function HealthDashboard() {
           {/* Score Gauge Card */}
           <Card className="lg:col-span-4 border-none soft-shadow glass-panel relative overflow-hidden flex flex-col">
             <div
-              className={cn(
-                'absolute top-0 left-0 right-0 h-1',
-                level === 'healthy'
-                  ? 'bg-gradient-to-r from-emerald-500 via-emerald-400 to-green-500'
-                  : level === 'warning'
-                    ? 'bg-gradient-to-r from-yellow-500 via-yellow-400 to-amber-500'
-                    : level === 'degraded'
-                      ? 'bg-gradient-to-r from-orange-500 via-orange-400 to-amber-500'
-                      : 'bg-gradient-to-r from-red-500 via-red-400 to-rose-500',
-              )}
+              className="absolute top-0 left-0 right-0 h-1 rounded-t-lg"
+              style={{
+                background:
+                  level === 'healthy'
+                    ? 'linear-gradient(to right, hsl(142, 71%, 45%), hsl(142, 71%, 55%), hsl(142, 60%, 48%))'
+                    : level === 'warning'
+                      ? 'linear-gradient(to right, hsl(38, 92%, 50%), hsl(38, 92%, 60%), hsl(38, 80%, 50%))'
+                      : level === 'degraded'
+                        ? 'linear-gradient(to right, hsl(25, 85%, 50%), hsl(30, 85%, 55%), hsl(38, 80%, 50%))'
+                        : 'linear-gradient(to right, hsl(0, 84%, 60%), hsl(0, 80%, 65%), hsl(350, 80%, 58%))',
+              }}
             />
 
             <div className="p-6 pb-3">
@@ -469,9 +495,12 @@ export default function HealthDashboard() {
           </Card>
         </section>
 
+        {/* What Changed — recent health-impacting changes */}
+        <HealthChangesCard />
+
         {/* Namespace Table */}
         <section>
-          <Card className="border-none soft-shadow glass-panel overflow-hidden">
+          <Card className="border-none soft-shadow glass-panel card-accent overflow-hidden">
             <div className="p-6 border-b border-border/50">
               <div className="flex items-center justify-between">
                 <div>
@@ -590,7 +619,6 @@ export default function HealthDashboard() {
             )}
           </Card>
         </section>
-      </div>
-    </div>
+    </PageLayout>
   );
 }

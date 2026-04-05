@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/cors"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/kubilitics/kubilitics-backend/internal/api/rest"
 	"github.com/kubilitics/kubilitics-backend/internal/autopilot"
 	"github.com/kubilitics/kubilitics-backend/internal/api/websocket"
+	"github.com/kubilitics/kubilitics-backend/internal/addon/notifications"
 	"github.com/kubilitics/kubilitics-backend/internal/addon/helm"
 	"github.com/kubilitics/kubilitics-backend/internal/addon/lifecycle"
 	"github.com/kubilitics/kubilitics-backend/internal/addon/registry"
@@ -32,6 +34,8 @@ import (
 	"github.com/kubilitics/kubilitics-backend/internal/addon/scanner"
 	"github.com/kubilitics/kubilitics-backend/internal/auth"
 	"github.com/kubilitics/kubilitics-backend/internal/config"
+	"github.com/kubilitics/kubilitics-backend/internal/events"
+	"github.com/kubilitics/kubilitics-backend/internal/otel"
 	"github.com/kubilitics/kubilitics-backend/internal/graph"
 	"github.com/kubilitics/kubilitics-backend/internal/intelligence/diff"
 	"github.com/kubilitics/kubilitics-backend/internal/models"
@@ -616,7 +620,108 @@ func main() {
 	securityHandler.RegisterRoutes(apiRouter)
 	complianceHandler.RegisterRoutes(apiRouter)
 	scannerHandler.RegisterRoutes(apiRouter)
+	// OTel trace ingestion (register BEFORE rest.SetupRoutes which sets NotFoundHandler)
+	otelDB := sqlx.NewDb(repo.DB(), "sqlite3")
+	otelStore := otel.NewStore(otelDB)
+	otelReceiver := otel.NewReceiver(otelStore, "")
+	otelHandler := otel.NewOTelHandler(otelReceiver, otelStore)
+	otel.SetupOTelRoutes(apiRouter, otelHandler)
+
+	// Start span pruning goroutine (7 day retention)
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				deleted, err := otelStore.PruneSpans(ctx, 7)
+				if err != nil {
+					log.Warn("Failed to prune old spans", "error", err)
+				} else if deleted > 0 {
+					log.Info("Pruned old spans", "deleted", deleted)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	// Events Intelligence pipeline (register BEFORE rest.SetupRoutes which sets NotFoundHandler)
+	eventsDB := sqlx.NewDb(repo.DB(), "sqlite3")
+	// PipelineManager: one pipeline per cluster (fixes single-pipeline bug).
+	pipelineManager := events.NewPipelineManager(eventsDB)
+	// Wire real-time metrics into every pipeline's enrichment stage.
+	pipelineManager.SetMetricsProvider(events.NewMetricsAdapter(
+		func(ctx context.Context, clusterID, namespace, podName string) (string, string, error) {
+			pm, err := metricsService.GetPodMetrics(ctx, clusterID, namespace, podName)
+			if err != nil {
+				return "", "", err
+			}
+			return pm.CPU, pm.Memory, nil
+		},
+		func(ctx context.Context, clusterID, nodeName string) (string, string, error) {
+			nm, err := metricsService.GetNodeMetrics(ctx, clusterID, nodeName)
+			if err != nil {
+				return "", "", err
+			}
+			return nm.CPU, nm.Memory, nil
+		},
+	))
+	// Wire insight alerts into the existing webhook/Slack notification system.
+	addonNotifier := notifications.NewNotifier(repo.ListNotificationChannels, log)
+	alertAdapter := events.NewAlertNotifierAdapter(addonNotifier.Notify)
+	pipelineManager.SetAlertNotifier(alertAdapter)
+
+	eventsHandler := events.NewEventsHandlerFromManager(pipelineManager)
+	// Register on main router with full /api/v1 prefix (not apiRouter subrouter)
+	// because the main router's NotFoundHandler at line ~720 catches unmatched paths
+	// before the subrouter gets a chance to match.
+	events.SetupEventsRoutes(apiRouter, eventsHandler)
+
+	// Wire events pipeline lifecycle into cluster add/remove/reconnect handlers.
+	handler.SetLifecycleHook(pipelineManager)
+
 	rest.SetupRoutes(apiRouter, handler)
+
+	// API 404 — set AFTER all routes (events-intelligence, otel, rest) are registered
+	// so the NotFoundHandler doesn't shadow any routes.
+	apiRouter.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Not found"})
+	})
+
+	// Start events pipelines for ALL connected clusters (not just the first one).
+	go func() {
+		time.Sleep(10 * time.Second) // wait for cluster connections to establish
+		clusters, err := clusterService.ListClusters(ctx)
+		if err != nil {
+			log.Warn("Failed to list clusters for events pipeline", "error", err)
+			return
+		}
+		// Set default OTel cluster ID for single-cluster desktop setups.
+		if len(clusters) == 1 {
+			otelReceiver.SetDefaultClusterID(clusters[0].ID)
+			log.Info("Set OTel default cluster ID", "cluster", clusters[0].ID)
+		}
+
+		for _, cl := range clusters {
+			client, clientErr := clusterService.GetClient(cl.ID)
+			if clientErr != nil {
+				log.Warn("Skipping events pipeline — cannot get client", "cluster", cl.Name, "id", cl.ID, "error", clientErr)
+				continue
+			}
+			if err := pipelineManager.StartCluster(client.Clientset, cl.ID); err != nil {
+				log.Warn("Failed to start events pipeline", "cluster", cl.Name, "id", cl.ID, "error", err)
+				continue
+			}
+			log.Info("Started events pipeline", "cluster", cl.Name, "id", cl.ID)
+
+			// Start log collector for this cluster.
+			pipelineManager.StartLogCollector(logsService, client.Clientset, cl.ID)
+			log.Info("Started log collector", "cluster", cl.Name, "id", cl.ID)
+		}
+	}()
 
 	// WebSocket routes
 	wsHandler := websocket.NewHandler(ctx, wsHub, nil, cfg, repo) // informerMgr will be set per cluster

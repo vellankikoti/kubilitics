@@ -31,8 +31,9 @@ import {
 import { cn } from '@/lib/utils';
 import { ListPagination } from '@/components/list/ListPagination';
 import { SectionOverviewHeader } from '@/components/layout/SectionOverviewHeader';
-import { ConnectionRequiredBanner } from '@/components/layout/ConnectionRequiredBanner';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { PageLoadingState } from '@/components/PageLoadingState';
+import { ApiError } from '@/components/ui/error-state';
 import { useRiskRanking } from '@/hooks/useClusterHealth';
 import { useBackendConfigStore } from '@/stores/backendConfigStore';
 import type { NamespaceRisk } from '@/services/api/clusterHealth';
@@ -363,20 +364,27 @@ export default function RiskRanking() {
     ? new Date(data.generated_at).toLocaleString()
     : null;
 
+  if (error) {
+    return (
+      <PageLayout label="Risk Ranking">
+        <ApiError onRetry={() => queryClient.invalidateQueries({ queryKey: ['risk-ranking'] })} message={(error as Error)?.message} />
+      </PageLayout>
+    );
+  }
+
   if (isLoading) {
     return <PageLoadingState message="Loading risk ranking..." />;
   }
 
   return (
-    <div className="page-container" role="main" aria-label="Risk Ranking">
-      <div className="page-inner p-6 gap-6 flex flex-col">
-        <ConnectionRequiredBanner />
+    <PageLayout label="Risk Ranking">
 
         {/* Header */}
         <SectionOverviewHeader
           title="Namespace Risk Ranking"
           description="Risk-ordered view of all namespaces with blast radius and SPOF analysis."
           icon={ShieldAlert}
+          iconClassName="from-amber-500/20 to-amber-500/5 text-amber-600 border-amber-500/10"
           onSync={handleSync}
           isSyncing={isSyncing}
           showAiButton={false}
@@ -434,7 +442,7 @@ export default function RiskRanking() {
         </div>
 
         {/* Table */}
-        <Card className="border-none soft-shadow glass-panel overflow-hidden">
+        <Card className="border-none soft-shadow glass-panel card-accent-warning overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -574,7 +582,6 @@ export default function RiskRanking() {
             </div>
           )}
         </Card>
-      </div>
-    </div>
+    </PageLayout>
   );
 }

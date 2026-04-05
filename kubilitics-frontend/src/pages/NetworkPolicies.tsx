@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { 
  Search, 
  Filter,
@@ -344,7 +345,7 @@ spec:
  };
 
  return (
- <div className="space-y-6">
+ <PageLayout label="Network Policies">
  <ListPageHeader
  icon={<Shield className="h-6 w-6 text-primary" />}
  title="Network Policies"
@@ -606,6 +607,6 @@ spec:
  onSubmit={() => { setShowCreateWizard(false); refetch(); }}
  />
  )}
- </div>
+ </PageLayout>
  );
 }

@@ -64,6 +64,7 @@ import {
   type EnvironmentTag,
 } from '@/stores/clusterOrganizationStore';
 import { useQueryClient } from '@tanstack/react-query';
+import { PageLayout } from '@/components/layout/PageLayout';
 
 // ─── Animation variants ──────────────────────────────────────────────────────
 
@@ -747,7 +748,7 @@ export default function FleetDashboard() {
   }
 
   return (
-    <div className="fleet-dashboard p-4 md:p-6 -m-2" role="main" aria-label="Fleet Dashboard">
+    <PageLayout label="Fleet Dashboard" showBanner={false}>
       <motion.div
         variants={container}
         initial="hidden"
@@ -950,6 +951,6 @@ export default function FleetDashboard() {
           </div>
         </div>
       )}
-    </div>
+    </PageLayout>
   );
 }

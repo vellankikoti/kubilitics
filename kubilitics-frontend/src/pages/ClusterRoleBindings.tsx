@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { Link2, Search, RefreshCw, MoreHorizontal,
  WifiOff, Plus, ChevronDown, Globe, CheckSquare, Trash2 } from 'lucide-react';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
@@ -290,7 +291,7 @@ export default function ClusterRoleBindings() {
 
  return (
  <>
- <div className="space-y-6">
+ <PageLayout label="Cluster Role Bindings">
  <ListPageHeader
  icon={<Link2 className="h-6 w-6 text-primary" />}
  title="Cluster Role Bindings"
@@ -478,7 +479,7 @@ export default function ClusterRoleBindings() {
  </Table>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
 
  <DeleteConfirmDialog
  open={deleteDialog.open}

@@ -50,6 +50,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { ApiError } from '@/components/ui/error-state';
 import { useBackendConfigStore } from '@/stores/backendConfigStore';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -85,6 +87,7 @@ export default function RBACReports() {
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const [entries, setEntries] = useState<RBACReportEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive' | 'over-permissioned'>('all');
 
@@ -92,14 +95,14 @@ export default function RBACReports() {
 
   const fetchReport = useCallback(async () => {
     setIsLoading(true);
+    setFetchError(null);
     try {
       const res = await fetch(`${backendBaseUrl}/api/v1/rbac/reports`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.entries) setEntries(data.entries);
-      }
-    } catch {
-      // API unavailable — keep empty state
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (data.entries) setEntries(data.entries);
+    } catch (err) {
+      setFetchError((err as Error)?.message ?? 'Failed to fetch RBAC report');
     } finally {
       setIsLoading(false);
     }
@@ -191,8 +194,16 @@ export default function RBACReports() {
     return `${Math.floor(days / 30)}mo ago`;
   }
 
+  if (fetchError) {
+    return (
+      <PageLayout label="RBAC Reports">
+        <ApiError onRetry={fetchReport} message={fetchError} />
+      </PageLayout>
+    );
+  }
+
   return (
-    <div className="container py-8 space-y-6">
+    <PageLayout label="RBAC Reports">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -386,6 +397,6 @@ export default function RBACReports() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </PageLayout>
   );
 }

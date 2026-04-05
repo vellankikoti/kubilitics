@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search, Filter, RefreshCw, MoreHorizontal, CheckCircle2, XCircle, Clock, Loader2, WifiOff, Plus,
  ChevronDown, ChevronRight, CheckSquare, Trash2, FileText, List, Layers, Camera,
@@ -339,7 +340,7 @@ spec:
  };
 
  return (
- <div className="space-y-6">
+ <PageLayout label="Volume Snapshots">
  <ListPageHeader
  icon={<VolumeSnapshotIcon className="h-6 w-6 text-primary" />}
  title="Volume Snapshots"
@@ -555,6 +556,6 @@ spec:
  namespace={deleteDialog.bulk ? undefined : deleteDialog.item?.namespace}
  onConfirm={handleDelete}
  />
- </div>
+ </PageLayout>
  );
 }

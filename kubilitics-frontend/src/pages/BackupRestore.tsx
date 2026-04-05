@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { StatusPill, type StatusPillVariant } from '@/components/list';
 import { cn } from '@/lib/utils';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
 import { useClusterStore } from '@/stores/clusterStore';
@@ -324,7 +325,7 @@ export default function BackupRestore() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col gap-4 p-4 md:p-6">
+    <PageLayout label="Backup & Restore">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -653,6 +654,6 @@ export default function BackupRestore() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageLayout>
   );
 }

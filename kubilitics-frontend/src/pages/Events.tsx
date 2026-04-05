@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { ResourceExportDropdown, type ResourceExportConfig } from '@/components/list/ResourceExportDropdown';
 import { useQuery } from '@tanstack/react-query';
 import { Bell, Search, RefreshCw, MoreHorizontal, Loader2, WifiOff, ChevronDown, CheckCircle2, AlertTriangle, XCircle, ExternalLink, CalendarClock } from 'lucide-react';
@@ -280,6 +281,7 @@ export default function Events() {
  const isError = eventsQuery.isError;
 
  return (
+ <PageLayout label="Events">
  <div className="space-y-6">
  <div className="flex items-center justify-between flex-wrap gap-4">
  <div className="flex items-center gap-3 flex-wrap">
@@ -520,5 +522,6 @@ export default function Events() {
  </ResizableTableProvider>
  </ResourceListTableToolbar >
  </div>
+ </PageLayout>
  );
 }

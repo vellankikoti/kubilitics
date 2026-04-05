@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { Gauge, Search, RefreshCw, MoreHorizontal,
  WifiOff, Plus, ChevronDown, Filter, List, Layers, CheckSquare, Trash2 } from 'lucide-react';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
@@ -338,7 +339,7 @@ export default function ResourceQuotas() {
 
  return (
  <>
- <div className="space-y-6">
+ <PageLayout label="Resource Quotas">
  <ListPageHeader
  icon={<Gauge className="h-6 w-6 text-primary" />}
  title="Resource Quotas"
@@ -584,7 +585,7 @@ export default function ResourceQuotas() {
  </Table>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
 
  <DeleteConfirmDialog
  open={deleteDialog.open}

@@ -87,6 +87,11 @@ const STATUS_MAP: Record<StatusType, StatusConfig> = {
 
 // ─── Variant Styling (WCAG AA compliant colors) ─────────────────────────────
 
+/**
+ * Variant styling using design-system semantic tokens from colors.css.
+ * Tokens auto-switch between light/dark via :root / .dark selectors,
+ * so no explicit dark: prefixes are needed for token-based values.
+ */
 const variantConfig: Record<StatusBadgeVariant, {
   bg: string;
   text: string;
@@ -96,52 +101,52 @@ const variantConfig: Record<StatusBadgeVariant, {
   dotClass: string;
 }> = {
   success: {
-    bg: 'bg-emerald-50 dark:bg-emerald-950/40',
-    text: 'text-emerald-700 dark:text-emerald-400',
-    border: 'border-emerald-200/60 dark:border-emerald-800/40',
+    bg: 'bg-[hsl(var(--color-success-bg))]',
+    text: 'text-[hsl(var(--color-success-text))]',
+    border: 'border-[hsl(var(--color-success-border)/0.6)]',
     icon: CheckCircle2,
-    iconClass: 'text-emerald-600 dark:text-emerald-400',
-    dotClass: 'bg-emerald-500 dark:bg-emerald-400',
+    iconClass: 'text-[hsl(var(--success))]',
+    dotClass: 'bg-[hsl(var(--success))]',
   },
   warning: {
-    bg: 'bg-amber-50 dark:bg-amber-950/40',
-    text: 'text-amber-700 dark:text-amber-400',
-    border: 'border-amber-200/60 dark:border-amber-800/40',
+    bg: 'bg-[hsl(var(--color-warning-bg))]',
+    text: 'text-[hsl(var(--color-warning-text))]',
+    border: 'border-[hsl(var(--color-warning-border)/0.6)]',
     icon: AlertTriangle,
-    iconClass: 'text-amber-600 dark:text-amber-400',
-    dotClass: 'bg-amber-500 dark:bg-amber-400',
+    iconClass: 'text-[hsl(var(--warning))]',
+    dotClass: 'bg-[hsl(var(--warning))]',
   },
   error: {
-    bg: 'bg-red-50 dark:bg-red-950/40',
-    text: 'text-red-700 dark:text-red-400',
-    border: 'border-red-200/60 dark:border-red-800/40',
+    bg: 'bg-[hsl(var(--color-error-bg))]',
+    text: 'text-[hsl(var(--color-error-text))]',
+    border: 'border-[hsl(var(--color-error-border)/0.6)]',
     icon: XCircle,
-    iconClass: 'text-red-600 dark:text-red-400',
-    dotClass: 'bg-red-500 dark:bg-red-400',
+    iconClass: 'text-[hsl(var(--error))]',
+    dotClass: 'bg-[hsl(var(--error))]',
   },
   info: {
-    bg: 'bg-blue-50 dark:bg-blue-950/40',
-    text: 'text-blue-700 dark:text-blue-400',
-    border: 'border-blue-200/60 dark:border-blue-800/40',
+    bg: 'bg-[hsl(var(--color-info-bg))]',
+    text: 'text-[hsl(var(--color-info-text))]',
+    border: 'border-[hsl(var(--color-info-border)/0.6)]',
     icon: Info,
-    iconClass: 'text-blue-600 dark:text-blue-400',
-    dotClass: 'bg-blue-500 dark:bg-blue-400',
+    iconClass: 'text-[hsl(var(--info))]',
+    dotClass: 'bg-[hsl(var(--info))]',
   },
   neutral: {
-    bg: 'bg-slate-50 dark:bg-slate-800/40',
-    text: 'text-slate-600 dark:text-slate-400',
-    border: 'border-slate-200/60 dark:border-slate-700/40',
+    bg: 'bg-[hsl(var(--color-neutral-bg))]',
+    text: 'text-[hsl(var(--color-neutral-text))]',
+    border: 'border-[hsl(var(--color-neutral-border)/0.6)]',
     icon: Circle,
-    iconClass: 'text-slate-500 dark:text-slate-400',
-    dotClass: 'bg-slate-400 dark:bg-slate-500',
+    iconClass: 'text-[hsl(var(--color-neutral))]',
+    dotClass: 'bg-[hsl(var(--color-neutral))]',
   },
   loading: {
-    bg: 'bg-blue-50 dark:bg-blue-950/40',
-    text: 'text-blue-600 dark:text-blue-400',
-    border: 'border-blue-200/60 dark:border-blue-800/40',
+    bg: 'bg-[hsl(var(--color-info-bg))]',
+    text: 'text-[hsl(var(--info))]',
+    border: 'border-[hsl(var(--color-info-border)/0.6)]',
     icon: Loader2,
-    iconClass: 'text-blue-500 dark:text-blue-400 animate-spin',
-    dotClass: 'bg-blue-500 dark:bg-blue-400 animate-pulse',
+    iconClass: 'text-[hsl(var(--info))] animate-spin',
+    dotClass: 'bg-[hsl(var(--info))] animate-pulse',
   },
 };
 

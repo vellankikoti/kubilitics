@@ -68,6 +68,8 @@ import type {
   ScanSeverity,
   ScanRunStatus,
 } from '@/types/scanner';
+import { PageLayout } from '@/components/layout/PageLayout';
+import { SectionOverviewHeader } from '@/components/layout/SectionOverviewHeader';
 
 // ─── Constants ──────────────────────────────────────────────────────────────────
 
@@ -207,49 +209,40 @@ export default function ScanDashboard() {
   const highCount = stats?.findings_by_severity?.HIGH ?? 0;
 
   return (
+    <PageLayout label="Security Scanner">
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="h-full w-full flex flex-col min-h-0 bg-background text-foreground"
+      className="space-y-6"
     >
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6 pb-6 scroll-smooth w-full">
-        <div className="w-full space-y-6">
-          {/* Header */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <ShieldCheck className="h-5 w-5 text-primary" />
+          <SectionOverviewHeader
+            title="Security Scanner"
+            description={`DevSecOps scanning engine \u2014 ${availableCount}/${tools.length} tools available`}
+            icon={ShieldCheck}
+            extraActions={
+              <div className="flex items-center gap-3">
+                <div className="hidden md:flex items-center gap-1.5">
+                  {tools.map((tool) => (
+                    <Badge
+                      key={tool.name}
+                      variant={tool.available ? 'default' : 'secondary'}
+                      className="text-[10px] capitalize"
+                    >
+                      {tool.name}
+                    </Badge>
+                  ))}
+                </div>
+                <Button onClick={handleRunScan} disabled={scanMutation.isPending}>
+                  {scanMutation.isPending ? (
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Play className="h-4 w-4 mr-2" />
+                  )}
+                  Run Scan
+                </Button>
               </div>
-              <div>
-                <h1 className="text-xl font-bold text-foreground">Security Scanner</h1>
-                <p className="text-sm text-muted-foreground">
-                  DevSecOps scanning engine &mdash; {availableCount}/{tools.length} tools available
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {/* Tool status badges */}
-              <div className="hidden md:flex items-center gap-1.5">
-                {tools.map((tool) => (
-                  <Badge
-                    key={tool.name}
-                    variant={tool.available ? 'default' : 'secondary'}
-                    className="text-[10px] capitalize"
-                  >
-                    {tool.name}
-                  </Badge>
-                ))}
-              </div>
-              <Button onClick={handleRunScan} disabled={scanMutation.isPending}>
-                {scanMutation.isPending ? (
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Play className="h-4 w-4 mr-2" />
-                )}
-                Run Scan
-              </Button>
-            </div>
-          </div>
+            }
+          />
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -359,10 +352,10 @@ export default function ScanDashboard() {
                     {trendData.length > 0 ? (
                       <ResponsiveContainer width="100%" height={250}>
                         <AreaChart data={trendData}>
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-700" />
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                           <XAxis
                             dataKey="date"
-                            className="text-slate-500 dark:text-slate-400"
+                            className="text-muted-foreground"
                             tick={{ fontSize: 11 }}
                             tickFormatter={(v) =>
                               new Date(v).toLocaleDateString(undefined, {
@@ -371,7 +364,7 @@ export default function ScanDashboard() {
                               })
                             }
                           />
-                          <YAxis className="text-slate-500 dark:text-slate-400" tick={{ fontSize: 11 }} />
+                          <YAxis className="text-muted-foreground" tick={{ fontSize: 11 }} />
                           <RechartsTooltip
                             contentStyle={{
                               backgroundColor: 'var(--chart-tooltip-bg)',
@@ -669,9 +662,8 @@ export default function ScanDashboard() {
               )}
             </TabsContent>
           </Tabs>
-        </div>
-      </div>
     </motion.div>
+    </PageLayout>
   );
 }
 
@@ -689,7 +681,7 @@ function StatCard({
   valueColor?: string;
 }) {
   return (
-    <Card className="border-border/40">
+    <Card className="border-none soft-shadow glass-panel">
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div>

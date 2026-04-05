@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { 
  Search, 
  Filter,
@@ -273,7 +274,7 @@ subsets: []
 
  return (
  <>
- <div className="space-y-6">
+ <PageLayout label="Endpoints">
  <ListPageHeader
  icon={<Network className="h-6 w-6 text-primary" />}
  title="Endpoints"
@@ -513,7 +514,7 @@ subsets: []
  </div>
  </ResizableTableProvider>
  </ResourceListTableToolbar>
- </div>
+ </PageLayout>
 
  <DeleteConfirmDialog
  open={deleteDialog.open}

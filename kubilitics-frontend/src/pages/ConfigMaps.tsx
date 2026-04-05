@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search,
  Filter,
@@ -480,7 +481,7 @@ data: {}
  const namespaceCount = useMemo(() => new Set(filteredItems.map((i) => i.namespace)).size, [filteredItems]);
 
  return (
- <>
+ <PageLayout label="ConfigMaps">
  <div className="space-y-6">
  <ListPageHeader
  icon={<ConfigMapIcon className="h-6 w-6 text-primary" />}
@@ -518,7 +519,7 @@ data: {}
  label="Total ConfigMaps"
  value={statsWithUsage.total}
  icon={FileJson}
- iconColor="text-primary"
+ iconColor="text-slate-500"
  selected={!hasActiveFilters}
  onClick={clearAllFilters}
  className={cn(!hasActiveFilters && !isLoading && 'ring-2 ring-primary')}
@@ -1061,6 +1062,6 @@ data: {}
  onConfirm={handleDelete}
  requireNameConfirmation={!deleteDialog.bulk}
  />
- </>
+ </PageLayout>
  );
 }

@@ -21,8 +21,9 @@ import { cn } from '@/lib/utils';
 import { SectionOverviewHeader } from '@/components/layout/SectionOverviewHeader';
 import { QuotaPulse } from '@/components/resources/QuotaPulse';
 import { ListPagination } from '@/components/list/ListPagination';
-import { ConnectionRequiredBanner } from '@/components/layout/ConnectionRequiredBanner';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { PageLoadingState } from '@/components/PageLoadingState';
+import { ApiError } from '@/components/ui/error-state';
 
 type ResourceItem = {
   kind: string;
@@ -42,7 +43,7 @@ export default function ResourcesOverview() {
   const [pageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(0);
   const queryClient = useQueryClient();
-  const { data, isLoading } = useResourcesOverview();
+  const { data, isLoading, isError } = useResourcesOverview();
 
   const handleSync = useCallback(() => {
     setIsSyncing(true);
@@ -89,6 +90,14 @@ export default function ResourcesOverview() {
 
   const isAllSelected = itemsOnPage.length > 0 && selectedItems.size === itemsOnPage.length;
 
+  if (isError) {
+    return (
+      <PageLayout label="Resources Overview">
+        <ApiError onRetry={() => queryClient.invalidateQueries({ queryKey: ['k8s'] })} />
+      </PageLayout>
+    );
+  }
+
   if (isLoading) {
     return <PageLoadingState message="Loading resource constraints..." />;
   }
@@ -99,8 +108,7 @@ export default function ResourcesOverview() {
   const classCount = resources.filter((r) => r.kind === 'DeviceClass').length;
 
   return (
-    <div className="flex flex-col gap-6 p-6" role="main" aria-label="Resources Overview">
-      <ConnectionRequiredBanner />
+    <PageLayout label="Resources Overview">
 
       <SectionOverviewHeader
         title="Resources Overview"
@@ -112,14 +120,14 @@ export default function ResourcesOverview() {
 
       {/* Hero: Quota Pulse & DRA */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <Card className="lg:col-span-8 overflow-hidden border-slate-200/80 dark:border-slate-700/80 shadow-sm bg-white dark:bg-slate-900">
+        <Card className="lg:col-span-8 overflow-hidden border-none soft-shadow glass-panel">
           <CardHeader className="pb-0 pt-8 px-8">
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Resource Usage</CardTitle>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Quota allocation across CPU, memory, and storage</p>
+                <CardTitle className="text-xl font-bold tracking-tight text-foreground">Resource Usage</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">Quota allocation across CPU, memory, and storage</p>
               </div>
-              <Badge variant="outline" className="text-xs font-semibold border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">
+              <Badge variant="outline" className="text-xs font-semibold border-border text-muted-foreground">
                 {quotaCount} quotas · {limitCount} limits
               </Badge>
             </div>
@@ -131,38 +139,38 @@ export default function ResourcesOverview() {
               <QuotaPulse title="Storage Quota" percent={42} color="#06b6d4" />
             </div>
 
-            <div className="mt-6 border-t border-slate-100 dark:border-slate-700 pt-5 flex items-center justify-between">
+            <div className="mt-6 border-t border-border/60 pt-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Badge variant="outline" className="text-xs font-medium border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">{quotaCount} Quotas</Badge>
-                <Badge variant="outline" className="text-xs font-medium border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">{limitCount} Limits</Badge>
+                <Badge variant="outline" className="text-xs font-medium border-border text-muted-foreground">{quotaCount} Quotas</Badge>
+                <Badge variant="outline" className="text-xs font-medium border-border text-muted-foreground">{limitCount} Limits</Badge>
               </div>
-              <Button variant="outline" asChild className="h-9 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">
+              <Button variant="outline" asChild className="h-9 border-border text-muted-foreground font-medium hover:bg-muted rounded-lg">
                 <Link to="/resource-quotas">View Quotas</Link>
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="lg:col-span-4 border-slate-200/80 dark:border-slate-700/80 shadow-sm bg-white dark:bg-slate-900 flex flex-col p-8 overflow-hidden">
+        <Card className="lg:col-span-4 border-none soft-shadow glass-panel flex flex-col p-8 overflow-hidden">
           <div className="flex items-center gap-2 mb-4">
             <Cpu className="h-5 w-5 text-amber-500" />
-            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Dynamic Resource Allocation</h3>
+            <h3 className="text-sm font-bold text-foreground">Dynamic Resource Allocation</h3>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">Request specialized hardware like GPUs and FPGAs beyond standard resource limits.</p>
+          <p className="text-xs text-muted-foreground mb-5">Request specialized hardware like GPUs and FPGAs beyond standard resource limits.</p>
 
           <div className="grid grid-cols-2 gap-3 mb-5">
-            <div className="py-3 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
-              <span className="block text-xs font-medium text-slate-500 dark:text-slate-400">Resource Slices</span>
-              <span className="text-xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">{sliceCount}</span>
+            <div className="py-3 px-4 rounded-xl bg-muted border border-border/60">
+              <span className="block text-xs font-medium text-muted-foreground">Resource Slices</span>
+              <span className="text-xl font-bold text-foreground tabular-nums">{sliceCount}</span>
             </div>
-            <div className="py-3 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
-              <span className="block text-xs font-medium text-slate-500 dark:text-slate-400">Device Classes</span>
-              <span className="text-xl font-bold text-slate-900 dark:text-slate-100 tabular-nums">{classCount}</span>
+            <div className="py-3 px-4 rounded-xl bg-muted border border-border/60">
+              <span className="block text-xs font-medium text-muted-foreground">Device Classes</span>
+              <span className="text-xl font-bold text-foreground tabular-nums">{classCount}</span>
             </div>
           </div>
 
           <div className="mt-auto">
-            <Button variant="outline" asChild className="w-full h-9 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg">
+            <Button variant="outline" asChild className="w-full h-9 border-border text-muted-foreground font-medium hover:bg-muted rounded-lg">
               <Link to="/resource-slices">Manage DRA</Link>
             </Button>
           </div>
@@ -170,19 +178,19 @@ export default function ResourcesOverview() {
       </div>
 
       {/* Resources Table */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700/80 rounded-2xl overflow-hidden shadow-sm">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-700">
+      <div className="bg-card border border-border/60 rounded-2xl overflow-hidden shadow-sm">
+        <div className="p-6 border-b border-border/60">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h3 className="text-lg font-bold tracking-tight text-slate-900 dark:text-slate-100">Resource Constraints</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Quotas, limit ranges, and device classes</p>
+              <h3 className="text-lg font-bold tracking-tight text-foreground">Resource Constraints</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">Quotas, limit ranges, and device classes</p>
             </div>
             <div className="flex items-center gap-3">
               <div className="relative min-w-[280px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" aria-hidden />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden />
                 <Input
                   placeholder="Search constraints..."
-                  className="pl-10 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl focus:bg-white dark:focus:bg-slate-900 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-300 dark:focus:border-blue-600 h-10 text-sm"
+                  className="pl-10 bg-muted border-border rounded-xl focus:bg-card focus:ring-2 focus:ring-blue-500/10 focus:border-blue-300 dark:focus:border-blue-600 h-10 text-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   aria-label="Search resource constraints"
@@ -200,18 +208,18 @@ export default function ResourcesOverview() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50/80 dark:bg-slate-800/80">
-                <th className="px-6 py-3.5 border-b border-slate-100 dark:border-slate-700 w-10">
+              <tr className="bg-muted/60">
+                <th className="px-6 py-3.5 border-b border-border/60 w-10">
                   <Checkbox checked={isAllSelected} onCheckedChange={toggleAll} />
                 </th>
-                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">Name</th>
-                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">Kind</th>
-                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">Namespace</th>
-                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">Status</th>
-                <th className="px-6 py-3.5 border-b border-slate-100 dark:border-slate-700"></th>
+                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/60">Name</th>
+                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/60">Kind</th>
+                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/60">Namespace</th>
+                <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-border/60">Status</th>
+                <th className="px-6 py-3.5 border-b border-border/60"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50 dark:divide-slate-800 text-sm">
+            <tbody className="divide-y divide-border/30 text-sm">
               {itemsOnPage.map((resource, idx) => {
                 const isSelected = selectedItems.has(getResourceKey(resource));
                 return (
@@ -220,28 +228,28 @@ export default function ResourcesOverview() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: idx * 0.02 }}
                     key={getResourceKey(resource)}
-                    className={cn('group hover:bg-slate-50/80 dark:hover:bg-slate-800/80 transition-colors', isSelected && 'bg-blue-50/40 dark:bg-blue-900/20')}
+                    className={cn('group hover:bg-muted/40 transition-colors', isSelected && 'bg-blue-50/40 dark:bg-blue-900/20')}
                   >
                     <td className="px-6 py-3.5">
                       <Checkbox checked={isSelected} onCheckedChange={() => toggleSelection(resource)} />
                     </td>
                     <td className="px-6 py-3.5">
-                      <span className="font-semibold text-slate-900 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{resource.name}</span>
+                      <span className="font-semibold text-foreground group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{resource.name}</span>
                     </td>
                     <td className="px-6 py-3.5">
-                      <Badge variant="outline" className="text-xs uppercase tracking-wider font-semibold border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400">{resource.kind}</Badge>
+                      <Badge variant="outline" className="text-xs uppercase tracking-wider font-semibold border-border text-muted-foreground">{resource.kind}</Badge>
                     </td>
                     <td className="px-6 py-3.5">
-                      <span className="font-mono text-xs text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md">{resource.namespace}</span>
+                      <span className="font-mono text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-md">{resource.namespace}</span>
                     </td>
                     <td className="px-6 py-3.5">
                       <div className="flex items-center gap-2">
                         <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Enforced</span>
+                        <span className="text-xs font-medium text-foreground/80">Enforced</span>
                       </div>
                     </td>
                     <td className="px-6 py-3.5 text-right">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm rounded-lg transition-all border border-transparent hover:border-slate-200 dark:hover:border-slate-600">
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-card hover:text-blue-600 dark:hover:text-blue-400 hover:shadow-sm rounded-lg transition-all border border-transparent hover:border-border">
                         <ArrowUpRight className="h-4 w-4" aria-hidden />
                       </Button>
                     </td>
@@ -266,7 +274,7 @@ export default function ResourcesOverview() {
         </div>
 
         {totalFiltered > 0 && (
-          <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-4 border-t border-border/60 bg-muted/40 flex flex-col sm:flex-row items-center justify-between gap-4">
             <ListPagination
               rangeLabel={`${totalFiltered} ${totalFiltered === 1 ? 'resource' : 'resources'}`}
               hasPrev={safePageIndex > 0}
@@ -278,16 +286,16 @@ export default function ResourcesOverview() {
               onPageChange={(p) => setPageIndex(p - 1)}
             />
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" asChild className="h-9 px-4 font-medium border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-all">
+              <Button variant="outline" size="sm" asChild className="h-9 px-4 font-medium border-border text-muted-foreground hover:bg-card hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-all">
                 <Link to="/resource-quotas">Quotas</Link>
               </Button>
-              <Button variant="outline" size="sm" asChild className="h-9 px-4 font-medium border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-all">
+              <Button variant="outline" size="sm" asChild className="h-9 px-4 font-medium border-border text-muted-foreground hover:bg-card hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-all">
                 <Link to="/limit-ranges">Limits</Link>
               </Button>
             </div>
           </div>
         )}
       </div>
-    </div>
+    </PageLayout>
   );
 }

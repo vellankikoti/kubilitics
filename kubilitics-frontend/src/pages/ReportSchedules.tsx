@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { toast } from '@/components/ui/sonner';
 import { SectionOverviewHeader } from '@/components/layout/SectionOverviewHeader';
-import { ConnectionRequiredBanner } from '@/components/layout/ConnectionRequiredBanner';
+import { PageLayout } from '@/components/layout/PageLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -208,9 +208,7 @@ export default function ReportSchedules() {
   const isSaving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="page-container" role="main" aria-label="Report Schedules">
-      <div className="page-inner p-6 gap-6 flex flex-col">
-        <ConnectionRequiredBanner />
+    <PageLayout label="Report Schedules">
 
         {/* Header */}
         <SectionOverviewHeader
@@ -406,7 +404,6 @@ export default function ReportSchedules() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      </div>
-    </div>
+    </PageLayout>
   );
 }
