@@ -140,12 +140,12 @@ export function MultiTerminal({
       </div>
 
       {/* Terminal instances — all stay mounted, only active one is visible */}
-      <div className="flex-1 relative min-h-0" style={{ minHeight: '300px' }}>
+      <div className="flex-1 min-h-0" style={{ minHeight: '400px' }}>
         {sessions.map((s) => (
           <div
             key={s.id}
-            className="absolute inset-0"
-            style={{ display: activeSession === s.id ? 'block' : 'none' }}
+            className="h-full"
+            style={{ display: activeSession === s.id ? 'flex' : 'none', flexDirection: 'column' }}
           >
             <PodTerminal
               podName={s.podName}
