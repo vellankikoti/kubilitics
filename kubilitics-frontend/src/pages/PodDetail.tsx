@@ -42,6 +42,7 @@ import {
   type CustomTab,
 } from '@/components/resources';
 import { PodTerminal } from '@/components/resources/PodTerminal';
+import { MultiTerminal } from '@/components/resources/MultiTerminal';
 import { InlineFileBrowser } from '@/components/resources/InlineFileBrowser';
 import {
   TOOLTIP_RESTART_POLICY,
@@ -110,24 +111,22 @@ function TerminalAndFiles({
         </div>
       </div>
 
-      {/* Content */}
-      {mode === 'terminal' ? (
-        <PodTerminal
+      {/* Content — both modes stay mounted so state is preserved across toggles */}
+      <div className={mode === 'terminal' ? 'flex-1 min-h-0 flex flex-col' : 'overflow-hidden'} style={mode !== 'terminal' ? { height: 0, visibility: 'hidden', position: 'absolute', width: 0 } : undefined}>
+        <MultiTerminal
           podName={podName}
           namespace={namespace}
-          containerName={containerName}
           containers={containers}
           onContainerChange={onContainerChange}
         />
-      ) : (
-        <div className="flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-slate-700/50 overflow-hidden">
-          <InlineFileBrowser
-            podName={podName}
-            namespace={namespace}
-            containerName={containerName}
-          />
-        </div>
-      )}
+      </div>
+      <div className={mode === 'files' ? 'flex-1 min-h-0 rounded-xl border border-slate-200 dark:border-slate-700/50 overflow-hidden' : 'overflow-hidden'} style={mode !== 'files' ? { height: 0, visibility: 'hidden', position: 'absolute', width: 0 } : undefined}>
+        <InlineFileBrowser
+          podName={podName}
+          namespace={namespace}
+          containerName={containerName}
+        />
+      </div>
     </div>
   );
 }

@@ -3,6 +3,12 @@ import { motion } from 'framer-motion';
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+/**
+ * Tabs whose content should stay mounted (hidden) when switching away,
+ * so stateful widgets (xterm terminals, file browsers) are preserved.
+ */
+const KEEP_ALIVE_TABS = new Set(['terminal', 'shell', 'files']);
+
 export interface TabConfig {
   id: string;
   label: string;
@@ -77,16 +83,41 @@ export function ResourceTabs({ tabs, activeTab, onTabChange, className }: Resour
         </div>
       </div>
 
-      {/* Tab content */}
-      <motion.div
-        key={activeTab}
-        initial={{ opacity: 0, y: 4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.15, ease: 'easeOut' }}
-        className="min-h-[60vh]"
-      >
-        {tabs.find((tab) => tab.id === activeTab)?.content}
-      </motion.div>
+      {/* Tab content — keep-alive tabs stay mounted but hidden to preserve state */}
+      {tabs.map((tab) => {
+        const isActive = tab.id === activeTab;
+        const keepAlive = KEEP_ALIVE_TABS.has(tab.id);
+
+        // Non-active, non-keepalive tabs are fully unmounted for performance
+        if (!isActive && !keepAlive) return null;
+
+        if (isActive) {
+          return (
+            <motion.div
+              key={tab.id}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="min-h-[60vh]"
+              role="tabpanel"
+            >
+              {tab.content}
+            </motion.div>
+          );
+        }
+
+        // Keep-alive but inactive: hidden off-screen so xterm stays connected
+        return (
+          <div
+            key={tab.id}
+            className="overflow-hidden"
+            style={{ height: 0, visibility: 'hidden', position: 'absolute', width: 0 }}
+            aria-hidden
+          >
+            {tab.content}
+          </div>
+        );
+      })}
     </div>
   );
 }

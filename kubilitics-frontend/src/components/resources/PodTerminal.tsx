@@ -260,6 +260,19 @@ export function PodTerminal({
     setTimeout(() => fitRef.current?.fit(), 100);
   }, [isMaximized]);
 
+  // Refit when terminal becomes visible again (e.g. tab switch with keep-alive)
+  useEffect(() => {
+    const el = termRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting && fitRef.current) {
+        requestAnimationFrame(() => fitRef.current?.fit());
+      }
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const handleClear = () => xtermRef.current?.clear();
   const handleCopy = () => {
     const sel = xtermRef.current?.getSelection();
