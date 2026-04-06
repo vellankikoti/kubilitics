@@ -106,6 +106,42 @@ function parsePodMemoryMi(s: string): number {
   return Number.isNaN(v) ? 0 : v;
 }
 
+/** Format CPU millicores with clean display: 0→"0m", <0.001→"< 1m", <1→2dp, <100→1dp, >=100→0dp */
+function formatCpuMillicores(v: number): string {
+  if (v === 0) return '0m';
+  if (v < 0.001) return '< 1m';
+  if (v < 1) return `${v.toFixed(2)}m`;
+  if (v < 100) return `${v.toFixed(1)}m`;
+  return `${Math.round(v)}m`;
+}
+
+/** Format memory MiB with clean display: 0→"0Mi", <1→2dp, <100→1dp, >=100→0dp */
+function formatMemoryMi(v: number): string {
+  if (v === 0) return '0Mi';
+  if (v < 1) return `${v.toFixed(2)}Mi`;
+  if (v < 100) return `${v.toFixed(1)}Mi`;
+  return `${Math.round(v)}Mi`;
+}
+
+/** Format CPU trend delta: handles sign prefix externally */
+function formatCpuDelta(v: number): string {
+  const abs = Math.abs(v);
+  if (abs === 0) return '0m';
+  if (abs < 0.001) return '< 1m';
+  if (abs < 1) return `${abs.toFixed(2)}m`;
+  if (abs < 100) return `${abs.toFixed(1)}m`;
+  return `${Math.round(abs)}m`;
+}
+
+/** Format memory trend delta */
+function formatMemoryDelta(v: number): string {
+  const abs = Math.abs(v);
+  if (abs === 0) return '0Mi';
+  if (abs < 1) return `${abs.toFixed(2)}Mi`;
+  if (abs < 100) return `${abs.toFixed(1)}Mi`;
+  return `${Math.round(abs)}Mi`;
+}
+
 function parseCPUToMillicores(s: string): number {
   if (!s || s === '-') return 0;
   const v = parseFloat(s.replace(/[nmuµ]$/i, '').trim());
@@ -346,8 +382,8 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
   // Average rate in KB/s from chart points
   const avgRateIn = metrics?.network?.length ? metrics.network.reduce((s, d) => s + d.in, 0) / metrics.network.length : 0;
   const avgRateOut = metrics?.network?.length ? metrics.network.reduce((s, d) => s + d.out, 0) / metrics.network.length : 0;
-  const podUsageCpuDisplay = `${currentCpu.toFixed(3)}m`;
-  const podUsageMemoryDisplay = `${currentMemory.toFixed(3)}Mi`;
+  const podUsageCpuDisplay = formatCpuMillicores(currentCpu);
+  const podUsageMemoryDisplay = formatMemoryMi(currentMemory);
   const isSingleOrFewPoints = false; // Forced false to show history by default
 
   // Stats computed from real history
@@ -458,149 +494,13 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
         animate={{ opacity: 1 }}
         className="space-y-6"
       >
-        {/* No separate header — time range is integrated into chart tabs below */}
-
-        {/* Usage (pod single / deployment aggregated) */}
-        <div>
-          <UiTooltip>
-            <TooltipTrigger asChild>
-              <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2 cursor-help">
-                {resourceType === 'node' ? 'Node usage' : resourceType !== 'pod' ? 'Usage (aggregated from pods)' : 'Current usage'}
-              </h3>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-xs">{TOOLTIP_POD_USAGE_SAME_AS_LIST}</TooltipContent>
-          </UiTooltip>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <UiTooltip>
-              <TooltipTrigger asChild>
-                <Card className="rounded-xl border border-border/50 shadow-sm overflow-hidden cursor-help">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-blue-500/10">
-                          <Cpu className="h-5 w-5 text-blue-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">CPU</p>
-                          <p className="text-2xl font-semibold tabular-nums">{podUsageCpuDisplay}</p>
-                        </div>
-                      </div>
-                      {metrics.cpu.length >= 2 && (
-                        <div className="flex flex-col items-end">
-                          <div className={cn(
-                            'flex items-center gap-1 text-sm',
-                            cpuTrend >= 0 ? 'text-error' : 'text-success'
-                          )}>
-                            {cpuTrend >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                            {cpuTrend >= 0 ? '+' : ''}{cpuTrend.toFixed(3)}m
-                          </div>
-                          {trendTimeLabel && <span className="text-[11px] text-muted-foreground font-medium">{trendTimeLabel}</span>}
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-xs">{TOOLTIP_METRICS_CPU_USAGE}</TooltipContent>
-            </UiTooltip>
-
-            <UiTooltip>
-              <TooltipTrigger asChild>
-                <Card className="rounded-xl border border-border/50 shadow-sm overflow-hidden cursor-help">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-purple-500/10">
-                          <HardDrive className="h-5 w-5 text-purple-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Memory</p>
-                          <p className="text-2xl font-semibold tabular-nums">{podUsageMemoryDisplay}</p>
-                        </div>
-                      </div>
-                      {metrics.memory.length >= 2 && (
-                        <div className="flex flex-col items-end">
-                          <div className={cn(
-                            'flex items-center gap-1 text-sm',
-                            memoryTrend >= 0 ? 'text-error' : 'text-success'
-                          )}>
-                            {memoryTrend >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                            {memoryTrend >= 0 ? '+' : ''}{memoryTrend.toFixed(3)}Mi
-                          </div>
-                          {trendTimeLabel && <span className="text-[11px] text-muted-foreground font-medium">{trendTimeLabel}</span>}
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-xs">{TOOLTIP_METRICS_MEMORY_USAGE}</TooltipContent>
-            </UiTooltip>
-
-            <UiTooltip>
-              <TooltipTrigger asChild>
-                <Card className="rounded-xl border border-border/50 shadow-sm overflow-hidden cursor-help">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-green-500/10">
-                          <Network className="h-5 w-5 text-green-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm text-muted-foreground">Network I/O</p>
-                          <p className="text-2xl font-semibold tabular-nums">{cumulativeTotalFormatted}</p>
-                        </div>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        ↓{cumulativeRxFormatted} ↑{cumulativeTxFormatted}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </TooltipTrigger>
-              <TooltipContent side="top" className="max-w-xs">{TOOLTIP_METRICS_NETWORK_IO}</TooltipContent>
-            </UiTooltip>
-          </div>
-
-          {/* Per-pod breakdown for controllers */}
-          {podsForTable.length > 0 ? (
-            <div className="mt-4">
-              <h3 className="text-sm font-semibold text-foreground mb-2">Per-pod</h3>
-              <div className="rounded-lg border border-border/50 overflow-hidden">
-                <div className="grid grid-cols-4 gap-2 p-3 bg-muted/40 text-xs font-medium text-muted-foreground">
-                  <span>Pod</span>
-                  <span>CPU</span>
-                  <span>Memory</span>
-                  <span>Network I/O</span>
-                </div>
-                {podsForTable.map((p) => {
-                  const rx = (p.network_rx_bytes ?? 0) / (1024 * 1024);
-                  const tx = (p.network_tx_bytes ?? 0) / (1024 * 1024);
-                  return (
-                    <div
-                      key={p.name}
-                      className="grid grid-cols-4 gap-2 p-3 border-t border-border/50 text-sm"
-                    >
-                      <span className="font-medium truncate" title={p.name}>{p.name}</span>
-                      <span className="tabular-nums">{p.cpu || '-'}</span>
-                      <span className="tabular-nums">{p.memory || '-'}</span>
-                      <span className="tabular-nums text-xs">
-                        {rx > 0 || tx > 0 ? `↓${rx.toFixed(1)}Mi ↑${tx.toFixed(1)}Mi` : '-'}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
-        </div>
-
-        {/* Resource Allocation — Usage vs Requests vs Limits */}
+        {/* 1. Resource Allocation — Usage vs Requests vs Limits (most critical: "am I near my limits?") */}
         {usageVsLimits != null && (
           <div>
             <UiTooltip>
               <TooltipTrigger asChild>
                 <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2 cursor-help">
+                  <Activity className="h-4 w-4 text-primary" />
                   Resource Allocation
                 </h3>
               </TooltipTrigger>
@@ -608,7 +508,7 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
             </UiTooltip>
 
             {/* Allocation bars with progress */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Card className="rounded-xl border border-border/50 shadow-sm overflow-hidden">
                 <CardContent className="p-4 space-y-3">
                   <div className="flex items-center gap-3">
@@ -666,46 +566,113 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
                 </CardContent>
               </Card>
             </div>
-
-            {/* Container Resources Table */}
-            {podResource?.spec?.containers && podResource.spec.containers.length > 0 && (
-              <Card className="rounded-xl border border-border/50 shadow-sm overflow-hidden">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Resources by Container</CardTitle>
-                  <CardDescription>CPU and memory requests and limits configured per container.</CardDescription>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border/50 bg-muted/30">
-                          <th className="text-left p-3 font-medium text-muted-foreground">Container</th>
-                          <th className="text-right p-3 font-medium text-blue-500">CPU Request</th>
-                          <th className="text-right p-3 font-medium text-blue-600">CPU Limit</th>
-                          <th className="text-right p-3 font-medium text-purple-500">Memory Request</th>
-                          <th className="text-right p-3 font-medium text-purple-600">Memory Limit</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {podResource.spec.containers.map((c) => (
-                          <tr key={c.name} className="border-b border-border/30 last:border-0">
-                            <td className="p-3 font-medium">{c.name}</td>
-                            <td className="p-3 text-right tabular-nums">{c.resources?.requests?.cpu ?? '—'}</td>
-                            <td className="p-3 text-right tabular-nums">{c.resources?.limits?.cpu ?? '—'}</td>
-                            <td className="p-3 text-right tabular-nums">{c.resources?.requests?.memory ?? '—'}</td>
-                            <td className="p-3 text-right tabular-nums">{c.resources?.limits?.memory ?? '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
         )}
 
-        {/* Charts with integrated time range selector */}
+        {/* 2. Current usage cards (what's happening now) */}
+        <div>
+          <UiTooltip>
+            <TooltipTrigger asChild>
+              <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2 cursor-help">
+                {resourceType === 'node' ? 'Node usage' : resourceType !== 'pod' ? 'Usage (aggregated from pods)' : 'Current usage'}
+              </h3>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs">{TOOLTIP_POD_USAGE_SAME_AS_LIST}</TooltipContent>
+          </UiTooltip>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <UiTooltip>
+              <TooltipTrigger asChild>
+                <Card className="rounded-xl border border-border/50 shadow-sm overflow-hidden cursor-help">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-blue-500/10">
+                          <Cpu className="h-5 w-5 text-blue-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">CPU</p>
+                          <p className="text-2xl font-semibold tabular-nums">{podUsageCpuDisplay}</p>
+                        </div>
+                      </div>
+                      {metrics.cpu.length >= 2 && (
+                        <div className="flex flex-col items-end">
+                          <div className={cn(
+                            'flex items-center gap-1 text-sm',
+                            cpuTrend >= 0 ? 'text-error' : 'text-success'
+                          )}>
+                            {cpuTrend >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                            {cpuTrend >= 0 ? '+' : '-'}{formatCpuDelta(cpuTrend)}
+                          </div>
+                          {trendTimeLabel && <span className="text-[11px] text-muted-foreground font-medium">{trendTimeLabel}</span>}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">{TOOLTIP_METRICS_CPU_USAGE}</TooltipContent>
+            </UiTooltip>
+
+            <UiTooltip>
+              <TooltipTrigger asChild>
+                <Card className="rounded-xl border border-border/50 shadow-sm overflow-hidden cursor-help">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-purple-500/10">
+                          <HardDrive className="h-5 w-5 text-purple-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Memory</p>
+                          <p className="text-2xl font-semibold tabular-nums">{podUsageMemoryDisplay}</p>
+                        </div>
+                      </div>
+                      {metrics.memory.length >= 2 && (
+                        <div className="flex flex-col items-end">
+                          <div className={cn(
+                            'flex items-center gap-1 text-sm',
+                            memoryTrend >= 0 ? 'text-error' : 'text-success'
+                          )}>
+                            {memoryTrend >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                            {memoryTrend >= 0 ? '+' : '-'}{formatMemoryDelta(memoryTrend)}
+                          </div>
+                          {trendTimeLabel && <span className="text-[11px] text-muted-foreground font-medium">{trendTimeLabel}</span>}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">{TOOLTIP_METRICS_MEMORY_USAGE}</TooltipContent>
+            </UiTooltip>
+
+            <UiTooltip>
+              <TooltipTrigger asChild>
+                <Card className="rounded-xl border border-border/50 shadow-sm overflow-hidden cursor-help">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-green-500/10">
+                          <Network className="h-5 w-5 text-green-500" />
+                        </div>
+                        <div>
+                          <p className="text-sm text-muted-foreground">Network I/O</p>
+                          <p className="text-2xl font-semibold tabular-nums">{cumulativeTotalFormatted}</p>
+                        </div>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        ↓{cumulativeRxFormatted} ↑{cumulativeTxFormatted}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">{TOOLTIP_METRICS_NETWORK_IO}</TooltipContent>
+            </UiTooltip>
+          </div>
+        </div>
+
+        {/* 3. Charts with integrated time range selector (historical trends) */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="flex items-center justify-between gap-3 mb-3">
             {/* Chart type tabs */}
@@ -813,7 +780,7 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
                             fontSize: '11px'
                           }}
                           itemStyle={{ color: 'hsl(var(--primary))', fontWeight: 'bold' }}
-                          formatter={(value: number) => [`${value.toFixed(3)}m`, 'CPU Usage']}
+                          formatter={(value: number) => [`${formatCpuMillicores(value)}`, 'CPU Usage']}
                         />
                         <Area
                           type="monotone"
@@ -882,7 +849,7 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
                             fontSize: '11px'
                           }}
                           itemStyle={{ color: 'hsl(270, 70%, 60%)', fontWeight: 'bold' }}
-                          formatter={(value: number) => [`${value.toFixed(3)}Mi`, 'Memory Usage']}
+                          formatter={(value: number) => [`${formatMemoryMi(value)}`, 'Memory Usage']}
                         />
                         <Area
                           type="monotone"
@@ -930,17 +897,17 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
                 {cpuStats && (
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <Cpu className="h-3.5 w-3.5 text-blue-500 shrink-0" />
-                    <span>Min <strong className="text-foreground">{cpuStats.min.toFixed(3)}m</strong></span>
-                    <span>Max <strong className="text-foreground">{cpuStats.max.toFixed(3)}m</strong></span>
-                    <span>Avg <strong className="text-foreground">{cpuStats.avg.toFixed(3)}m</strong></span>
+                    <span>Min <strong className="text-foreground">{formatCpuMillicores(cpuStats.min)}</strong></span>
+                    <span>Max <strong className="text-foreground">{formatCpuMillicores(cpuStats.max)}</strong></span>
+                    <span>Avg <strong className="text-foreground">{formatCpuMillicores(cpuStats.avg)}</strong></span>
                   </div>
                 )}
                 {memStats && (
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <HardDrive className="h-3.5 w-3.5 text-purple-500 shrink-0" />
-                    <span>Min <strong className="text-foreground">{memStats.min.toFixed(3)}Mi</strong></span>
-                    <span>Max <strong className="text-foreground">{memStats.max.toFixed(3)}Mi</strong></span>
-                    <span>Avg <strong className="text-foreground">{memStats.avg.toFixed(3)}Mi</strong></span>
+                    <span>Min <strong className="text-foreground">{formatMemoryMi(memStats.min)}</strong></span>
+                    <span>Max <strong className="text-foreground">{formatMemoryMi(memStats.max)}</strong></span>
+                    <span>Avg <strong className="text-foreground">{formatMemoryMi(memStats.avg)}</strong></span>
                   </div>
                 )}
                 {metrics.network.length > 0 && (
@@ -1004,7 +971,7 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
                           borderRadius: '8px',
                           fontSize: '11px'
                         }}
-                        formatter={(value: number) => [`${value.toFixed(3)}m`, 'CPU Usage']}
+                        formatter={(value: number) => [`${formatCpuMillicores(value)}`, 'CPU Usage']}
                       />
                       <Line
                         type="monotone"
@@ -1024,15 +991,15 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
               <div className="grid grid-cols-3 gap-3 mt-3">
                 <div className="rounded-lg border border-border/40 bg-card/50 p-3 text-center">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Min</p>
-                  <p className="text-lg font-bold tabular-nums text-foreground">{cpuStats.min.toFixed(3)}m</p>
+                  <p className="text-lg font-bold tabular-nums text-foreground">{formatCpuMillicores(cpuStats.min)}</p>
                 </div>
                 <div className="rounded-lg border border-border/40 bg-card/50 p-3 text-center">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Max</p>
-                  <p className="text-lg font-bold tabular-nums text-foreground">{cpuStats.max.toFixed(3)}m</p>
+                  <p className="text-lg font-bold tabular-nums text-foreground">{formatCpuMillicores(cpuStats.max)}</p>
                 </div>
                 <div className="rounded-lg border border-border/40 bg-card/50 p-3 text-center">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Avg</p>
-                  <p className="text-lg font-bold tabular-nums text-foreground">{cpuStats.avg.toFixed(3)}m</p>
+                  <p className="text-lg font-bold tabular-nums text-foreground">{formatCpuMillicores(cpuStats.avg)}</p>
                 </div>
               </div>
             )}
@@ -1087,7 +1054,7 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
                           borderRadius: '8px',
                           fontSize: '11px'
                         }}
-                        formatter={(value: number) => [`${value.toFixed(3)}Mi`, 'Memory Usage']}
+                        formatter={(value: number) => [`${formatMemoryMi(value)}`, 'Memory Usage']}
                       />
                       <Line
                         type="monotone"
@@ -1107,15 +1074,15 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
               <div className="grid grid-cols-3 gap-3 mt-3">
                 <div className="rounded-lg border border-border/40 bg-card/50 p-3 text-center">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Min</p>
-                  <p className="text-lg font-bold tabular-nums text-foreground">{memStats.min.toFixed(3)}Mi</p>
+                  <p className="text-lg font-bold tabular-nums text-foreground">{formatMemoryMi(memStats.min)}</p>
                 </div>
                 <div className="rounded-lg border border-border/40 bg-card/50 p-3 text-center">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Max</p>
-                  <p className="text-lg font-bold tabular-nums text-foreground">{memStats.max.toFixed(3)}Mi</p>
+                  <p className="text-lg font-bold tabular-nums text-foreground">{formatMemoryMi(memStats.max)}</p>
                 </div>
                 <div className="rounded-lg border border-border/40 bg-card/50 p-3 text-center">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Avg</p>
-                  <p className="text-lg font-bold tabular-nums text-foreground">{memStats.avg.toFixed(3)}Mi</p>
+                  <p className="text-lg font-bold tabular-nums text-foreground">{formatMemoryMi(memStats.avg)}</p>
                 </div>
               </div>
             )}
@@ -1190,6 +1157,74 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* 4. Per-pod breakdown (drill-down detail) */}
+        {podsForTable.length > 0 ? (
+          <div>
+            <h3 className="text-sm font-semibold text-foreground mb-2">Per-pod</h3>
+            <div className="rounded-lg border border-border/50 overflow-hidden">
+              <div className="grid grid-cols-4 gap-2 p-3 bg-muted/40 text-xs font-medium text-muted-foreground">
+                <span>Pod</span>
+                <span>CPU</span>
+                <span>Memory</span>
+                <span>Network I/O</span>
+              </div>
+              {podsForTable.map((p) => {
+                const rx = (p.network_rx_bytes ?? 0) / (1024 * 1024);
+                const tx = (p.network_tx_bytes ?? 0) / (1024 * 1024);
+                return (
+                  <div
+                    key={p.name}
+                    className="grid grid-cols-4 gap-2 p-3 border-t border-border/50 text-sm"
+                  >
+                    <span className="font-medium truncate" title={p.name}>{p.name}</span>
+                    <span className="tabular-nums">{p.cpu || '-'}</span>
+                    <span className="tabular-nums">{p.memory || '-'}</span>
+                    <span className="tabular-nums text-xs">
+                      {rx > 0 || tx > 0 ? `↓${rx.toFixed(1)}Mi ↑${tx.toFixed(1)}Mi` : '-'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {/* 5. Resources by Container table (config reference, least critical) */}
+        {usageVsLimits != null && podResource?.spec?.containers && podResource.spec.containers.length > 0 && (
+          <Card className="rounded-xl border border-border/50 shadow-sm overflow-hidden">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Resources by Container</CardTitle>
+              <CardDescription>CPU and memory requests and limits configured per container.</CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border/50 bg-muted/30">
+                      <th className="text-left p-3 font-medium text-muted-foreground">Container</th>
+                      <th className="text-right p-3 font-medium text-blue-500">CPU Request</th>
+                      <th className="text-right p-3 font-medium text-blue-600">CPU Limit</th>
+                      <th className="text-right p-3 font-medium text-purple-500">Memory Request</th>
+                      <th className="text-right p-3 font-medium text-purple-600">Memory Limit</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {podResource.spec.containers.map((c) => (
+                      <tr key={c.name} className="border-b border-border/30 last:border-0">
+                        <td className="p-3 font-medium">{c.name}</td>
+                        <td className="p-3 text-right tabular-nums">{c.resources?.requests?.cpu ?? '—'}</td>
+                        <td className="p-3 text-right tabular-nums">{c.resources?.limits?.cpu ?? '—'}</td>
+                        <td className="p-3 text-right tabular-nums">{c.resources?.requests?.memory ?? '—'}</td>
+                        <td className="p-3 text-right tabular-nums">{c.resources?.limits?.memory ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </motion.div>
     </SectionCard>
   );
