@@ -234,18 +234,7 @@ export default function Pods() {
  const { isConnected } = useConnectionStatus();
 
  // Server-side pagination path (backend + informer cache)
- // sortKey/sortOrder are not yet available here (declared below via useTableFiltersAndSort),
- // so we derive them from a separate local ref-like state. We pass the debounced search
- // to the server; namespace/status filtering remains client-side.
- const [serverSortKey, setServerSortKey] = useState<string>('name');
- const [serverSortOrder, setServerSortOrder] = useState<'asc' | 'desc'>('asc');
-
- // Map Pods sort columns to backend sortBy field names
- const serverSortBy = (serverSortKey === 'age') ? 'creationTimestamp'
-   : (serverSortKey === 'name' || serverSortKey === 'namespace') ? serverSortKey
-   : undefined; // cpu/memory/ip/node/restarts → client-side only
-
- // Server-side fetch (backend mode)
+ // Server sorts by name (default); client-side useTableFiltersAndSort re-sorts the visible page.
  const {
    data: serverItems,
    isLoading: serverIsLoading,
@@ -259,8 +248,8 @@ export default function Pods() {
  } = useServerPaginatedResourceList<PodResource>('pods', selectedNamespaces.size === 1 ? Array.from(selectedNamespaces)[0] : undefined, {
    pageSize,
    search: debouncedSearch || undefined,
-   sortBy: serverSortBy,
-   sortOrder: serverSortOrder,
+   sortBy: 'name',
+   sortOrder: 'asc',
  });
 
  // Fallback: direct K8s / non-backend mode (limit 500, client-side pagination)
@@ -471,13 +460,6 @@ export default function Pods() {
  },
  });
  }, [filteredPods, fullPods]);
-
- // Sync sort state from useTableFiltersAndSort → server-side sort params
- // (only fields the backend supports: name, namespace, age/creationTimestamp)
- useEffect(() => {
- setServerSortKey(sortKey);
- setServerSortOrder(sortOrder as 'asc' | 'desc');
- }, [sortKey, sortOrder]);
 
  // Pagination: server-side in backend mode, client-side in fallback mode
  const totalFiltered = isBackendAvailable ? serverTotal : filteredPods.length;
