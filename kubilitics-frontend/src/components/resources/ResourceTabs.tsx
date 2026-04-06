@@ -106,39 +106,44 @@ export function ResourceTabs({ tabs, activeTab, onTabChange, className }: Resour
           content = keepAliveContentRef.current.get(tab.id)!;
         }
 
-        if (isActive) {
+        // CRITICAL: Keep-alive tabs MUST use the same element type (div) whether
+        // active or inactive. If we used <motion.div> when active and <div> when
+        // inactive, React sees a different element type and unmounts the entire
+        // subtree — destroying terminal sessions, WebSocket connections, etc.
+        if (keepAlive) {
           return (
-            <motion.div
+            <div
               key={tab.id}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
               className="min-h-[60vh]"
-              role="tabpanel"
+              role={isActive ? 'tabpanel' : undefined}
+              aria-hidden={!isActive || undefined}
+              style={isActive ? undefined : {
+                visibility: 'hidden',
+                position: 'absolute',
+                left: '-9999px',
+                width: '100%',
+                height: '60vh',
+                overflow: 'hidden',
+                pointerEvents: 'none',
+              }}
             >
               {content}
-            </motion.div>
+            </div>
           );
         }
 
-        // Keep-alive but inactive: visually hidden but preserves real dimensions
-        // so xterm/WebSocket stays connected and doesn't refit to 0×0.
+        // Non-keep-alive active tab: use motion.div for enter animation
         return (
-          <div
+          <motion.div
             key={tab.id}
-            style={{
-              visibility: 'hidden',
-              position: 'absolute',
-              left: '-9999px',
-              width: '100%',
-              height: '60vh',
-              overflow: 'hidden',
-              pointerEvents: 'none',
-            }}
-            aria-hidden
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className="min-h-[60vh]"
+            role="tabpanel"
           >
             {content}
-          </div>
+          </motion.div>
         );
       })}
     </div>
