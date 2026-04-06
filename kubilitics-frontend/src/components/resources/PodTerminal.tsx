@@ -234,6 +234,8 @@ export function PodTerminal({
     if (!container) return;
 
     const handleResize = () => {
+      // Skip refit when container is hidden (keep-alive tab) to avoid 0×0 terminal
+      if (!container.offsetWidth || !container.offsetHeight) return;
       fitRef.current?.fit();
       if (xtermRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
         const { cols, rows } = xtermRef.current;

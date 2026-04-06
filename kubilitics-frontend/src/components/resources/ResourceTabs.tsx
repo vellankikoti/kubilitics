@@ -106,12 +106,20 @@ export function ResourceTabs({ tabs, activeTab, onTabChange, className }: Resour
           );
         }
 
-        // Keep-alive but inactive: hidden off-screen so xterm stays connected
+        // Keep-alive but inactive: visually hidden but preserves real dimensions
+        // so xterm/WebSocket stays connected and doesn't refit to 0×0.
         return (
           <div
             key={tab.id}
-            className="overflow-hidden"
-            style={{ height: 0, visibility: 'hidden', position: 'absolute', width: 0 }}
+            style={{
+              visibility: 'hidden',
+              position: 'absolute',
+              left: '-9999px',
+              width: '100%',
+              height: '60vh',
+              overflow: 'hidden',
+              pointerEvents: 'none',
+            }}
             aria-hidden
           >
             {tab.content}
