@@ -90,7 +90,11 @@ func (m *PipelineManager) StartCluster(clientset kubernetes.Interface, clusterID
 		return nil // already running
 	}
 
+	// Detect cluster size and auto-tune pipeline settings.
+	tuning := DetectClusterSize(context.Background(), clientset)
+
 	pipeline := NewPipeline(m.db)
+	pipeline.ApplyTuning(tuning)
 	if m.metrics != nil {
 		pipeline.SetMetricsProvider(m.metrics)
 	}
@@ -103,6 +107,7 @@ func (m *PipelineManager) StartCluster(clientset kubernetes.Interface, clusterID
 	}
 
 	m.pipelines[clusterID] = pipeline
+	log.Printf("[events/manager] started pipeline for cluster %s (%s, %d pods)", clusterID, tuning.Size, tuning.PodCount)
 	return nil
 }
 

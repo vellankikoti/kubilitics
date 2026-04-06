@@ -55,11 +55,14 @@ type Pipeline struct {
 	batchTimer *time.Timer
 
 	droppedEvents int64 // atomic counter for dropped SSE events
+
+	tuning ClusterTuning // auto-tuned settings based on cluster size
 }
 
-const (
-	batchWindow  = 100 * time.Millisecond
-	maxBatchSize = 50
+// Default batch settings — overridden by ApplyTuning.
+var (
+	defaultBatchWindow  = 100 * time.Millisecond
+	defaultMaxBatchSize = 50
 )
 
 // NewPipeline creates a new Pipeline and all sub-components.
@@ -74,7 +77,22 @@ func NewPipeline(db *sqlx.DB) *Pipeline {
 		incidents:     NewIncidentDetector(store),
 		relationships: NewRelationshipBuilder(store),
 		stopCh:        make(chan struct{}),
+		tuning: ClusterTuning{
+			Size:           ClusterSizeSmall,
+			MaxDBSizeMB:    DefaultMaxDBSizeMB,
+			MaxBatchSize:   defaultMaxBatchSize,
+			BatchWindowMs:  int(defaultBatchWindow / time.Millisecond),
+			EventRetention: 7,
+			LogRetention:   3,
+			SpanRetention:  7,
+		},
 	}
+}
+
+// ApplyTuning overrides the default pipeline settings with auto-tuned values
+// based on the detected cluster size. Must be called before Start().
+func (p *Pipeline) ApplyTuning(t ClusterTuning) {
+	p.tuning = t
 }
 
 // Store returns the underlying event store (used by the API handler).
@@ -110,6 +128,10 @@ func (p *Pipeline) SetLogCollector(lc *LogCollector) {
 func (p *Pipeline) StartLogCollector(logsService service.LogsService, clientset kubernetes.Interface, clusterID string) {
 	if p.logCollector == nil {
 		p.logCollector = NewLogCollector(p.store, clusterID)
+	}
+	// Apply tuned log pod limit.
+	if p.tuning.LogPodsPerCycle > 0 {
+		p.logCollector.SetMaxPods(p.tuning.LogPodsPerCycle)
 	}
 	p.logCollector.Start(logsService, clientset)
 }
@@ -333,7 +355,7 @@ func (p *Pipeline) addToBatch(event *WideEvent) {
 	p.batchMu.Lock()
 	p.writeBatch = append(p.writeBatch, event)
 
-	if len(p.writeBatch) >= maxBatchSize {
+	if len(p.writeBatch) >= p.tuning.MaxBatchSize {
 		// Flush immediately if batch is full.
 		batch := p.writeBatch
 		p.writeBatch = nil
@@ -347,7 +369,7 @@ func (p *Pipeline) addToBatch(event *WideEvent) {
 	}
 
 	if p.batchTimer == nil {
-		p.batchTimer = time.AfterFunc(batchWindow, func() {
+		p.batchTimer = time.AfterFunc(time.Duration(p.tuning.BatchWindowMs)*time.Millisecond, func() {
 			p.batchMu.Lock()
 			batch := p.writeBatch
 			p.writeBatch = nil
@@ -399,8 +421,8 @@ func (p *Pipeline) retentionLoop() {
 	for {
 		select {
 		case <-ticker.C:
-			sevenDaysAgo := time.Now().Add(-7 * 24 * time.Hour).UnixMilli()
-			if n, err := p.store.PruneOldEvents(p.ctx, sevenDaysAgo); err != nil {
+			retentionCutoff := time.Now().Add(-time.Duration(p.tuning.EventRetention) * 24 * time.Hour).UnixMilli()
+			if n, err := p.store.PruneOldEvents(p.ctx, retentionCutoff); err != nil {
 				log.Printf("[events/pipeline] event pruning error: %v", err)
 			} else if n > 0 {
 				log.Printf("[events/pipeline] pruned %d old events", n)
@@ -413,8 +435,8 @@ func (p *Pipeline) retentionLoop() {
 				log.Printf("[events/pipeline] pruned %d old snapshots", n)
 			}
 
-			// Prune stored logs older than 3 days.
-			if n, err := p.store.PruneLogs(p.ctx, 3); err != nil {
+			// Prune stored logs older than configured retention.
+			if n, err := p.store.PruneLogs(p.ctx, p.tuning.LogRetention); err != nil {
 				log.Printf("[events/pipeline] log pruning error: %v", err)
 			} else if n > 0 {
 				log.Printf("[events/pipeline] pruned %d old stored logs", n)
@@ -438,7 +460,7 @@ func (p *Pipeline) checkDBSize(ctx context.Context) {
 	}
 
 	sizeMB := float64(sizeBytes) / (1024 * 1024)
-	maxMB := float64(DefaultMaxDBSizeMB)
+	maxMB := float64(p.tuning.MaxDBSizeMB)
 
 	if sizeMB > maxMB*DBWarningThreshold {
 		log.Printf("[events/pipeline] WARNING: DB size %.1fMB approaching limit %.0fMB", sizeMB, maxMB)

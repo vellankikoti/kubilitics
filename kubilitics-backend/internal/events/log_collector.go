@@ -26,6 +26,7 @@ const (
 type LogCollector struct {
 	store     *Store
 	clusterID string
+	maxPods   int // max pods per collection cycle (default MaxPodsPerCycle)
 	stopCh    chan struct{}
 }
 
@@ -34,7 +35,15 @@ func NewLogCollector(store *Store, clusterID string) *LogCollector {
 	return &LogCollector{
 		store:     store,
 		clusterID: clusterID,
+		maxPods:   MaxPodsPerCycle,
 		stopCh:    make(chan struct{}),
+	}
+}
+
+// SetMaxPods overrides the maximum number of pods fetched per collection cycle.
+func (lc *LogCollector) SetMaxPods(n int) {
+	if n > 0 {
+		lc.maxPods = n
 	}
 }
 
@@ -80,7 +89,7 @@ func (lc *LogCollector) collect(logsService service.LogsService, clientset kuber
 	// the API server on large clusters.
 	pods, err := clientset.CoreV1().Pods(metav1.NamespaceAll).List(ctx, metav1.ListOptions{
 		FieldSelector: "status.phase=Running",
-		Limit:         int64(MaxPodsPerCycle),
+		Limit:         int64(lc.maxPods),
 	})
 	if err != nil {
 		log.Printf("[events/log_collector] failed to list pods: %v", err)
