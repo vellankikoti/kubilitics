@@ -84,7 +84,7 @@
     "input-otp": "^1.4.2",
     "js-yaml": "^4.1.1",
     "jspdf": "^4.2.0",
-    "lucide-react": "^0.462.0",
+    "lucide-react": "^1.7.0",
     "monaco-editor": "^0.55.1",
     "next-themes": "^0.3.0",
     "pako": "^2.1.0",
