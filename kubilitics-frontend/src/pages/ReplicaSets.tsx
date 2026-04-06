@@ -173,11 +173,11 @@ export default function ReplicaSets() {
  const items: ReplicaSet[] = useMemo(() => rawReplicaSetItems.map(transformResource), [rawReplicaSetItems]);
 
  const stats = useMemo(() => ({
- total: items.length,
+ total: isBackendAvailable ? serverTotal : items.length,
  active: items.filter(i => i.desired > 0).length,
  scaledToZero: items.filter(i => i.desired === 0).length,
  mismatched: items.filter(i => i.ready !== i.desired).length,
- }), [items]);
+ }), [items, isBackendAvailable, serverTotal]);
  const namespaces = useMemo(() => ['all', ...Array.from(new Set(items.map(i => i.namespace)))], [items]);
 
  const itemsAfterSearchAndNs = useMemo(() => {

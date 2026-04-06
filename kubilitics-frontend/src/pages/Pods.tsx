@@ -333,16 +333,17 @@ export default function Pods() {
  }, [isBackendAvailable, fullPods, debouncedSearch, selectedNamespaces]);
 
  // High-level stats aligned with the current global scope (search + namespace filter)
+ // In backend mode, serverTotal is the real count (pre-pagination); page data is just one page.
  const stats = useMemo(
  () => ({
- total: currentFilteredPods.length,
+ total: isBackendAvailable ? serverTotal : currentFilteredPods.length,
  running: currentFilteredPods.filter((p) => p.status === 'Running').length,
  pending: currentFilteredPods.filter((p) => p.status === 'Pending').length,
  failed: currentFilteredPods.filter(
  (p) => p.status === 'Failed' || p.status === 'CrashLoopBackOff'
  ).length,
  }),
- [currentFilteredPods]
+ [currentFilteredPods, isBackendAvailable, serverTotal]
  );
 
  // Use raw data for initial filter/sort to avoid expensive metrics merging on every render
@@ -784,7 +785,7 @@ export default function Pods() {
  <ListPageHeader
  icon={<Box className="h-6 w-6 text-primary" />}
  title="Pods"
- resourceCount={filteredPods.length}
+ resourceCount={isBackendAvailable ? serverTotal : filteredPods.length}
  subtitle={selectedNamespaces.size > 0 ? `in ${selectedNamespaces.size} namespaces` : 'across all namespaces'}
  demoMode={!isConnected}
  dataUpdatedAt={dataUpdatedAt}
