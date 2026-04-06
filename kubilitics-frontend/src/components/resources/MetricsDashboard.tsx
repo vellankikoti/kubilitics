@@ -1158,8 +1158,8 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
           </TabsContent>
         </Tabs>
 
-        {/* 4. Per-pod breakdown (drill-down detail) */}
-        {podsForTable.length > 0 ? (
+        {/* 4. Per-pod breakdown — only for controllers with 2+ replicas */}
+        {podsForTable.length > 1 ? (
           <div>
             <h3 className="text-sm font-semibold text-foreground mb-2">Per-pod</h3>
             <div className="rounded-lg border border-border/50 overflow-hidden">
