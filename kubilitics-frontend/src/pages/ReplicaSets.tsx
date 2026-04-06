@@ -144,7 +144,7 @@ export default function ReplicaSets() {
    total: serverTotal,
    isBackendAvailable,
  } = useServerPaginatedResourceList<ReplicaSetResource>('replicasets', selectedNamespace !== 'all' ? selectedNamespace : undefined, {
-   pageSize: 50,
+   pageSize,
    search: searchQuery || undefined,
  });
 

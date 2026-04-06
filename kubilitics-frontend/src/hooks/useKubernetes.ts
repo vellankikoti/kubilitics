@@ -481,20 +481,22 @@ export function useServerPaginatedResourceList<T extends KubernetesResource>(
     return projectCluster?.namespaces ?? null;
   }, [activeProject, clusterId]);
 
-  const pageSize = Math.max(1, Math.min(100, options?.pageSize ?? 50));
+  const pageSize = Math.max(1, Math.min(100, options?.pageSize ?? 10));
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Reset to page 1 when search or sort changes
+  // Reset to page 1 when search, sort, or pageSize changes
   const searchRef = useRef(options?.search);
   const sortRef = useRef(`${options?.sortBy}-${options?.sortOrder}`);
+  const pageSizeRef = useRef(pageSize);
   useEffect(() => {
     const newSort = `${options?.sortBy}-${options?.sortOrder}`;
-    if (searchRef.current !== options?.search || sortRef.current !== newSort) {
+    if (searchRef.current !== options?.search || sortRef.current !== newSort || pageSizeRef.current !== pageSize) {
       searchRef.current = options?.search;
       sortRef.current = newSort;
+      pageSizeRef.current = pageSize;
       setCurrentPage(1);
     }
-  }, [options?.search, options?.sortBy, options?.sortOrder]);
+  }, [options?.search, options?.sortBy, options?.sortOrder, pageSize]);
 
   const offset = (currentPage - 1) * pageSize;
 

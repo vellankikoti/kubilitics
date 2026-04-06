@@ -257,7 +257,7 @@ export default function Pods() {
    total: serverTotal,
    isBackendAvailable,
  } = useServerPaginatedResourceList<PodResource>('pods', selectedNamespaces.size === 1 ? Array.from(selectedNamespaces)[0] : undefined, {
-   pageSize: 50,
+   pageSize,
    search: debouncedSearch || undefined,
    sortBy: serverSortBy,
    sortOrder: serverSortOrder,
