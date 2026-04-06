@@ -324,7 +324,7 @@ export function PodTerminal({
       {isMaximized && (
         <>
           <div className="fixed top-3 left-3 z-[201]">
-            <BrandWatermark position="top-left" logoHeight={18} className="!absolute !top-0 !left-0" />
+            <BrandWatermark position="top-left" className="!absolute !top-0 !left-0" />
           </div>
           <button
             onClick={() => setIsMaximized(false)}

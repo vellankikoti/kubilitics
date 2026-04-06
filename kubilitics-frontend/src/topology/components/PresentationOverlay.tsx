@@ -24,7 +24,7 @@ function PresentationOverlayInner({
   return (
     <>
       {/* Brand watermark — top-left */}
-      <BrandWatermark position="top-left" logoHeight={22} />
+      <BrandWatermark position="top-left" />
 
       {/* Context panel — bottom-left */}
       <div className="absolute bottom-4 left-4 z-50 rounded-xl border border-white/20 dark:border-slate-700/50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-4 py-3 shadow-lg">

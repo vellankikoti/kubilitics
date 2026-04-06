@@ -26,16 +26,16 @@ const positionClasses = {
 
 export function BrandWatermark({
   position = 'top-left',
-  logoHeight = 20,
+  logoHeight = 36,
   className,
 }: BrandWatermarkProps) {
   return (
     <div
       className={cn(
-        'absolute z-50 flex items-center gap-2 rounded-lg',
+        'absolute z-50 flex items-center gap-2.5 rounded-xl',
         'border border-white/20 dark:border-slate-700/50',
         'bg-white/80 dark:bg-slate-900/80 backdrop-blur-md',
-        'px-3 py-2 shadow-md select-none pointer-events-none',
+        'px-4 py-2.5 shadow-lg select-none pointer-events-none',
         positionClasses[position],
         className,
       )}

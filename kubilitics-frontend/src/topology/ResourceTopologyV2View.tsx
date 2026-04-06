@@ -394,7 +394,7 @@ export function ResourceTopologyV2View({
           {/* Presentation mode: brand watermark + exit button */}
           {presentationMode && (
             <>
-              <BrandWatermark position="top-left" logoHeight={22} />
+              <BrandWatermark position="top-left" />
               <button
                 type="button"
                 onClick={() => setPresentationMode(false)}
@@ -466,7 +466,7 @@ export function ResourceTopologyV2View({
               clusterName={activeClusterName ?? undefined}
               namespace={namespace ?? undefined}
             />
-            <BrandWatermark position="top-left" logoHeight={22} />
+            <BrandWatermark position="top-left" />
             {topology && (
               <div className="absolute bottom-4 right-4 z-50 bg-gray-100 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-md px-2.5 py-1">
                 <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
