@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { useTracesStore } from '@/stores/tracesStore';
 import { getBackendBase } from '@/lib/backendUrl';
-import type { Span } from '@/services/api/traces';
+import type { Span, TraceDetail } from '@/services/api/traces';
 
 function fmtDur(ns: number): string {
   const ms = ns / 1_000_000;
@@ -49,7 +49,7 @@ function buildTree(spans: Span[]): SpanNode[] {
 
 export function TraceDetailPanel() {
   const { selectedTraceId, selectedSpanId, selectTrace, selectSpan } = useTracesStore();
-  const [traceDetail, setTraceDetail] = useState<any>(null);
+  const [traceDetail, setTraceDetail] = useState<TraceDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -59,8 +59,8 @@ export function TraceDetailPanel() {
       setIsLoading(true);
       try {
         const base = getBackendBase();
-        const cl = await (await fetch(`${base}/api/v1/clusters`)).json();
-        const c = cl.find((x: any) => x.status === 'connected');
+        const cl: Array<{ id: string; status: string }> = await (await fetch(`${base}/api/v1/clusters`)).json();
+        const c = cl.find((x) => x.status === 'connected');
         if (!c) { setIsLoading(false); return; }
         const d = await (await fetch(`${base}/api/v1/clusters/${c.id}/traces/${selectedTraceId}`)).json();
         if (!cancelled) { setTraceDetail(d); setIsLoading(false); }
@@ -274,15 +274,15 @@ function SpanCard({ span, colorMap }: { span: Span; colorMap: Map<string, number
         {Array.isArray(span.events) && span.events.length > 0 && (
           <div className="px-4 py-2.5 bg-background/40">
             <div className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/40 mb-1.5">Events</div>
-            {span.events.map((evt: any, i: number) => (
+            {(span.events as Array<Record<string, unknown>>).map((evt, i: number) => (
               <div key={i} className="rounded bg-background/60 p-2 mb-1 last:mb-0">
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold mb-0.5">
                   {evt.name === 'exception' && <AlertTriangle className="h-3 w-3 text-red-500" />}
-                  {evt.name}
+                  {evt.name as string}
                 </div>
                 {evt.attributes && (
                   <div className="text-[10px] font-mono text-muted-foreground space-y-0.5">
-                    {(Array.isArray(evt.attributes) ? evt.attributes : []).map((a: any, j: number) => (
+                    {(Array.isArray(evt.attributes) ? evt.attributes as Array<{ key: string; value?: { stringValue?: string } }> : []).map((a, j: number) => (
                       <div key={j}><span className="text-red-400">{a.key}:</span> {a.value?.stringValue || JSON.stringify(a.value)}</div>
                     ))}
                   </div>

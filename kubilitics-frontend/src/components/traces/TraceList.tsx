@@ -98,8 +98,8 @@ export function TraceList() {
       try {
         const base = getBackendBase();
         const clustersRes = await fetch(`${base}/api/v1/clusters`);
-        const clusters = await clustersRes.json();
-        const connected = clusters.find((c: any) => c.status === 'connected');
+        const clusters: Array<{ id: string; status: string }> = await clustersRes.json();
+        const connected = clusters.find((c) => c.status === 'connected');
         if (!connected) { setTraces([]); setIsLoading(false); return; }
         const qs = new URLSearchParams({ limit: '100' });
         if (queryParams.from) qs.set('from', String(queryParams.from));

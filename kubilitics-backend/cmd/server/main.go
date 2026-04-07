@@ -899,6 +899,10 @@ func main() {
 
 	log.Info("Shutting down server")
 
+	// Stop port-forward background cleaner
+	rest.StopPortForwardCleaner()
+	log.Info("Port-forward cleaner stopped")
+
 	// Stop LMC before draining HTTP (Part 4)
 	if lmc != nil {
 		lmc.Stop()

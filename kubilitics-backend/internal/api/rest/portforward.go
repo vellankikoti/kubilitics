@@ -21,6 +21,9 @@ import (
 // pfCleanerOnce ensures startPortForwardCleaner is started at most once.
 var pfCleanerOnce sync.Once
 
+// pfCleanerCancel cancels the background cleaner goroutine on shutdown.
+var pfCleanerCancel context.CancelFunc
+
 // ─── Session Store ────────────────────────────────────────────────────────────
 
 // portForwardSession tracks a running kubectl port-forward subprocess.
@@ -87,32 +90,52 @@ func pfLookup(clusterID, sessionID string) (*portForwardSession, bool) {
 //
 // Call once via pfCleanerOnce.Do.
 func startPortForwardCleaner() {
+	ctx, cancel := context.WithCancel(context.Background())
+	pfCleanerCancel = cancel
 	go func() {
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
-		for range ticker.C {
-			expiry := time.Now().Add(-30 * time.Minute)
-			pfMu.Lock()
-			for clusterID, sessions := range pfByCluster {
-				for sessionID, sess := range sessions {
-					sess.mu.Lock()
-					idle := sess.lastActivity.Before(expiry)
-					dead := sess.stopped ||
-						(sess.cmd != nil && sess.cmd.ProcessState != nil)
-					sess.mu.Unlock()
+		for {
+			select {
+			case <-ticker.C:
+				expiry := time.Now().Add(-30 * time.Minute)
+				pfMu.Lock()
+				for clusterID, sessions := range pfByCluster {
+					for sessionID, sess := range sessions {
+						sess.mu.Lock()
+						idle := sess.lastActivity.Before(expiry)
+						dead := sess.stopped ||
+							(sess.cmd != nil && sess.cmd.ProcessState != nil)
+						sess.mu.Unlock()
 
-					if idle && dead {
-						log.Printf("[port-forward] cleaner: removing expired session %s (cluster %s)", sessionID, clusterID)
-						delete(sessions, sessionID)
+						if idle && dead {
+							log.Printf("[port-forward] cleaner: removing expired session %s (cluster %s)", sessionID, clusterID)
+							delete(sessions, sessionID)
+						}
+					}
+					if len(sessions) == 0 {
+						delete(pfByCluster, clusterID)
 					}
 				}
-				if len(sessions) == 0 {
-					delete(pfByCluster, clusterID)
-				}
+				pfMu.Unlock()
+			case <-ctx.Done():
+				return
 			}
-			pfMu.Unlock()
 		}
 	}()
+}
+
+// stopPortForwardCleaner stops the background cleaner goroutine.
+// Safe to call even if the cleaner was never started.
+func stopPortForwardCleaner() {
+	if pfCleanerCancel != nil {
+		pfCleanerCancel()
+	}
+}
+
+// StopPortForwardCleaner is the exported shutdown hook for main.go.
+func StopPortForwardCleaner() {
+	stopPortForwardCleaner()
 }
 
 // ─── Request / Response types ─────────────────────────────────────────────────

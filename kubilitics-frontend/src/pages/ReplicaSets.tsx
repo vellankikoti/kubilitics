@@ -169,7 +169,6 @@ export default function ReplicaSets() {
    return isConnected && fallbackData ? (fallbackData.items ?? []) : [];
  }, [isBackendAvailable, serverItems, fallbackData, isConnected]);
 
- // eslint-disable-next-line react-hooks/exhaustive-deps
  const items: ReplicaSet[] = useMemo(() => rawReplicaSetItems.map(transformResource), [rawReplicaSetItems]);
 
  const stats = useMemo(() => ({

@@ -66,8 +66,8 @@ export function EventAnalyze() {
     try {
       const base = getBackendBase();
       const clustersRes = await fetch(`${base}/api/v1/clusters`);
-      const clusters = await clustersRes.json();
-      const connected = clusters.find((c: any) => c.status === 'connected');
+      const clusters: Array<{ id: string; status: string }> = await clustersRes.json();
+      const connected = clusters.find((c) => c.status === 'connected');
       if (!connected) {
         setResults([]);
         setIsLoading(false);
@@ -86,9 +86,9 @@ export function EventAnalyze() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       setResults(Array.isArray(data) ? data : []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[EventAnalyze] fetch error:', err);
-      setError(err.message ?? 'Failed to fetch');
+      setError(err instanceof Error ? err.message : 'Failed to fetch');
       setResults([]);
     } finally {
       setIsLoading(false);

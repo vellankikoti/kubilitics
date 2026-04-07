@@ -66,8 +66,8 @@ export function IncidentView() {
       try {
         const base = getBackendBase();
         const clustersRes = await fetch(`${base}/api/v1/clusters`);
-        const clusters = await clustersRes.json();
-        const connected = clusters.find((c: any) => c.status === 'connected');
+        const clusters: Array<{ id: string; status: string }> = await clustersRes.json();
+        const connected = clusters.find((c) => c.status === 'connected');
         if (!connected) {
           if (!cancelled) { setIncidents([]); setIsLoading(false); }
           return;
@@ -79,10 +79,10 @@ export function IncidentView() {
           setIncidents(Array.isArray(data) ? data : []);
           setIsLoading(false);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!cancelled) {
           console.error('[IncidentView] fetch error:', err);
-          setError(err.message ?? 'Failed to fetch');
+          setError(err instanceof Error ? err.message : 'Failed to fetch');
           setIncidents([]);
           setIsLoading(false);
         }

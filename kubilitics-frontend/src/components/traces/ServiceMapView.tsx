@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { getBackendBase } from '@/lib/backendUrl';
 import { useServiceMap } from '@/hooks/useTraces';
 import { useTracesStore } from '@/stores/tracesStore';
-import type { ServiceNode as ServiceNodeData, ServiceEdge } from '@/services/api/traces';
+import type { ServiceNode as ServiceNodeData, ServiceEdge, ServiceMap } from '@/services/api/traces';
 
 /* ─── Helpers ──────────────────────────────────────────────────────────── */
 
@@ -137,7 +137,7 @@ function ServiceMapInner() {
   const store = useTracesStore();
 
   // Direct fetch — same pattern as TraceList
-  const [serviceMap, setServiceMap] = useState<any>(null);
+  const [serviceMap, setServiceMap] = useState<ServiceMap | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -145,20 +145,21 @@ function ServiceMapInner() {
     (async () => {
       try {
         const base = getBackendBase();
-        const cl = await (await fetch(`${base}/api/v1/clusters`)).json();
-        const c = cl.find((x: any) => x.status === 'connected');
+        const cl: Array<{ id: string; status: string }> = await (await fetch(`${base}/api/v1/clusters`)).json();
+        const c = cl.find((x) => x.status === 'connected');
         if (!c) { setIsLoading(false); return; }
         const res = await fetch(`${base}/api/v1/clusters/${c.id}/traces/services`);
-        const data = await res.json();
+        const data: unknown = await res.json();
         // Validate response has nodes array — API might return {error: ...}
         if (!cancelled) {
-          if (data && Array.isArray(data.nodes)) {
-            setServiceMap(data);
+          if (data && typeof data === 'object' && Array.isArray((data as ServiceMap).nodes)) {
+            setServiceMap(data as ServiceMap);
           } else {
             // Fallback: build service map from traces list
             const tracesRes = await fetch(`${base}/api/v1/clusters/${c.id}/traces?limit=100`);
-            const traces = await tracesRes.json();
-            if (Array.isArray(traces) && traces.length > 0) {
+            const tracesRaw: unknown = await tracesRes.json();
+            const traces = Array.isArray(tracesRaw) ? (tracesRaw as Array<{ services: string[] | string; span_count?: number; error_count?: number }>) : [];
+            if (traces.length > 0) {
               const svcSet = new Map<string, { count: number; errors: number }>();
               for (const t of traces) {
                 const svcs = Array.isArray(t.services) ? t.services : (typeof t.services === 'string' ? JSON.parse(t.services || '[]') : []);

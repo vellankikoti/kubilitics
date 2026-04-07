@@ -79,8 +79,8 @@ export function EventTimeline() {
       try {
         const base = getBackendBase();
         const clustersRes = await fetch(`${base}/api/v1/clusters`);
-        const clusters = await clustersRes.json();
-        const connected = clusters.find((c: any) => c.status === 'connected');
+        const clusters: Array<{ id: string; status: string }> = await clustersRes.json();
+        const connected = clusters.find((c) => c.status === 'connected');
         if (!connected) { setHistoricalEvents([]); setInitialLoading(false); return; }
         const qs = new URLSearchParams({
           from: String(params.from), to: String(params.to || Date.now()),
@@ -94,13 +94,14 @@ export function EventTimeline() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (!cancelled) { setHistoricalEvents(Array.isArray(data) ? data : []); setInitialLoading(false); }
-      } catch (err: any) {
-        if (!cancelled) { setError(err); setIsError(true); setInitialLoading(false); }
+      } catch (err: unknown) {
+        if (!cancelled) { setError(err instanceof Error ? err : new Error(String(err))); setIsError(true); setInitialLoading(false); }
       }
     }
     load();
     const interval = setInterval(load, 30000);
     return () => { cancelled = true; clearInterval(interval); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.from, params.to, params.namespace, params.kind, params.type, params.reason, params.limit, params.offset]);
 
   // Merge live + historical, deduplicate by event_id

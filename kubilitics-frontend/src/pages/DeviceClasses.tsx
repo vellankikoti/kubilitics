@@ -265,8 +265,8 @@ export default function DeviceClasses() {
 
  <div className={cn('grid grid-cols-2 sm:grid-cols-4 gap-4', !isConnected && 'opacity-60')}>
  <ListPageStatCard label="Total" value={stats.total} icon={Cpu} iconColor="text-primary" selected={!hasActiveFilters} onClick={clearAllFilters} className={cn(!hasActiveFilters && !isLoading && 'ring-2 ring-primary')} isLoading={isLoading} />
- <ListPageStatCard label="With Selectors" value={stats.withSelectors} icon={Cpu} iconColor="text-muted-foreground" selected={false} onClick={() => { }} isLoading={isLoading} />
- <ListPageStatCard label="With Config" value={stats.withConfig} icon={Cpu} iconColor="text-muted-foreground" selected={false} onClick={() => { }} isLoading={isLoading} />
+ <ListPageStatCard label="With Selectors" value={stats.withSelectors} icon={Cpu} iconColor="text-muted-foreground" selected={false} isLoading={isLoading} />
+ <ListPageStatCard label="With Config" value={stats.withConfig} icon={Cpu} iconColor="text-muted-foreground" selected={false} isLoading={isLoading} />
  </div>
 
  <BulkActionBar

@@ -19,8 +19,8 @@ export function EventStatsBar() {
       try {
         const base = getBackendBase();
         const clustersRes = await fetch(`${base}/api/v1/clusters`);
-        const clusters = await clustersRes.json();
-        const connected = clusters.find((c: any) => c.status === 'connected');
+        const clusters: Array<{ id: string; status: string }> = await clustersRes.json();
+        const connected = clusters.find((c) => c.status === 'connected');
         if (!connected) {
           if (!cancelled) { setStats(null); setIsLoading(false); }
           return;
@@ -36,7 +36,7 @@ export function EventStatsBar() {
           setStats(data);
           setIsLoading(false);
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!cancelled) {
           console.error('[EventStatsBar] fetch error:', err);
           setStats(null);

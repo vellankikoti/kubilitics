@@ -826,8 +826,8 @@ func (h *Handler) GetClusterSummary(w http.ResponseWriter, r *http.Request) {
 		respondErrorWithCode(w, http.StatusInternalServerError, ErrCodeInternalError, infoErr.Error(), requestID)
 		return
 	}
-	nodeCount := info["node_count"].(int)
-	namespaceCount := info["namespace_count"].(int)
+	nodeCount, _ := info["node_count"].(int)
+	namespaceCount, _ := info["namespace_count"].(int)
 	nodes, _ := client.Clientset.CoreV1().Nodes().List(r.Context(), metav1.ListOptions{})
 
 	var projectNSSet map[string]struct{}
