@@ -100,13 +100,13 @@ export function TraceList() {
       status: store.statusFilter || undefined,
       min_duration: store.minDuration ?? undefined,
       from: fromNs,
-      limit: 100,
+      limit: 50,
     }),
     [store.serviceFilter, store.statusFilter, store.minDuration, fromNs],
   );
 
   // Pagination
-  const PAGE_SIZE = 25;
+  const PAGE_SIZE = 10;
   const [page, setPage] = useState(1);
 
   // Direct fetch
