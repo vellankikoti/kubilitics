@@ -1,8 +1,10 @@
 package rest
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -11,7 +13,9 @@ import (
 	"github.com/gorilla/mux"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/client-go/kubernetes"
 
+	k8s "github.com/kubilitics/kubilitics-backend/internal/k8s"
 	"github.com/kubilitics/kubilitics-backend/internal/otel"
 	"github.com/kubilitics/kubilitics-backend/internal/pkg/logger"
 	"github.com/kubilitics/kubilitics-backend/internal/service"
@@ -33,11 +37,12 @@ func NewTracingHandler(cs service.ClusterService, puller *otel.TracePuller) *Tra
 }
 
 // EnableTracing handles POST /clusters/{clusterId}/tracing/enable
-// Deploys the trace agent and (best-effort) the OTel Instrumentation CR.
+// Full one-click setup: cert-manager → OTel Operator → trace-agent → Instrumentation CRs.
 func (th *TracingHandler) EnableTracing(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	clusterID := vars["clusterId"]
 	requestID := logger.FromContext(r.Context())
+	ctx := r.Context()
 
 	client, err := th.clusterService.GetClient(clusterID)
 	if err != nil {
@@ -45,27 +50,98 @@ func (th *TracingHandler) EnableTracing(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Deploy trace agent (namespace + deployment + service)
-	_, err = client.ApplyYAML(r.Context(), otel.AgentManifestYAML("v0.2.0"))
+	warnings := []string{}
+
+	// Step 1: Check and install cert-manager (required by OTel Operator)
+	_, certErr := client.Clientset.CoreV1().Namespaces().Get(ctx, "cert-manager", metav1.GetOptions{})
+	if certErr != nil {
+		log.Printf("[tracing] cert-manager not found, installing...")
+		installErr := installViaKubectl(ctx, client, "https://github.com/cert-manager/cert-manager/releases/latest/download/cert-manager.yaml")
+		if installErr != nil {
+			log.Printf("[tracing] cert-manager install failed: %v", installErr)
+			warnings = append(warnings, "cert-manager installation failed: "+installErr.Error())
+		} else {
+			log.Printf("[tracing] cert-manager installed, waiting for readiness...")
+			waitForDeployment(ctx, client.Clientset, "cert-manager", "cert-manager-webhook", 90*time.Second)
+		}
+	} else {
+		log.Printf("[tracing] cert-manager already installed")
+	}
+
+	// Step 2: Check and install OTel Operator
+	_, otelCRDErr := client.Clientset.Discovery().ServerResourcesForGroupVersion("opentelemetry.io/v1alpha1")
+	if otelCRDErr != nil {
+		log.Printf("[tracing] OTel Operator not found, installing...")
+		installErr := installViaKubectl(ctx, client, "https://github.com/open-telemetry/opentelemetry-operator/releases/latest/download/opentelemetry-operator.yaml")
+		if installErr != nil {
+			log.Printf("[tracing] OTel Operator install failed: %v", installErr)
+			warnings = append(warnings, "OTel Operator installation failed: "+installErr.Error())
+		} else {
+			log.Printf("[tracing] OTel Operator installed, waiting for readiness...")
+			waitForDeployment(ctx, client.Clientset, "opentelemetry-operator-system", "opentelemetry-operator-controller-manager", 90*time.Second)
+		}
+	} else {
+		log.Printf("[tracing] OTel Operator already installed")
+	}
+
+	// Step 3: Deploy trace agent (namespace + deployment + service)
+	_, err = client.ApplyYAML(ctx, otel.AgentManifestYAML("v0.2.0"))
 	if err != nil {
 		respondErrorWithCode(w, http.StatusInternalServerError, ErrCodeInternalError, "Failed to deploy trace agent: "+err.Error(), requestID)
 		return
 	}
+	log.Printf("[tracing] trace-agent deployed")
 
-	// Best-effort: apply Instrumentation CR (requires OTel Operator CRDs)
-	_, instrErr := client.ApplyYAML(r.Context(), otel.InstrumentationCRsYAML())
+	// Step 4: Apply Instrumentation CRs (requires OTel Operator CRDs)
+	_, instrErr := client.ApplyYAML(ctx, otel.InstrumentationCRsYAML())
 	if instrErr != nil {
-		log.Printf("[tracing] warning: Instrumentation CR apply failed (OTel Operator may not be installed): %v", instrErr)
+		log.Printf("[tracing] Instrumentation CR apply failed: %v", instrErr)
+		warnings = append(warnings, "Auto-instrumentation CRs failed — OTel Operator may still be starting. Try re-enabling in a minute.")
 	}
 
 	resp := map[string]interface{}{
 		"status":  "enabled",
-		"message": "Trace agent deployed to kubilitics-system",
+		"message": "Tracing infrastructure deployed",
 	}
-	if instrErr != nil {
-		resp["instrumentation_warning"] = "OTel Operator not installed — auto-instrumentation unavailable. Install the OTel Operator separately to enable it."
+	if len(warnings) > 0 {
+		resp["warnings"] = warnings
 	}
 	respondJSON(w, http.StatusOK, resp)
+}
+
+// installViaKubectl applies a remote YAML manifest URL by downloading and applying it.
+func installViaKubectl(ctx context.Context, client *k8s.Client, url string) error {
+	// Download the manifest
+	httpClient := &http.Client{Timeout: 60 * time.Second}
+	resp, err := httpClient.Get(url)
+	if err != nil {
+		return fmt.Errorf("download %s: %w", url, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("download %s: HTTP %d", url, resp.StatusCode)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 20*1024*1024)) // 20MB max
+	if err != nil {
+		return fmt.Errorf("read body: %w", err)
+	}
+
+	// Apply via the existing ApplyYAML
+	_, err = client.ApplyYAML(ctx, string(body))
+	return err
+}
+
+// waitForDeployment polls until a deployment has at least 1 ready replica or timeout.
+func waitForDeployment(ctx context.Context, clientset kubernetes.Interface, namespace, name string, timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		dep, err := clientset.AppsV1().Deployments(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err == nil && dep.Status.ReadyReplicas > 0 {
+			return
+		}
+		time.Sleep(3 * time.Second)
+	}
+	log.Printf("[tracing] timeout waiting for %s/%s to become ready", namespace, name)
 }
 
 // TracingStatusResponse is the response for GET /clusters/{clusterId}/tracing/status.
