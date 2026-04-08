@@ -33,7 +33,7 @@ const DEFAULT_FILTERS = {
   serviceFilter: '',
   statusFilter: '',
   minDuration: null as number | null,
-  timeRange: '1h',
+  timeRange: '24h',
 };
 
 export const useTracesStore = create<TracesState>()((set) => ({
