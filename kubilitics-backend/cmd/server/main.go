@@ -626,6 +626,7 @@ func main() {
 	otelReceiver := otel.NewReceiver(otelStore, "")
 	otelHandler := otel.NewOTelHandler(otelReceiver, otelStore)
 	otel.SetupOTelRoutes(apiRouter, otelHandler)
+	otel.SetupOTLPStandardRoute(router, otelHandler) // Standard OTLP endpoint: POST /v1/traces
 
 	// Start span pruning goroutine (7 day retention)
 	go func() {

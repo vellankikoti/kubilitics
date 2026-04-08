@@ -21,14 +21,22 @@ func NewOTelHandler(receiver *Receiver, store *Store) *OTelHandler {
 }
 
 // SetupOTelRoutes registers OTel-related routes on the given router.
+// The router is expected to be the /api/v1 subrouter.
 func SetupOTelRoutes(router *mux.Router, handler *OTelHandler) {
-	// OTLP receiver (no cluster scope — apps send directly)
-	router.HandleFunc("/v1/traces", handler.ReceiveTraces).Methods("POST")
+	// OTLP receiver: POST /api/v1/traces (on subrouter)
+	router.HandleFunc("/traces", handler.ReceiveTraces).Methods("POST")
 
 	// Trace query APIs (cluster-scoped)
 	router.HandleFunc("/clusters/{clusterId}/traces", handler.ListTraces).Methods("GET")
 	router.HandleFunc("/clusters/{clusterId}/traces/services", handler.GetServiceMap).Methods("GET")
 	router.HandleFunc("/clusters/{clusterId}/traces/{traceId}", handler.GetTrace).Methods("GET")
+}
+
+// SetupOTLPStandardRoute registers the OTLP standard endpoint POST /v1/traces
+// on the ROOT router (not the /api/v1 subrouter). This is the standard OTLP/HTTP
+// endpoint that OTel SDKs expect when configured with OTEL_EXPORTER_OTLP_ENDPOINT.
+func SetupOTLPStandardRoute(rootRouter *mux.Router, handler *OTelHandler) {
+	rootRouter.HandleFunc("/v1/traces", handler.ReceiveTraces).Methods("POST")
 }
 
 // ReceiveTraces handles POST /v1/traces (OTLP JSON).

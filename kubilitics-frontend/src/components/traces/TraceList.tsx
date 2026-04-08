@@ -220,7 +220,7 @@ export function TraceList() {
                     <p className="text-sm font-medium text-foreground/80 mb-1">No traces yet</p>
                     <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
                       Traces appear when your applications send data via OpenTelemetry.
-                      Point your OTLP exporter to <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">http://localhost:8190/api/v1/v1/traces</code>
+                      Point your OTLP exporter to <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">http://localhost:8190/v1/traces</code>
                     </p>
                   </td>
                 </tr>
