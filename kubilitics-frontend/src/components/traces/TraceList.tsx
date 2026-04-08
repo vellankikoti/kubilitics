@@ -16,7 +16,7 @@ import { useTracesStore } from '@/stores/tracesStore';
 import { getBackendBase } from '@/lib/backendUrl';
 import { useActiveClusterId } from '@/hooks/useActiveClusterId';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getTracingStatus } from '@/services/api/tracing';
 import { TracingStatus } from './TracingStatus';
 import { TracingSetup } from './TracingSetup';
@@ -75,6 +75,7 @@ function serviceColorIndex(name: string): number {
 
 export function TraceList() {
   const store = useTracesStore();
+  const queryClient = useQueryClient();
   const [setupOpen, setSetupOpen] = useState(false);
 
   // Get tracing status to know if tracing is enabled
@@ -85,7 +86,7 @@ export function TraceList() {
     queryKey: ['tracing-status', clusterId],
     queryFn: () => getTracingStatus(baseUrl, clusterId!),
     enabled: !!clusterId && !!baseUrl,
-    staleTime: 15_000,
+    staleTime: 10_000,
     refetchInterval: 30_000,
     retry: false,
   });
@@ -270,6 +271,8 @@ export function TraceList() {
         onOpenChange={setSetupOpen}
         onComplete={() => {
           setSetupOpen(false);
+          // Force refetch tracing status + traces so UI updates immediately
+          queryClient.invalidateQueries({ queryKey: ['tracing-status'] });
         }}
       />
     </Card>
