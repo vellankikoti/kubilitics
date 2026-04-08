@@ -3,7 +3,7 @@
  *
  * States: intro → deploying → pick_deployments → done
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { CheckCircle2, Loader2, Radio, RefreshCw, AlertCircle, Package, Cpu } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useQueryClient } from '@tanstack/react-query';
@@ -59,11 +59,28 @@ export function TracingSetup({ open, onOpenChange, onComplete }: TracingSetupPro
   const [tracingStatus, setTracingStatus] = useState<TracingStatus | null>(null);
   const [isInstrumenting, setIsInstrumenting] = useState(false);
 
-  // Reset state when dialog opens/closes
+  // When dialog opens, check if tracing is already enabled → skip to deployment picker
+  useEffect(() => {
+    if (!open || !clusterId) return;
+    (async () => {
+      try {
+        const status = await getTracingStatus(baseUrl, clusterId);
+        setTracingStatus(status);
+        if (status.enabled) {
+          setState('pick_deployments');
+        } else {
+          setState('intro');
+        }
+      } catch {
+        setState('intro');
+      }
+    })();
+  }, [open, clusterId, baseUrl]);
+
+  // Reset state when dialog closes
   const handleOpenChange = useCallback(
     (next: boolean) => {
       if (!next) {
-        // Give dialog time to animate out before resetting
         setTimeout(() => {
           setState('intro');
           setDeployError(null);

@@ -238,7 +238,7 @@ export function TraceList() {
                 <tr>
                   <td colSpan={8} className="p-0">
                     {tracingStatusData?.enabled ? (
-                      <WaitingForTraces />
+                      <WaitingForTraces onInstrumentClick={() => setSetupOpen(true)} />
                     ) : (
                       <EnableTracingPrompt onSetupClick={() => setSetupOpen(true)} />
                     )}
@@ -302,18 +302,21 @@ function EnableTracingPrompt({ onSetupClick }: { onSetupClick: () => void }) {
 }
 
 /** Shown when tracing IS enabled but no traces have arrived yet */
-function WaitingForTraces() {
+function WaitingForTraces({ onInstrumentClick }: { onInstrumentClick: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 text-center max-w-lg mx-auto px-4">
       <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
         <GitBranch className="h-7 w-7 text-primary/60" />
       </div>
-      <h3 className="text-lg font-semibold mb-2">Waiting for Traces</h3>
-      <p className="text-sm text-muted-foreground mb-4 leading-relaxed max-w-md">
-        The trace agent is running and collecting data. Traces will appear here once
-        your applications start handling traffic.
+      <h3 className="text-lg font-semibold mb-2">Trace Agent Running</h3>
+      <p className="text-sm text-muted-foreground mb-6 leading-relaxed max-w-md">
+        The trace agent is collecting data. Select which applications to auto-instrument
+        with OpenTelemetry — no code changes required.
       </p>
-      <TracingStatus onSetupClick={() => {}} />
+      <Button onClick={onInstrumentClick}>
+        <Radio className="h-4 w-4 mr-2" />
+        Instrument Applications
+      </Button>
     </div>
   );
 }
