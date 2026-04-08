@@ -76,12 +76,12 @@ export function TracingStatus({ onSetupClick }: TracingStatusProps) {
       <Badge
         variant="outline"
         className="h-5 px-1.5 text-[10px] font-medium border-[hsl(var(--success))]/40 text-[hsl(var(--success))]"
-        title={`${status.agent_span_count.toLocaleString()} spans collected`}
+        title={`${(status.agent_span_count ?? 0).toLocaleString()} spans collected`}
       >
         Tracing Active
-        {status.agent_span_count > 0 && (
+        {(status.agent_span_count ?? 0) > 0 && (
           <span className="ml-1 opacity-70">
-            · {status.agent_span_count.toLocaleString()}
+            · {(status.agent_span_count ?? 0).toLocaleString()}
           </span>
         )}
       </Badge>

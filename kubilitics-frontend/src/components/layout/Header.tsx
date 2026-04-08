@@ -309,7 +309,19 @@ export function Header() {
 
   return (
     <>
-      <header className={cn(HEADER_HEIGHT_CLASS, 'border-b border-border/40 bg-white/60 dark:bg-[hsl(228,14%,9%)]/80 backdrop-blur-3xl shrink-0 shadow-[0_1px_3px_rgba(0,0,0,0.02)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-all duration-300 sticky top-0 z-[var(--z-sticky,50)]')} role="banner" data-tauri-drag-region>
+      <header
+        className={cn(HEADER_HEIGHT_CLASS, 'border-b border-border/40 bg-white/60 dark:bg-[hsl(228,14%,9%)]/80 backdrop-blur-3xl shrink-0 shadow-[0_1px_3px_rgba(0,0,0,0.02)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-all duration-300 sticky top-0 z-[var(--z-sticky,50)]')}
+        role="banner"
+        data-tauri-drag-region
+        onDoubleClick={() => {
+          // macOS: double-click header toggles maximize (same as native title bar)
+          if (isTauri()) {
+            import('@tauri-apps/api/window').then(({ getCurrentWindow }) => {
+              getCurrentWindow().toggleMaximize();
+            }).catch(() => {});
+          }
+        }}
+      >
         <div className="flex items-center h-full w-full">
 
           {/* ──── Logo zone: Docker Desktop pattern — generous spacing after traffic lights ──── */}
