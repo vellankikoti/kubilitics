@@ -30,6 +30,9 @@ func SetupOTelRoutes(router *mux.Router, handler *OTelHandler) {
 	router.HandleFunc("/clusters/{clusterId}/traces", handler.ListTraces).Methods("GET")
 	router.HandleFunc("/clusters/{clusterId}/traces/services", handler.GetServiceMap).Methods("GET")
 	router.HandleFunc("/clusters/{clusterId}/traces/{traceId}", handler.GetTrace).Methods("GET")
+
+	// Resource-specific traces (matches by k8s_pod_name, k8s_deployment, or service_name)
+	router.HandleFunc("/clusters/{clusterId}/resource-traces", handler.GetResourceTraces).Methods("GET")
 }
 
 // SetupOTLPStandardRoute registers the OTLP standard endpoint POST /v1/traces
@@ -151,4 +154,45 @@ func (h *OTelHandler) GetServiceMap(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(svcMap)
+}
+
+// GetResourceTraces handles GET /clusters/{clusterId}/resource-traces.
+// Returns traces matching a specific K8s resource by pod name, deployment, or service.
+func (h *OTelHandler) GetResourceTraces(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	clusterID := vars["clusterId"]
+	params := r.URL.Query()
+
+	kind := params.Get("kind")
+	name := params.Get("name")
+	namespace := params.Get("namespace")
+
+	if kind == "" || name == "" {
+		http.Error(w, `{"error":"kind and name are required"}`, http.StatusBadRequest)
+		return
+	}
+
+	var from, to int64
+	if v := params.Get("from"); v != "" {
+		from, _ = strconv.ParseInt(v, 10, 64)
+	}
+	if v := params.Get("to"); v != "" {
+		to, _ = strconv.ParseInt(v, 10, 64)
+	}
+
+	limit := 50
+	if v := params.Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+
+	traces, err := h.store.QuerySpansByResource(r.Context(), clusterID, kind, name, namespace, from, to, limit)
+	if err != nil {
+		http.Error(w, `{"error":"failed to query resource traces"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(traces)
 }
