@@ -46,10 +46,17 @@ func (h *Handler) GetBlastRadius(w http.ResponseWriter, r *http.Request) {
 
 	target := models.ResourceRef{Kind: kind, Name: name, Namespace: namespace}
 
-	// Optional failure_mode query parameter (defaults to workload-deletion)
+	// Optional failure_mode query parameter (auto-detected from kind if not provided)
 	failureMode := r.URL.Query().Get("failure_mode")
 	if failureMode == "" {
-		failureMode = graph.FailureModeWorkloadDeletion
+		switch kind {
+		case "Pod":
+			failureMode = graph.FailureModePodCrash
+		case "Namespace":
+			failureMode = graph.FailureModeNamespaceDeletion
+		default:
+			failureMode = graph.FailureModeWorkloadDeletion
+		}
 	}
 	if !graph.ValidFailureMode(failureMode) {
 		respondError(w, http.StatusBadRequest, "Invalid failure_mode. Must be one of: pod-crash, workload-deletion, namespace-deletion")
@@ -61,6 +68,11 @@ func (h *Handler) GetBlastRadius(w http.ResponseWriter, r *http.Request) {
 		requestID := logger.FromContext(r.Context())
 		respondErrorWithCode(w, http.StatusNotFound, ErrCodeNotFound, err.Error(), requestID)
 		return
+	}
+
+	// Strip audit trail if not requested
+	if r.URL.Query().Get("audit") != "true" {
+		result.AuditTrail = nil
 	}
 
 	respondJSON(w, http.StatusOK, result)
