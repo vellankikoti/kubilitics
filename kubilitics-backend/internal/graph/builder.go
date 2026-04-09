@@ -2,6 +2,7 @@ package graph
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/kubilitics/kubilitics-backend/internal/models"
@@ -200,16 +201,9 @@ func BuildSnapshot(res *ClusterResources, hasIstio bool, virtualServices, destin
 
 		isIngressExposed := len(ingressHosts) > 0
 
-		score := computeCriticalityScore(scoringParams{
-			pageRank:         pageRanks[key],
-			fanIn:            fanIn,
-			crossNsCount:     crossNsCount,
-			isDataStore:      isDataStore,
-			isIngressExposed: isIngressExposed,
-			isSPOF:           replicas <= 1 && !hasHPA && fanIn > 0,
-			hasHPA:           hasHPA,
-			hasPDB:           hasPDB,
-		})
+		// Structural importance: PageRank (max 30) + fan-in (max 20).
+		// Full composite scoring now happens at query time in scoring_v2.go.
+		score := math.Min(pageRanks[key]*30.0, 30.0) + math.Min(float64(fanIn)*3.0, 20.0)
 
 		risks := detectRisks(key, replicas, fanIn, hasHPA, hasPDB, isIngressExposed, ingressHosts, isDataStore, crossNsCount)
 
