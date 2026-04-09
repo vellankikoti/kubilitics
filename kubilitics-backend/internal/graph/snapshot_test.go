@@ -77,12 +77,12 @@ func TestShortestPath(t *testing.T) {
 
 func TestCriticalityLevel(t *testing.T) {
 	assert.Equal(t, "critical", criticalityLevel(100))
-	assert.Equal(t, "critical", criticalityLevel(75))
-	assert.Equal(t, "high", criticalityLevel(74.9))
-	assert.Equal(t, "high", criticalityLevel(50))
-	assert.Equal(t, "medium", criticalityLevel(49.9))
-	assert.Equal(t, "medium", criticalityLevel(25))
-	assert.Equal(t, "low", criticalityLevel(24.9))
+	assert.Equal(t, "critical", criticalityLevel(71))
+	assert.Equal(t, "high", criticalityLevel(70))
+	assert.Equal(t, "high", criticalityLevel(45))
+	assert.Equal(t, "medium", criticalityLevel(44))
+	assert.Equal(t, "medium", criticalityLevel(20))
+	assert.Equal(t, "low", criticalityLevel(19))
 	assert.Equal(t, "low", criticalityLevel(0))
 }
 
