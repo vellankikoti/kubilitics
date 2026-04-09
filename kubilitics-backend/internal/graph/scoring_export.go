@@ -1,9 +1,13 @@
 package graph
 
-import "github.com/kubilitics/kubilitics-backend/internal/models"
+import (
+	"math"
 
-// ScoringParams is the exported equivalent of the unexported scoringParams,
-// used by the simulation package to recompute criticality scores on a mutated snapshot.
+	"github.com/kubilitics/kubilitics-backend/internal/models"
+)
+
+// ScoringParams is kept for backward compatibility with the simulation package.
+// Full composite scoring now happens at query time in scoring_v2.go.
 type ScoringParams struct {
 	PageRank         float64
 	FanIn            int
@@ -15,19 +19,11 @@ type ScoringParams struct {
 	HasPDB           bool
 }
 
-// ComputeCriticalityScore exports the internal computeCriticalityScore function
-// so the simulation package can reuse the exact same scoring algorithm.
+// ComputeCriticalityScore returns a lightweight structural importance score
+// (PageRank + fan-in) used by the simulation package when rescoring a mutated
+// snapshot. Full composite scoring happens at query time via scoring_v2.go.
 func ComputeCriticalityScore(p ScoringParams) float64 {
-	return computeCriticalityScore(scoringParams{
-		pageRank:         p.PageRank,
-		fanIn:            p.FanIn,
-		crossNsCount:     p.CrossNsCount,
-		isDataStore:      p.IsDataStore,
-		isIngressExposed: p.IsIngressExposed,
-		isSPOF:           p.IsSPOF,
-		hasHPA:           p.HasHPA,
-		hasPDB:           p.HasPDB,
-	})
+	return math.Min(p.PageRank*30.0, 30.0) + math.Min(float64(p.FanIn)*3.0, 20.0)
 }
 
 // SimplePageRank exports the internal simplePageRank function

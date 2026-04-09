@@ -2,10 +2,16 @@ package graph
 
 import (
 	"fmt"
+	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/kubilitics/kubilitics-backend/internal/models"
+	"github.com/kubilitics/kubilitics-backend/internal/otel"
+
+	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 )
 
 // refKey builds a canonical "Kind/Namespace/Name" key for a ResourceRef.
@@ -28,6 +34,11 @@ type GraphSnapshot struct {
 	NodeHasHPA   map[string]bool
 	NodeHasPDB   map[string]bool
 	NodeIngress  map[string][]string // refKey -> ingress hosts
+
+	PodOwners        map[string]string                  // podKey -> owning workload key (resolved through RS)
+	ServiceEndpoints map[string][]corev1.EndpointAddress // svcKey -> ready addresses
+	OTelServiceMap   *otel.ServiceMap                    // nullable, from trace data
+	PDBs             []policyv1.PodDisruptionBudget      // cluster PDBs for threshold computation
 
 	TotalWorkloads int
 	BuiltAt        int64         // unix ms
@@ -68,6 +79,12 @@ func (s *GraphSnapshot) EnsureMaps() {
 	}
 	if s.Namespaces == nil {
 		s.Namespaces = make(map[string]bool)
+	}
+	if s.PodOwners == nil {
+		s.PodOwners = make(map[string]string)
+	}
+	if s.ServiceEndpoints == nil {
+		s.ServiceEndpoints = make(map[string][]corev1.EndpointAddress)
 	}
 }
 
@@ -262,7 +279,7 @@ func (s *GraphSnapshot) computeNamespaceDeletion(target models.ResourceRef) (*mo
 	return &models.BlastRadiusResult{
 		TargetResource:     target,
 		CriticalityScore:   totalScore,
-		CriticalityLevel:   criticalityLevel(totalScore),
+		CriticalityLevel:   criticalityLevelV2(totalScore),
 		BlastRadiusPercent: 100.0, // namespace deletion affects everything in it
 		FailureMode:        FailureModeNamespaceDeletion,
 		TotalAffected:      allAffected,
@@ -285,47 +302,127 @@ func (s *GraphSnapshot) computeSingleResourceBlast(target models.ResourceRef, fa
 		return nil, fmt.Errorf("resource %s not found in graph", key)
 	}
 
-	// BFS reverse: what breaks if target fails
-	affectedDepths := bfsWalkWithDepth(s.Reverse, key)
+	// --- Impact Classification (new engine) ---
+	cr := classifyImpact(s, target, failureMode)
 
-	// BFS forward: what target depends on
-	forwardReachable := bfsWalk(s.Forward, key)
-
-	// Direct dependents (fan-in) and dependencies (fan-out)
+	// --- Gather resource metadata ---
+	replicas := s.NodeReplicas[key]
+	hasHPA := s.NodeHasHPA[key]
+	hasPDB := s.NodeHasPDB[key]
+	ingressHosts := s.NodeIngress[key]
 	fanIn := len(s.Reverse[key])
 	fanOut := len(s.Forward[key])
 
-	// Group affected by wave depth
+	// Resolve Pod metadata up to owning workload
+	if target.Kind == "Pod" && replicas == 0 {
+		if ownerKey, ok := s.PodOwners[key]; ok {
+			if r := s.NodeReplicas[ownerKey]; r > 0 {
+				replicas = r
+			}
+			if s.NodeHasHPA[ownerKey] {
+				hasHPA = true
+			}
+			if s.NodeHasPDB[ownerKey] {
+				hasPDB = true
+			}
+		}
+	}
+
+	// Check infrastructure status
+	_, isCriticalSystem := matchCriticalComponent(target.Namespace, target.Name)
+	comp, _ := matchCriticalComponent(target.Namespace, target.Name)
+	isControlPlane := isCriticalSystem && comp.ImpactScope == "control-plane"
+
+	// Has PVC?
+	hasPVC := false
+	if target.Kind == "StatefulSet" {
+		hasPVC = true // StatefulSets typically have PVCs
+	}
+
+	hasController := target.Kind != "Pod" || s.PodOwners[key] != ""
+
+	// --- Compute Sub-Scores ---
+	resilienceDetail := computeResilience(ResilienceInput{
+		Kind: target.Kind, Replicas: replicas, HasHPA: hasHPA, HasPDB: hasPDB, HasController: hasController,
+	})
+
+	// Count OTel consumers
+	consumerCount := 0
+	traceAvailable := s.OTelServiceMap != nil && len(s.OTelServiceMap.Edges) > 0
+	if traceAvailable {
+		for _, edge := range s.OTelServiceMap.Edges {
+			if strings.EqualFold(edge.Target, target.Name) {
+				consumerCount++
+			}
+		}
+	}
+
+	// Cross-namespace count
+	crossNsCount := 0
+	nsSet := make(map[string]bool)
+	for _, si := range cr.ServiceImpacts {
+		nsSet[si.Service.Namespace] = true
+	}
+	crossNsCount = len(nsSet)
+
+	exposureDetail := computeExposure(ExposureInput{
+		IsIngressExposed:   len(ingressHosts) > 0,
+		ConsumerCount:      consumerCount,
+		CrossNsCount:       crossNsCount,
+		K8sFanIn:           fanIn,
+		TraceDataAvailable: traceAvailable,
+		IsCriticalSystem:   isCriticalSystem,
+	})
+
+	recoveryDetail := computeRecovery(RecoveryInput{
+		Kind: target.Kind, Replicas: replicas, HasController: hasController,
+		HasPVC: hasPVC, IsControlPlane: isControlPlane,
+	})
+
+	impactDetail := models.SubScoreDetail{
+		Score: int(math.Round(cr.BlastRadiusPct)),
+		Factors: []models.ScoringFactor{{
+			Name: "blast_radius", Value: fmt.Sprintf("%.1f%%", cr.BlastRadiusPct),
+			Effect: cr.BlastRadiusPct, Note: "Computed blast radius percentage",
+		}},
+	}
+
+	subScores := models.SubScores{
+		Resilience: resilienceDetail,
+		Exposure:   exposureDetail,
+		Recovery:   recoveryDetail,
+		Impact:     impactDetail,
+	}
+
+	criticality := computeOverallCriticality(subScores)
+	level := criticalityLevelV2(criticality)
+
+	// SPOF — DaemonSets run on every node, so they're never truly SPOF
+	isSPOF := replicas <= 1 && !hasHPA && fanIn > 0 && target.Kind != "DaemonSet"
+
+	// --- Backward compat: waves and dependency chain for topology rendering ---
+	affectedDepths := bfsWalkWithDepth(s.Reverse, key)
+	forwardReachable := bfsWalk(s.Forward, key)
+
 	waveMap := make(map[int][]models.AffectedResource)
 	affectedNS := make(map[string]bool)
-
 	for aKey, depth := range affectedDepths {
 		ref := s.Nodes[aKey]
 		affectedNS[ref.Namespace] = true
-
 		impact := "transitive"
 		if depth == 1 {
 			impact = "direct"
 		}
-
-		ar := models.AffectedResource{
-			Kind:        ref.Kind,
-			Name:        ref.Name,
-			Namespace:   ref.Namespace,
-			Impact:      impact,
-			WaveDepth:   depth,
-			FailurePath: s.buildFailurePath(key, aKey),
-		}
-		waveMap[depth] = append(waveMap[depth], ar)
+		waveMap[depth] = append(waveMap[depth], models.AffectedResource{
+			Kind: ref.Kind, Name: ref.Name, Namespace: ref.Namespace,
+			Impact: impact, WaveDepth: depth, FailurePath: s.buildFailurePath(key, aKey),
+		})
 	}
-
-	// Sort wave depths
 	var depths []int
 	for d := range waveMap {
 		depths = append(depths, d)
 	}
 	sort.Ints(depths)
-
 	waves := make([]models.BlastWave, 0, len(depths))
 	for _, d := range depths {
 		resources := waveMap[d]
@@ -333,80 +430,9 @@ func (s *GraphSnapshot) computeSingleResourceBlast(target models.ResourceRef, fa
 			return resources[i].Kind+"/"+resources[i].Namespace+"/"+resources[i].Name <
 				resources[j].Kind+"/"+resources[j].Namespace+"/"+resources[j].Name
 		})
-		waves = append(waves, models.BlastWave{
-			Depth:     d,
-			Resources: resources,
-		})
+		waves = append(waves, models.BlastWave{Depth: d, Resources: resources})
 	}
 
-	// T4: Compute reachable subgraph size (bidirectional BFS — forward + reverse reachable nodes)
-	// This is the denominator for blast %, not TotalWorkloads.
-	totalAffected := len(affectedDepths)
-	reachableSubgraph := reachableSubgraphSize(s.Forward, s.Reverse, key)
-	var blastPercent float64
-	if reachableSubgraph > 0 {
-		blastPercent = float64(totalAffected) / float64(reachableSubgraph) * 100.0
-	}
-
-	// Gather pre-computed data
-	score := s.NodeScores[key]
-	risks := s.NodeRisks[key]
-	replicas := s.NodeReplicas[key]
-	hasHPA := s.NodeHasHPA[key]
-	hasPDB := s.NodeHasPDB[key]
-	ingressHosts := s.NodeIngress[key]
-
-	// For Pods: resolve replica count, HPA, and PDB from the owning workload.
-	// Pods themselves don't have replicas — the owning Deployment/StatefulSet does.
-	if target.Kind == "Pod" && replicas == 0 {
-		for ownerKey := range s.Reverse[key] {
-			ownerRef := s.Nodes[ownerKey]
-			switch ownerRef.Kind {
-			case "Deployment", "StatefulSet", "DaemonSet", "ReplicaSet":
-				if ownerReplicas := s.NodeReplicas[ownerKey]; ownerReplicas > 0 {
-					replicas = ownerReplicas
-				}
-				if s.NodeHasHPA[ownerKey] {
-					hasHPA = true
-				}
-				if s.NodeHasPDB[ownerKey] {
-					hasPDB = true
-				}
-				// Also check the owner's owner (ReplicaSet → Deployment)
-				for grandOwnerKey := range s.Reverse[ownerKey] {
-					grandOwner := s.Nodes[grandOwnerKey]
-					if grandOwner.Kind == "Deployment" || grandOwner.Kind == "StatefulSet" {
-						if gr := s.NodeReplicas[grandOwnerKey]; gr > 0 {
-							replicas = gr
-						}
-						if s.NodeHasHPA[grandOwnerKey] {
-							hasHPA = true
-						}
-						if s.NodeHasPDB[grandOwnerKey] {
-							hasPDB = true
-						}
-					}
-				}
-			}
-		}
-	}
-
-	// SPOF: single replica, no HPA, and has dependents
-	isSPOF := replicas <= 1 && !hasHPA && fanIn > 0
-
-	// T2: Apply failure mode to the base score
-	isDataStore := target.Kind == "StatefulSet"
-	score = applyFailureMode(score, failureMode, replicas)
-
-	// T5: Compute remediations
-	crossNsCount := len(affectedNS)
-	remediations := ComputeRemediations(isSPOF, hasPDB, hasHPA, replicas, fanIn, crossNsCount, isDataStore)
-
-	// Staleness
-	stalenessMs := time.Now().UnixMilli() - s.BuiltAt
-
-	// Collect dependency chain edges relevant to the forward/reverse reachable sets
-	var chain []models.BlastDependencyEdge
 	allRelevant := make(map[string]bool)
 	allRelevant[key] = true
 	for k := range affectedDepths {
@@ -415,6 +441,7 @@ func (s *GraphSnapshot) computeSingleResourceBlast(target models.ResourceRef, fa
 	for k := range forwardReachable {
 		allRelevant[k] = true
 	}
+	var chain []models.BlastDependencyEdge
 	for _, e := range s.Edges {
 		sk := refKey(e.Source)
 		tk := refKey(e.Target)
@@ -423,34 +450,56 @@ func (s *GraphSnapshot) computeSingleResourceBlast(target models.ResourceRef, fa
 		}
 	}
 
-	return &models.BlastRadiusResult{
+	// Remediations
+	isDataStore := target.Kind == "StatefulSet"
+	remediations := ComputeRemediations(isSPOF, hasPDB, hasHPA, replicas, fanIn, crossNsCount, isDataStore)
+
+	result := &models.BlastRadiusResult{
 		TargetResource:     target,
-		CriticalityScore:   score,
-		CriticalityLevel:   criticalityLevel(score),
-		BlastRadiusPercent: blastPercent,
 		FailureMode:        failureMode,
+		BlastRadiusPercent: cr.BlastRadiusPct,
+		CriticalityScore:   criticality,
+		CriticalityLevel:   level,
 
-		FanIn:              fanIn,
-		FanOut:             fanOut,
-		TotalAffected:      totalAffected,
-		AffectedNamespaces: len(affectedNS),
+		SubScores:         subScores,
+		ImpactSummary:     cr.ImpactSummary,
+		AffectedServices:  cr.ServiceImpacts,
+		AffectedIngresses: cr.IngressImpacts,
+		AffectedConsumers: cr.ConsumerImpacts,
 
+		ScoreBreakdown: models.ScoreBreakdown{
+			Resilience: resilienceDetail, Exposure: exposureDetail,
+			Recovery: recoveryDetail, Impact: impactDetail,
+			Overall: criticality, Level: level,
+		},
+		CoverageLevel: cr.CoverageLevel,
+		CoverageNote:  cr.CoverageNote,
+
+		ReplicaCount:     replicas,
 		IsSPOF:           isSPOF,
 		HasHPA:           hasHPA,
 		HasPDB:           hasPDB,
 		IsIngressExposed: len(ingressHosts) > 0,
 		IngressHosts:     ensureStringSlice(ingressHosts),
-		ReplicaCount:     replicas,
+		Remediations:     ensureRemediationSlice(remediations),
+
+		FanIn:              fanIn,
+		FanOut:             fanOut,
+		TotalAffected:      len(affectedDepths),
+		AffectedNamespaces: len(affectedNS),
 
 		Waves:           ensureSlice(waves),
 		DependencyChain: ensureEdgeSlice(chain),
-		RiskIndicators:  ensureRiskSlice(risks),
-		Remediations:    ensureRemediationSlice(remediations),
+		RiskIndicators:  ensureRiskSlice(s.NodeRisks[key]),
 
 		GraphNodeCount:   len(s.Nodes),
 		GraphEdgeCount:   len(s.Edges),
-		GraphStalenessMs: stalenessMs,
-	}, nil
+		GraphStalenessMs: time.Now().UnixMilli() - s.BuiltAt,
+	}
+
+	result.Verdict = generateVerdict(result)
+
+	return result, nil
 }
 
 // ensureSlice/ensureEdgeSlice/ensureRiskSlice guarantee non-nil slices in JSON output.
@@ -585,7 +634,7 @@ func (s *GraphSnapshot) GetSummary(limit int) []models.BlastRadiusSummaryEntry {
 		result = append(result, models.BlastRadiusSummaryEntry{
 			Resource:           ref,
 			CriticalityScore:   e.score,
-			CriticalityLevel:   criticalityLevel(e.score),
+			CriticalityLevel:   criticalityLevelV2(e.score),
 			BlastRadiusPercent: blastPct,
 			FanIn:              fanIn,
 			IsSPOF:             isSPOF,

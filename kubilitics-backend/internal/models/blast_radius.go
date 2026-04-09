@@ -1,33 +1,57 @@
 package models
 
-// BlastRadiusResult contains the full cluster-wide blast radius analysis for a single resource.
+// BlastRadiusResult is the complete blast-radius analysis response for a target resource.
 type BlastRadiusResult struct {
-	TargetResource     ResourceRef           `json:"target_resource"`
-	CriticalityScore   float64               `json:"criticality_score"`    // 0-100
-	CriticalityLevel   string                `json:"criticality_level"`    // low / medium / high / critical
-	BlastRadiusPercent float64               `json:"blast_radius_percent"` // % of reachable subgraph affected
-	FailureMode        string                `json:"failure_mode"`         // pod-crash / workload-deletion / namespace-deletion
+	// Target
+	TargetResource ResourceRef `json:"targetResource"`
+	FailureMode    string      `json:"failureMode"`
 
-	FanIn              int                   `json:"fan_in"`               // direct dependents
-	FanOut             int                   `json:"fan_out"`              // direct dependencies
-	TotalAffected      int                   `json:"total_affected"`       // transitive impact count
-	AffectedNamespaces int                   `json:"affected_namespaces"`  // cross-namespace reach
+	// Core metrics
+	BlastRadiusPercent float64 `json:"blastRadiusPercent"`
+	CriticalityScore   float64 `json:"criticalityScore"`
+	CriticalityLevel   string  `json:"criticalityLevel"`
 
-	IsSPOF             bool                  `json:"is_spof"`
-	HasHPA             bool                  `json:"has_hpa"`
-	HasPDB             bool                  `json:"has_pdb"`
-	IsIngressExposed   bool                  `json:"is_ingress_exposed"`
-	IngressHosts       []string              `json:"ingress_hosts,omitempty"`
-	ReplicaCount       int                   `json:"replica_count"`
+	// Sub-scores
+	SubScores SubScores `json:"subScores"`
 
-	Waves              []BlastWave           `json:"waves"`
-	DependencyChain    []BlastDependencyEdge `json:"dependency_chain"`
-	RiskIndicators     []RiskIndicator       `json:"risk_indicators"`
-	Remediations       []Remediation         `json:"remediations"`
+	// Impact classification
+	ImpactSummary     ImpactSummary    `json:"impactSummary"`
+	AffectedServices  []ServiceImpact  `json:"affectedServices"`
+	AffectedIngresses []IngressImpact  `json:"affectedIngresses,omitempty"`
+	AffectedConsumers []ConsumerImpact `json:"affectedConsumers,omitempty"`
 
-	GraphNodeCount     int                   `json:"graph_node_count"`
-	GraphEdgeCount     int                   `json:"graph_edge_count"`
-	GraphStalenessMs   int64                 `json:"graph_staleness_ms"`
+	// Explainability
+	ScoreBreakdown ScoreBreakdown `json:"scoreBreakdown"`
+	Verdict        string         `json:"verdict"`
+	AuditTrail     *AuditTrail    `json:"auditTrail,omitempty"`
+
+	// Coverage
+	CoverageLevel string `json:"coverageLevel"`
+	CoverageNote  string `json:"coverageNote,omitempty"`
+
+	// Resource characteristics
+	ReplicaCount     int           `json:"replicaCount"`
+	IsSPOF           bool          `json:"isSPOF"`
+	HasHPA           bool          `json:"hasHPA"`
+	HasPDB           bool          `json:"hasPDB"`
+	IsIngressExposed bool          `json:"isIngressExposed"`
+	IngressHosts     []string      `json:"ingressHosts"`
+	Remediations     []Remediation `json:"remediations"`
+
+	// Backward compat fields for topology rendering
+	FanIn              int  `json:"fanIn"`
+	FanOut             int  `json:"fanOut"`
+	TotalAffected      int  `json:"totalAffected"`
+	AffectedNamespaces int  `json:"affectedNamespaces"`
+
+	Waves           []BlastWave           `json:"waves"`
+	DependencyChain []BlastDependencyEdge `json:"dependencyChain"`
+	RiskIndicators  []RiskIndicator       `json:"riskIndicators"`
+
+	// Graph metadata
+	GraphNodeCount   int   `json:"graphNodeCount"`
+	GraphEdgeCount   int   `json:"graphEdgeCount"`
+	GraphStalenessMs int64 `json:"graphStalenessMs"`
 }
 
 // Remediation is a suggested action to reduce the blast radius of a resource.
@@ -105,4 +129,102 @@ type BlastRadiusSummaryEntry struct {
 	FanIn              int         `json:"fan_in"`
 	IsSPOF             bool        `json:"is_spof"`
 	AffectedNamespaces int         `json:"affected_namespaces"`
+}
+
+// SubScores holds the four transparent sub-scores for the composite criticality model.
+type SubScores struct {
+	Resilience SubScoreDetail `json:"resilience"`
+	Exposure   SubScoreDetail `json:"exposure"`
+	Recovery   SubScoreDetail `json:"recovery"`
+	Impact     SubScoreDetail `json:"impact"`
+}
+
+// SubScoreDetail holds a single sub-score with its contributing factors.
+type SubScoreDetail struct {
+	Score      int             `json:"score"`
+	Factors    []ScoringFactor `json:"factors"`
+	Source     string          `json:"source,omitempty"`
+	Confidence string          `json:"confidence,omitempty"`
+}
+
+// ScoringFactor is one contributing factor to a sub-score.
+type ScoringFactor struct {
+	Name   string  `json:"name"`
+	Value  string  `json:"value"`
+	Effect float64 `json:"effect"`
+	Note   string  `json:"note"`
+}
+
+// ScoreBreakdown is the full explainability structure for the criticality score.
+type ScoreBreakdown struct {
+	Resilience SubScoreDetail `json:"resilience"`
+	Exposure   SubScoreDetail `json:"exposure"`
+	Recovery   SubScoreDetail `json:"recovery"`
+	Impact     SubScoreDetail `json:"impact"`
+	Overall    float64        `json:"overall"`
+	Level      string         `json:"level"`
+}
+
+// ImpactSummary summarizes the classification results across the cluster.
+type ImpactSummary struct {
+	BrokenCount      int      `json:"brokenCount"`
+	DegradedCount    int      `json:"degradedCount"`
+	SelfHealingCount int      `json:"selfHealingCount"`
+	TotalWorkloads   int      `json:"totalWorkloads"`
+	CapacityNotes    []string `json:"capacityNotes"`
+}
+
+// ServiceImpact is the impact classification for a single Service.
+type ServiceImpact struct {
+	Service            ResourceRef `json:"service"`
+	Classification     string      `json:"classification"`
+	TotalEndpoints     int         `json:"totalEndpoints"`
+	RemainingEndpoints int         `json:"remainingEndpoints"`
+	Threshold          float64     `json:"threshold"`
+	ThresholdSource    string      `json:"thresholdSource"`
+	Note               string      `json:"note"`
+}
+
+// IngressImpact is the impact classification for a single Ingress.
+type IngressImpact struct {
+	Ingress        ResourceRef `json:"ingress"`
+	Classification string      `json:"classification"`
+	Host           string      `json:"host"`
+	BackendService string      `json:"backendService"`
+	Note           string      `json:"note"`
+}
+
+// ConsumerImpact is the impact classification for a consumer workload identified via OTel traces.
+type ConsumerImpact struct {
+	Workload       ResourceRef `json:"workload"`
+	Classification string      `json:"classification"`
+	DependsOn      string      `json:"dependsOn"`
+	Note           string      `json:"note"`
+}
+
+// AuditTrail is the full calculation trace returned when ?audit=true is set.
+type AuditTrail struct {
+	Timestamp            string               `json:"timestamp"`
+	TargetResource       ResourceRef          `json:"targetResource"`
+	FailureMode          string               `json:"failureMode"`
+	GraphStalenessMs     int64                `json:"graphStalenessMs"`
+	TraceDataAgeMs       *int64               `json:"traceDataAgeMs,omitempty"`
+	LostPods             []ResourceRef        `json:"lostPods"`
+	ServiceImpacts       []ServiceImpactAudit `json:"serviceImpacts"`
+	IngressImpacts       []IngressImpact      `json:"ingressImpacts"`
+	ConsumerImpacts      []ConsumerImpact     `json:"consumerImpacts,omitempty"`
+	ScoreBreakdown       ScoreBreakdown       `json:"scoreBreakdown"`
+	ClusterWorkloadCount int                  `json:"clusterWorkloadCount"`
+	CoverageLevel        string               `json:"coverageLevel"`
+}
+
+// ServiceImpactAudit is the detailed audit entry for a single Service's impact computation.
+type ServiceImpactAudit struct {
+	Service         string  `json:"service"`
+	TotalEndpoints  int     `json:"totalEndpoints"`
+	LostEndpoints   int     `json:"lostEndpoints"`
+	RemainingPct    float64 `json:"remainingPercent"`
+	Threshold       float64 `json:"threshold"`
+	ThresholdSource string  `json:"thresholdSource"`
+	Classification  string  `json:"classification"`
 }

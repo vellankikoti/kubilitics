@@ -1,8 +1,6 @@
 package graph
 
 import (
-	"math"
-
 	"github.com/kubilitics/kubilitics-backend/internal/models"
 )
 
@@ -20,91 +18,6 @@ func ValidFailureMode(mode string) bool {
 		return true
 	default:
 		return false
-	}
-}
-
-// scoringParams holds the inputs required to compute a criticality score.
-type scoringParams struct {
-	pageRank         float64
-	fanIn            int
-	crossNsCount     int
-	isDataStore      bool
-	isIngressExposed bool
-	isSPOF           bool
-	hasHPA           bool
-	hasPDB           bool
-}
-
-// computeBaseScore returns the raw 0-100 criticality score from the given params,
-// before any failure-mode replica adjustment is applied.
-func computeBaseScore(p scoringParams) float64 {
-	score := 0.0
-
-	// PageRank contribution: max 30
-	score += math.Min(p.pageRank*30.0, 30.0)
-
-	// Fan-in contribution: max 20
-	score += math.Min(float64(p.fanIn)*3.0, 20.0)
-
-	// Cross-namespace contribution: max 10, only if >1
-	if p.crossNsCount > 1 {
-		score += math.Min(float64(p.crossNsCount)*2.5, 10.0)
-	}
-
-	// Data store bonus
-	if p.isDataStore {
-		score += 15.0
-	}
-
-	// Ingress exposed bonus
-	if p.isIngressExposed {
-		score += 10.0
-	}
-
-	// SPOF bonus
-	if p.isSPOF {
-		score += 10.0
-	}
-
-	// No HPA penalty
-	if !p.hasHPA {
-		score += 5.0
-	}
-
-	// No PDB penalty
-	if !p.hasPDB {
-		score += 5.0
-	}
-
-	// Cap at 100
-	if score > 100.0 {
-		score = 100.0
-	}
-	return score
-}
-
-// computeCriticalityScore returns a 0-100 criticality score from the given params.
-// This is the backward-compatible entry point that computes the base score
-// (equivalent to workload-deletion mode with no replica attenuation).
-func computeCriticalityScore(p scoringParams) float64 {
-	return computeBaseScore(p)
-}
-
-// applyFailureMode adjusts the base score according to the failure mode and replica count.
-//   - pod-crash:           score * (1 / replicas) — near-zero if replicas > 1
-//   - workload-deletion:   score * 1.0 — full impact (default)
-//   - namespace-deletion:  handled externally (sum of workload scores, capped at 100)
-func applyFailureMode(baseScore float64, failureMode string, replicas int) float64 {
-	switch failureMode {
-	case FailureModePodCrash:
-		if replicas > 1 {
-			return baseScore * (1.0 / float64(replicas))
-		}
-		return baseScore // replicas <= 1 means full impact
-	case FailureModeWorkloadDeletion, FailureModeNamespaceDeletion:
-		return baseScore
-	default:
-		return baseScore
 	}
 }
 

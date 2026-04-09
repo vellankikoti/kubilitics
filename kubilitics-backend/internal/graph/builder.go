@@ -1,6 +1,8 @@
 package graph
 
 import (
+	"fmt"
+	"math"
 	"time"
 
 	"github.com/kubilitics/kubilitics-backend/internal/models"
@@ -31,12 +33,16 @@ type ClusterResources struct {
 	PVCs             []corev1.PersistentVolumeClaim
 	HPAs             []autoscalingv1.HorizontalPodAutoscaler
 	PDBs             []policyv1.PodDisruptionBudget
+	Endpoints        []corev1.Endpoints
 }
 
 // BuildSnapshot constructs a complete GraphSnapshot from cluster resources.
 // It runs all inference functions, registers every resource as a node,
 // computes PageRank and criticality scores, and returns the immutable snapshot.
 func BuildSnapshot(res *ClusterResources, hasIstio bool, virtualServices, destinationRules []map[string]interface{}) *GraphSnapshot {
+	if res == nil {
+		res = &ClusterResources{}
+	}
 	start := time.Now()
 
 	nodes := make(map[string]models.ResourceRef)
@@ -54,24 +60,30 @@ func BuildSnapshot(res *ClusterResources, hasIstio bool, virtualServices, destin
 	inferSelectorDeps(nodes, forward, reverse, &edges,
 		res.Services, res.Pods, podOwners)
 
-	// Env var references to services
-	inferEnvVarDeps(nodes, forward, reverse, &edges,
-		res.Pods, podOwners, res.Services)
-
-	// Volume mount deps: ConfigMap, Secret, PVC
-	inferVolumeMountDeps(nodes, forward, reverse, &edges,
-		res.Deployments, res.StatefulSets, res.DaemonSets)
-
 	// Ingress -> Service
 	inferIngressDeps(nodes, forward, reverse, &edges, res.Ingresses)
 
-	// NetworkPolicy -> workloads
-	inferNetworkPolicyDeps(nodes, forward, reverse, &edges,
-		res.NetworkPolicies, res.Pods, podOwners)
-
-	// Istio CRDs
-	inferIstioDeps(nodes, forward, reverse, &edges,
-		virtualServices, destinationRules, hasIstio)
+	// Build PodOwners: pod key → ultimate workload owner key
+	// Resolves RS → Deployment chain via the reverse adjacency
+	podOwnersMap := make(map[string]string)
+	for podKey, ownerRef := range podOwners {
+		ownerKey := refKey(ownerRef)
+		// If owner is a ReplicaSet, check if it's owned by a Deployment
+		if ownerRef.Kind == "ReplicaSet" {
+			for grandOwnerKey := range reverse[ownerKey] {
+				grandOwner := nodes[grandOwnerKey]
+				if grandOwner.Kind == "Deployment" {
+					podOwnersMap[podKey] = grandOwnerKey
+					break
+				}
+			}
+			if _, resolved := podOwnersMap[podKey]; !resolved {
+				podOwnersMap[podKey] = ownerKey // RS with no Deployment parent
+			}
+		} else {
+			podOwnersMap[podKey] = ownerKey
+		}
+	}
 
 	// --- Step 2: Register ALL resources as first-class nodes (even without edges) ---
 
@@ -189,16 +201,9 @@ func BuildSnapshot(res *ClusterResources, hasIstio bool, virtualServices, destin
 
 		isIngressExposed := len(ingressHosts) > 0
 
-		score := computeCriticalityScore(scoringParams{
-			pageRank:         pageRanks[key],
-			fanIn:            fanIn,
-			crossNsCount:     crossNsCount,
-			isDataStore:      isDataStore,
-			isIngressExposed: isIngressExposed,
-			isSPOF:           replicas <= 1 && !hasHPA && fanIn > 0,
-			hasHPA:           hasHPA,
-			hasPDB:           hasPDB,
-		})
+		// Structural importance: PageRank (max 30) + fan-in (max 20).
+		// Full composite scoring now happens at query time in scoring_v2.go.
+		score := math.Min(pageRanks[key]*30.0, 30.0) + math.Min(float64(fanIn)*3.0, 20.0)
 
 		risks := detectRisks(key, replicas, fanIn, hasHPA, hasPDB, isIngressExposed, ingressHosts, isDataStore, crossNsCount)
 
@@ -209,6 +214,15 @@ func BuildSnapshot(res *ClusterResources, hasIstio bool, virtualServices, destin
 		nodeHasPDB[key] = hasPDB
 		if len(ingressHosts) > 0 {
 			nodeIngress[key] = ingressHosts
+		}
+	}
+
+	// --- Step 5b: Build Service -> ready endpoints map ---
+	serviceEndpoints := make(map[string][]corev1.EndpointAddress)
+	for _, ep := range res.Endpoints {
+		svcKey := fmt.Sprintf("Service/%s/%s", ep.Namespace, ep.Name)
+		for _, subset := range ep.Subsets {
+			serviceEndpoints[svcKey] = append(serviceEndpoints[svcKey], subset.Addresses...)
 		}
 	}
 
@@ -231,6 +245,10 @@ func BuildSnapshot(res *ClusterResources, hasIstio bool, virtualServices, destin
 		NodeHasHPA:   nodeHasHPA,
 		NodeHasPDB:   nodeHasPDB,
 		NodeIngress:  nodeIngress,
+
+		PodOwners:        podOwnersMap,
+		ServiceEndpoints: serviceEndpoints,
+		PDBs:             res.PDBs,
 
 		TotalWorkloads: totalWorkloads,
 		BuiltAt:        time.Now().UnixMilli(),
