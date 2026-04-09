@@ -14,10 +14,18 @@ export async function getBlastRadius(
   namespace: string,
   kind: string,
   name: string,
+  failureMode?: string,
+  audit?: boolean,
 ): Promise<BlastRadiusResult> {
   const ns = namespace || '-';
   const path = `clusters/${encodeURIComponent(clusterId)}/blast-radius/${encodeURIComponent(ns)}/${encodeURIComponent(kind)}/${encodeURIComponent(name)}`;
-  const result = await backendRequest<BlastRadiusResult>(baseUrl, path);
+  const url = path;
+  const params = new URLSearchParams();
+  if (failureMode) params.set('failure_mode', failureMode);
+  if (audit) params.set('audit', 'true');
+  const queryString = params.toString();
+  const finalUrl = queryString ? `${url}?${queryString}` : url;
+  const result = await backendRequest<BlastRadiusResult>(baseUrl, finalUrl);
   // Defensive: backend Go serializes nil slices as "null" in JSON.
   // Normalize all array fields to empty arrays to prevent frontend crashes.
   result.waves = result.waves ?? [];

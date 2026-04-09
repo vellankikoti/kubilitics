@@ -14,6 +14,7 @@ export interface UseBlastRadiusOptions {
   namespace?: string | null;
   name?: string | null;
   enabled?: boolean;
+  failureMode?: string;
 }
 
 export interface UseBlastRadiusReturn {
@@ -31,6 +32,7 @@ export function useBlastRadius({
   namespace,
   name,
   enabled = true,
+  failureMode,
 }: UseBlastRadiusOptions): UseBlastRadiusReturn {
   const clusterId = useActiveClusterId();
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
@@ -65,8 +67,8 @@ export function useBlastRadius({
     isFetching,
     error: blastError,
   } = useQuery<BlastRadiusResult, Error>({
-    queryKey: ['blast-radius', clusterId, kind, normalizedNamespace, normalizedName],
-    queryFn: () => getBlastRadius(effectiveBaseUrl, clusterId!, normalizedNamespace, kind, normalizedName),
+    queryKey: ['blast-radius', clusterId, kind, normalizedNamespace, normalizedName, failureMode],
+    queryFn: () => getBlastRadius(effectiveBaseUrl, clusterId!, normalizedNamespace, kind, normalizedName, failureMode),
     enabled: blastEnabled,
     staleTime: 60_000,
     retry: 1,
