@@ -73,7 +73,7 @@ const TRAFFIC_EDGE_TYPES = new Set([
 function getNodeTypeForZoom(zoom: number): string {
   if (zoom < ZOOM_THRESHOLDS.minimal) return "minimal";
   if (zoom < ZOOM_THRESHOLDS.compact) return "compact";
-  if (zoom > ZOOM_THRESHOLDS.expanded) return "expanded";
+  if (zoom >= ZOOM_THRESHOLDS.expanded) return "expanded";
   return "base";
 }
 
@@ -511,6 +511,16 @@ function TopologyCanvasInner({
     },
     []
   );
+
+  // Keyboard navigation: listen for topology-node-activate events dispatched by BaseNode
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      onSelectNode(detail.nodeId);
+    };
+    window.addEventListener('topology-node-activate', handler);
+    return () => window.removeEventListener('topology-node-activate', handler);
+  }, [onSelectNode]);
 
   const miniMapNodeColor = useCallback((n: Node) => {
     const category = (n.data as unknown as Record<string, unknown>)?.category ?? "custom";

@@ -463,7 +463,10 @@ export function useElkLayout(
       .catch(() => {
         if (!cancelled) setElkReady(true);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      elkRef.current = null;
+    };
   }, []);
 
   // Main layout computation
