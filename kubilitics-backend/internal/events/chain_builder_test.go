@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -253,5 +254,136 @@ func TestStore_CausalChain_UpsertAndGet(t *testing.T) {
 	}
 	if missing != nil {
 		t.Errorf("expected nil for missing insight, got %+v", missing)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ChainBuilder tests
+// ---------------------------------------------------------------------------
+
+// newTestChainBuilder creates an in-memory store, seeds it with events, and
+// returns both the store and a ChainBuilder ready for testing.
+func newTestChainBuilder(t *testing.T) (*Store, *ChainBuilder) {
+	t.Helper()
+	s := newTestStore(t)
+	ce := NewCausalityEngine(s)
+	cfg := DefaultChainBuilderConfig()
+	cb := NewChainBuilder(s, ce, cfg)
+	return s, cb
+}
+
+// seedEvent is a small helper that inserts a WideEvent and fatals on error.
+func seedEvent(t *testing.T, ctx context.Context, s *Store, e *WideEvent) {
+	t.Helper()
+	if err := s.InsertEvent(ctx, e); err != nil {
+		t.Fatalf("seedEvent %s: %v", e.EventID, err)
+	}
+}
+
+// TestChainBuilder_BuildChain_TwoHop seeds a ConfigMap update event followed
+// by a Pod BackOff event that the causality engine should link together via
+// the config_causes_restart rule. The chain should have at least 1 link and
+// chain confidence >= 0.5.
+func TestChainBuilder_BuildChain_TwoHop(t *testing.T) {
+	ctx := context.Background()
+	s, cb := newTestChainBuilder(t)
+
+	clusterID := "cluster-twohop"
+	ns := "default"
+	now := time.Now().UnixMilli()
+
+	// Cause: ConfigMap change event (2 minutes before symptom).
+	configEvent := &WideEvent{
+		EventID:           fmt.Sprintf("evt-configmap-%d", now),
+		Timestamp:         now - 2*60*1000,
+		ClusterID:         clusterID,
+		EventType:         "Normal",
+		Reason:            "ConfigChanged",
+		Message:           "ConfigMap app-config was updated",
+		ResourceKind:      "ConfigMap",
+		ResourceName:      "app-config",
+		ResourceNamespace: ns,
+		Severity:          "info",
+	}
+
+	// Symptom: Pod restart (Killing) caused by config change.
+	podEvent := &WideEvent{
+		EventID:           fmt.Sprintf("evt-pod-killing-%d", now),
+		Timestamp:         now,
+		ClusterID:         clusterID,
+		EventType:         "Normal",
+		Reason:            "Killing",
+		Message:           "Stopping container api-server",
+		ResourceKind:      "Pod",
+		ResourceName:      "api-server-7f8d9",
+		ResourceNamespace: ns,
+		Severity:          "warning",
+	}
+
+	seedEvent(t, ctx, s, configEvent)
+	seedEvent(t, ctx, s, podEvent)
+
+	insight := Insight{
+		InsightID: "insight-twohop",
+		Timestamp: now,
+		ClusterID: clusterID,
+		Rule:      "pod_restart",
+		Severity:  "warning",
+		Title:     "Pod restarting",
+		Detail:    "Pod default/api-server-7f8d9 is restarting repeatedly",
+		Status:    "active",
+	}
+
+	chain, err := cb.BuildChain(ctx, insight)
+	if err != nil {
+		t.Fatalf("BuildChain: %v", err)
+	}
+	if chain == nil {
+		t.Fatal("expected a chain, got nil")
+	}
+	if len(chain.Links) < 1 {
+		t.Errorf("expected at least 1 link, got %d", len(chain.Links))
+	}
+	if chain.Confidence < 0.5 {
+		t.Errorf("expected chain confidence >= 0.5, got %f", chain.Confidence)
+	}
+	if chain.ClusterID != clusterID {
+		t.Errorf("ClusterID: want %s, got %s", clusterID, chain.ClusterID)
+	}
+	if chain.InsightID != "insight-twohop" {
+		t.Errorf("InsightID: want insight-twohop, got %s", chain.InsightID)
+	}
+	if chain.ID == "" {
+		t.Error("chain ID should not be empty")
+	}
+	t.Logf("two-hop chain: id=%s links=%d confidence=%.2f rootCause=%s/%s",
+		chain.ID, len(chain.Links), chain.Confidence,
+		chain.RootCause.Kind, chain.RootCause.Name)
+}
+
+// TestChainBuilder_BuildChain_NoChain verifies that when no events exist for
+// the resource described in the insight, BuildChain returns nil, nil without
+// errors.
+func TestChainBuilder_BuildChain_NoChain(t *testing.T) {
+	ctx := context.Background()
+	_, cb := newTestChainBuilder(t)
+
+	insight := Insight{
+		InsightID: "insight-nochain",
+		Timestamp: time.Now().UnixMilli(),
+		ClusterID: "cluster-empty",
+		Rule:      "pod_crash",
+		Severity:  "critical",
+		Title:     "Pod crash",
+		Detail:    "Pod production/ghost-pod is in CrashLoopBackOff",
+		Status:    "active",
+	}
+
+	chain, err := cb.BuildChain(ctx, insight)
+	if err != nil {
+		t.Fatalf("BuildChain (no events): unexpected error: %v", err)
+	}
+	if chain != nil {
+		t.Errorf("expected nil chain when no events exist, got: %+v", chain)
 	}
 }
