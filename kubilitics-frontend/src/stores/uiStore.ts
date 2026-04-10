@@ -10,6 +10,8 @@ interface UIState {
     expandedResourceCategories: string[];
     /** Whether the top-level Resources section is expanded */
     isResourcesSectionOpen: boolean;
+    /** Whether the Intelligence section is expanded */
+    isIntelligenceSectionOpen: boolean;
     /** Whether the bottom shell panel is open */
     isShellOpen: boolean;
     /** Height of the shell panel in pixels */
@@ -19,6 +21,7 @@ interface UIState {
     setAutoCollapsed: (auto: boolean) => void;
     toggleResourceCategory: (categoryId: string) => void;
     setResourcesSectionOpen: (open: boolean) => void;
+    setIntelligenceSectionOpen: (open: boolean) => void;
     setShellOpen: (open: boolean) => void;
     setShellHeightPx: (height: number) => void;
 }
@@ -35,6 +38,7 @@ export const useUIStore = create<UIState>()(
             isAutoCollapsed: false,
             expandedResourceCategories: ['workloads'],
             isResourcesSectionOpen: true,
+            isIntelligenceSectionOpen: true,
             isShellOpen: false,
             shellHeightPx: 320,
             setSidebarCollapsed: (collapsed) => set({ isSidebarCollapsed: collapsed, isAutoCollapsed: false }),
@@ -47,6 +51,7 @@ export const useUIStore = create<UIState>()(
                         : [categoryId], // Single-open: only one sub-category at a time
                 })),
             setResourcesSectionOpen: (open) => set({ isResourcesSectionOpen: open }),
+            setIntelligenceSectionOpen: (open) => set({ isIntelligenceSectionOpen: open }),
             setShellOpen: (open) => set({ isShellOpen: open }),
             setShellHeightPx: (height) => set({ shellHeightPx: height }),
         }),
@@ -56,6 +61,7 @@ export const useUIStore = create<UIState>()(
                 isSidebarCollapsed: state.isSidebarCollapsed,
                 expandedResourceCategories: state.expandedResourceCategories,
                 isResourcesSectionOpen: state.isResourcesSectionOpen,
+                isIntelligenceSectionOpen: state.isIntelligenceSectionOpen,
             }),
         }
     )

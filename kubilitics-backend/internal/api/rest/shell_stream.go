@@ -96,6 +96,20 @@ func (h *Handler) GetShellStream(w http.ResponseWriter, r *http.Request) {
 	// Suppress macOS bash deprecation warning
 	sb.WriteString("export BASH_SILENCE_DEPRECATION_WARNING=1\n")
 
+	// Color support: directories=blue, executables=green, symlinks=cyan
+	// LS_COLORS for GNU ls (Linux), CLICOLOR+LSCOLORS for BSD ls (macOS)
+	sb.WriteString("export LS_COLORS='di=1;34:ln=1;36:so=1;35:pi=33:ex=1;32:bd=1;33;40:cd=1;33;40:su=37;41:sg=30;43:tw=30;42:ow=34;42'\n")
+	sb.WriteString("export CLICOLOR=1\n")
+	sb.WriteString("export LSCOLORS=ExGxFxDxCxEgEdxbxgxcxd\n")
+	sb.WriteString("if ls --color=auto / >/dev/null 2>&1; then\n")
+	sb.WriteString("  alias ls='ls --color=auto'\n")
+	sb.WriteString("  alias ll='ls -la --color=auto'\n")
+	sb.WriteString("else\n")
+	sb.WriteString("  alias ls='ls -G'\n")
+	sb.WriteString("  alias ll='ls -laG'\n")
+	sb.WriteString("fi\n")
+	sb.WriteString("alias grep='grep --color=auto'\n")
+
 	if kcliErr == nil {
 		// kcli is available — set up a rich kcli-powered shell with aliases and completion
 		sb.WriteString("export KCLI_BIN='" + strings.ReplaceAll(kcliBin, "'", "'\"'\"'") + "'\n")

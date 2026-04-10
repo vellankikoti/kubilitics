@@ -244,18 +244,27 @@ func (h *Handler) GetPodExec(w http.ResponseWriter, r *http.Request) {
 	// If the user specified a custom shell, use that directly.
 	command := []string{shell}
 	if shell == "/bin/sh" {
-		// Simple approach: write color config, prepend to ~/.bashrc, set ENV for sh/ash, then exec.
-		wrapperScript := `KRC='export TERM=xterm-256color
+		// Write color config to /tmp/.krc, set ENV so sh/ash sources it, then exec best shell.
+		// Use printf for portability (echo behaviour varies across shells/containers).
+		// Detect whether ls supports --color (GNU coreutils) or only -G (BusyBox/BSD).
+		wrapperScript := `export TERM=xterm-256color
 export LS_COLORS="di=1;34:ln=1;36:so=1;35:pi=33:ex=1;32:bd=1;33;40:cd=1;33;40:su=37;41:sg=30;43:tw=30;42:ow=34;42"
-alias ls="ls --color=auto"
-alias ll="ls -la --color=auto"
-alias grep="grep --color=auto"
-'
-echo "$KRC" > /tmp/.krc
+printf '%s\n' \
+  'export TERM=xterm-256color' \
+  'export LS_COLORS="di=1;34:ln=1;36:so=1;35:pi=33:ex=1;32:bd=1;33;40:cd=1;33;40:su=37;41:sg=30;43:tw=30;42:ow=34;42"' \
+  'if ls --color=auto / >/dev/null 2>&1; then' \
+  '  alias ls="ls --color=auto"' \
+  '  alias ll="ls -la --color=auto"' \
+  'else' \
+  '  alias ls="ls -G"' \
+  '  alias ll="ls -laG"' \
+  'fi' \
+  'alias grep="grep --color=auto 2>/dev/null || grep"' \
+  > /tmp/.krc
 if [ -f "$HOME/.bashrc" ]; then cat "$HOME/.bashrc" >> /tmp/.krc; fi
 cp /tmp/.krc "$HOME/.bashrc" 2>/dev/null
 export ENV="/tmp/.krc"
-if [ -x /bin/bash ]; then exec /bin/bash -i
+if [ -x /bin/bash ]; then exec /bin/bash --rcfile /tmp/.krc -i
 elif [ -x /bin/ash ]; then exec /bin/ash -i
 else exec /bin/sh -i
 fi`

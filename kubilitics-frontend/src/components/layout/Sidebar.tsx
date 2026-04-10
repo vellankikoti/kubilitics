@@ -677,8 +677,10 @@ function SidebarContent({
   // Persisted state from UI store
   const expandedCategories = useUIStore((s) => s.expandedResourceCategories);
   const isResourcesSectionOpen = useUIStore((s) => s.isResourcesSectionOpen);
+  const isIntelligenceSectionOpen = useUIStore((s) => s.isIntelligenceSectionOpen);
   const toggleResourceCategory = useUIStore((s) => s.toggleResourceCategory);
   const setResourcesSectionOpen = useUIStore((s) => s.setResourcesSectionOpen);
+  const setIntelligenceSectionOpen = useUIStore((s) => s.setIntelligenceSectionOpen);
 
   // Search state removed — global search in header handles this
 
@@ -701,10 +703,26 @@ function SidebarContent({
     }
   }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Auto-expand Intelligence section when navigating to an intelligence route
+  useEffect(() => {
+    const INTEL_PATHS = ['/health', '/risk-ranking', '/spof-inventory', '/events-intelligence', '/traces', '/simulation', '/auto-pilot', '/report-schedules'];
+    const isIntelRoute = INTEL_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+    if (isIntelRoute && !isIntelligenceSectionOpen) {
+      setIntelligenceSectionOpen(true);
+    }
+  }, [pathname]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const handleResourcesToggle = useCallback(() => {
     setResourcesSectionOpen(!isResourcesSectionOpen);
   }, [isResourcesSectionOpen, setResourcesSectionOpen]);
+
+  const handleIntelligenceToggle = useCallback(() => {
+    setIntelligenceSectionOpen(!isIntelligenceSectionOpen);
+  }, [isIntelligenceSectionOpen, setIntelligenceSectionOpen]);
+
+  const INTELLIGENCE_PATHS = ['/health', '/risk-ranking', '/spof-inventory', '/events-intelligence', '/traces', '/simulation', '/auto-pilot', '/report-schedules'];
+  const isAnyIntelligenceActive = INTELLIGENCE_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 
   const handleExitProject = () => {
     clearActiveProject();
@@ -745,25 +763,6 @@ function SidebarContent({
         <TopLevelNavLink to="/templates" icon={LayoutTemplate} label="Templates" isActive={isTemplatesActive} />
       </div>
 
-      {/* Intelligence — structural health, risk, SPOF, simulation, auto-pilot, reports */}
-      <div className="space-y-1">
-        <div className="flex items-center gap-2.5 px-2 pt-3 pb-1.5">
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200/80 to-slate-200/80 dark:via-slate-700/80 dark:to-slate-700/80" />
-          <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-[0.08em] select-none">Intelligence</span>
-          <div className="h-px flex-1 bg-gradient-to-l from-transparent via-slate-200/80 to-slate-200/80 dark:via-slate-700/80 dark:to-slate-700/80" />
-        </div>
-        <div className="space-y-0.5 px-1">
-          <NavItem to="/health" icon={HeartPulse} label="Health Scores" onNavigate={() => {}} />
-          <NavItem to="/risk-ranking" icon={BarChart3} label="Risk Ranking" onNavigate={() => {}} />
-          <NavItem to="/spof-inventory" icon={FileWarning} label="SPOF Inventory" onNavigate={() => {}} />
-          <NavItem to="/events-intelligence" icon={Activity} label="Events" onNavigate={() => {}} />
-          <NavItem to="/traces" icon={GitBranch} label="Traces" onNavigate={() => {}} />
-          <NavItem to="/simulation" icon={FlaskConical} label="Simulation" onNavigate={() => {}} />
-          <NavItem to="/auto-pilot" icon={Bot} label="Auto-Pilot" onNavigate={() => {}} />
-          <NavItem to="/report-schedules" icon={CalendarClock} label="Reports" onNavigate={() => {}} />
-        </div>
-      </div>
-
       {/* Fleet X-Ray sub-navigation */}
       {isFleetXrayActive && (
         <div className="space-y-0.5 pl-3 ml-3 border-l-2 border-l-indigo-400 dark:border-l-indigo-500/60">
@@ -774,7 +773,7 @@ function SidebarContent({
         </div>
       )}
 
-      {/* Resources — single expandable section containing all K8s resource categories */}
+      {/* Resources — K8s resource categories (moved above Intelligence for quick access) */}
       <div className="space-y-1">
         {/* Section divider label */}
         <div className="flex items-center gap-2.5 px-2 pt-3 pb-1.5">
@@ -841,6 +840,76 @@ function SidebarContent({
                     searchFilter=""
                   />
                 ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Intelligence — collapsible section for health, risk, SPOF, simulation, auto-pilot, reports */}
+      <div className="space-y-1">
+        <div className="flex items-center gap-2.5 px-2 pt-3 pb-1.5">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-200/80 to-slate-200/80 dark:via-slate-700/80 dark:to-slate-700/80" />
+          <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-[0.08em] select-none">Intelligence</span>
+          <div className="h-px flex-1 bg-gradient-to-l from-transparent via-slate-200/80 to-slate-200/80 dark:via-slate-700/80 dark:to-slate-700/80" />
+        </div>
+        <button
+          onClick={handleIntelligenceToggle}
+          aria-expanded={isIntelligenceSectionOpen}
+          aria-controls="nav-intelligence-section"
+          className={cn(
+            "flex items-center justify-between w-full px-4 py-2.5 rounded-xl transition-all duration-300 group border h-11",
+            isAnyIntelligenceActive
+              ? "bg-white dark:bg-slate-800 shadow-apple border-slate-200/40 dark:border-slate-700/40 text-purple-600 dark:text-purple-400"
+              : isIntelligenceSectionOpen
+                ? "bg-slate-100/40 dark:bg-slate-800/40 text-slate-900 dark:text-slate-100 border-slate-100 dark:border-slate-700/50"
+                : "bg-transparent hover:bg-slate-100/60 dark:hover:bg-slate-800/40 text-slate-800 dark:text-slate-300 border-transparent hover:border-slate-100 dark:hover:border-slate-700/50"
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "h-7 w-7 rounded-lg flex items-center justify-center transition-colors",
+              isAnyIntelligenceActive
+                ? "bg-purple-100 dark:bg-purple-500/20"
+                : "bg-slate-200/60 dark:bg-slate-700/60 group-hover:bg-slate-300/60 dark:group-hover:bg-slate-600/60"
+            )}>
+              <Activity className={cn("h-4 w-4 transition-colors", isAnyIntelligenceActive ? "text-purple-600 dark:text-purple-400" : "text-slate-600 dark:text-slate-300 group-hover:text-slate-800 dark:group-hover:text-slate-100")} />
+            </div>
+            <span className={cn(
+              "text-[11px] font-bold tracking-[0.05em] uppercase",
+              isAnyIntelligenceActive ? "text-purple-600 dark:text-purple-400" : "text-slate-800 dark:text-slate-200 group-hover:text-slate-950 dark:group-hover:text-slate-50"
+            )}>
+              Insights
+            </span>
+          </div>
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 transition-transform duration-300',
+              isAnyIntelligenceActive ? 'text-purple-600 dark:text-purple-400' : 'text-slate-600 dark:text-slate-300 group-hover:text-slate-900 dark:group-hover:text-slate-100',
+              !isIntelligenceSectionOpen && '-rotate-90'
+            )}
+          />
+        </button>
+
+        <AnimatePresence initial={false}>
+          {isIntelligenceSectionOpen && (
+            <motion.div
+              id="nav-intelligence-section"
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+              className="overflow-hidden"
+            >
+              <div className="space-y-0.5 px-1 py-1.5">
+                <NavItem to="/health" icon={HeartPulse} label="Health Scores" onNavigate={() => {}} />
+                <NavItem to="/risk-ranking" icon={BarChart3} label="Risk Ranking" onNavigate={() => {}} />
+                <NavItem to="/spof-inventory" icon={FileWarning} label="SPOF Inventory" onNavigate={() => {}} />
+                <NavItem to="/events-intelligence" icon={Activity} label="Events" onNavigate={() => {}} />
+                <NavItem to="/traces" icon={GitBranch} label="Traces" onNavigate={() => {}} />
+                <NavItem to="/simulation" icon={FlaskConical} label="Simulation" onNavigate={() => {}} />
+                <NavItem to="/auto-pilot" icon={Bot} label="Auto-Pilot" onNavigate={() => {}} />
+                <NavItem to="/report-schedules" icon={CalendarClock} label="Reports" onNavigate={() => {}} />
               </div>
             </motion.div>
           )}

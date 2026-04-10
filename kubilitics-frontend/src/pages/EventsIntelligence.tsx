@@ -91,7 +91,6 @@ export default function EventsIntelligence() {
       {activeInsights.length > 0 && (
         <InsightsBanner
           insights={activeInsights}
-          onInvestigate={handleInvestigate}
           onDismiss={handleDismiss}
           isDismissing={dismissMutation.isPending}
         />

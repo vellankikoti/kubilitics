@@ -144,7 +144,6 @@ export default function Dashboard() {
             <motion.div variants={item}>
               <InsightsBanner
                 insights={insights}
-                onInvestigate={() => navigate('/events-intelligence')}
                 onDismiss={(id) => dismissInsight.mutate(id)}
                 isDismissing={dismissInsight.isPending}
               />

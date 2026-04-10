@@ -397,7 +397,6 @@ export default function HealthDashboard() {
         {insights && insights.length > 0 && (
           <InsightsBanner
             insights={insights}
-            onInvestigate={() => navigate('/events-intelligence')}
             onDismiss={(id) => dismissInsightMutation.mutate(id)}
             isDismissing={dismissInsightMutation.isPending}
           />
