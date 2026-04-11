@@ -2,6 +2,7 @@ package spof
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"time"
 )
@@ -71,7 +72,7 @@ func (d *Detector) Detect(input DetectInput) *SPOFInventory {
 			Namespace:        node.Namespace,
 			Reason:           reason,
 			ReasonCode:       reasonCode,
-			BlastRadiusScore: scoreInfo.Score,
+			BlastRadiusScore: math.Round(scoreInfo.Score*100) / 100,
 			BlastRadiusLevel: level,
 			DependentCount:   scoreInfo.FanIn,
 			Remediations:     remediations,

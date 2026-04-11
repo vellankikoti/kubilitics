@@ -26,7 +26,7 @@ export function ScoreTooltip({ title, score, factors, onViewDetails, children }:
         <TooltipContent side="bottom" className="w-[280px] p-3" sideOffset={8}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</span>
-            <span className="text-sm font-bold">{score}</span>
+            <span className="text-sm font-bold">{typeof score === 'number' ? Math.round(score * 100) / 100 : score}</span>
           </div>
           <div className="border-t border-border pt-2 space-y-1.5">
             {displayFactors.map((f, i) => (

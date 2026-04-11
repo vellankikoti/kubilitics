@@ -103,7 +103,7 @@ function blastRadiusBar(score: number, level: string) {
         />
       </div>
       <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold border ${colors.badge}`}>
-        {score}
+        {Math.round(score * 100) / 100}
       </span>
     </div>
   );

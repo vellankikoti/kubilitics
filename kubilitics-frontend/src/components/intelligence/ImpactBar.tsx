@@ -548,7 +548,7 @@ function PreviewImpactBar({ data, manifestFilename }: PreviewImpactBarProps) {
 
         {expanded === 'blast' && (
           <DetailPanel id="blast">
-            <p>Predicted blast radius score: <span className={cn('font-semibold', levelColors.text)}>{data.blast_radius_score} ({data.blast_radius_level})</span></p>
+            <p>Predicted blast radius score: <span className={cn('font-semibold', levelColors.text)}>{typeof data.blast_radius_score === 'number' ? data.blast_radius_score.toFixed(2) : data.blast_radius_score} ({data.blast_radius_level})</span></p>
             <p className="mt-0.5 text-slate-400">Total affected resources: {data.total_affected}</p>
           </DetailPanel>
         )}

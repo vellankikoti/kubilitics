@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 
 	"github.com/kubilitics/kubilitics-backend/internal/graph"
@@ -138,7 +139,7 @@ func (e *Engine) AnalyzeManifest(manifest string, snap *graph.GraphSnapshot) (*P
 
 	// Aggregate blast radius score: average of per-resource scores (cap at 100).
 	if result.TotalAffected > 0 {
-		result.BlastRadiusScore = totalBlastScore / float64(result.TotalAffected)
+		result.BlastRadiusScore = math.Round(totalBlastScore/float64(result.TotalAffected)*100) / 100
 		if result.BlastRadiusScore > 100 {
 			result.BlastRadiusScore = 100
 		}

@@ -195,7 +195,7 @@ func computeOverallCriticality(scores models.SubScores) float64 {
 	failureDimension := math.Max((100-resilience)*0.25, impact*0.30)
 	criticality := failureDimension + exposure*0.30 + (100-recovery)*0.15
 	criticality = criticality / 0.75
-	return math.Min(math.Max(criticality, 0), 100)
+	return math.Round(math.Min(math.Max(criticality, 0), 100)*100) / 100
 }
 
 func criticalityLevelV2(score float64) string {
