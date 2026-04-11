@@ -289,20 +289,48 @@ func (cb *ChainBuilder) eventToCausalNode(e *WideEvent) CausalNode {
 	}
 }
 
-// parseInsightResource extracts namespace, kind, and name from a free-text
-// insight Detail field.
+// ruleKindMap maps insight Rule names to the Kubernetes resource Kind they
+// primarily affect. This is used by parseInsightResource as a fallback when the
+// Detail text does not contain a Kind prefix.
+var ruleKindMap = map[string]string{
+	"crashLoopDetected":  "Pod",
+	"imagePullFailure":   "Pod",
+	"oomKillDetected":    "Pod",
+	"schedulingFailures": "Pod",
+	"restartStorm":       "Pod",
+	"cascadingFailures":  "",  // no single resource — skip chain building
+	"healthDrift":        "",  // no single resource — skip chain building
+}
+
+// parseInsightResource extracts namespace, kind, and name from an Insight so
+// that BuildChain can look up events for that resource.
 //
-// Supported formats:
+// It handles two families of formats:
 //
-//	"Pod default/api-server-7f8d9 is in CrashLoopBackOff"
-//	"Deployment production/web-app has insufficient replicas"
+//  1. Legacy / hand-crafted format with an explicit Kind prefix:
+//     "Pod default/api-server-7f8d9 is in CrashLoopBackOff"
+//     "Deployment production/web-app has insufficient replicas"
+//
+//  2. Actual formats produced by the built-in insight rules (insights.go):
+//     "3 pod(s) in CrashLoopBackOff: default/api-server, default/pod2"
+//     "2 pod(s) with image pull failures: default/api-server, prod/worker"
+//     "2 pod(s) killed due to memory limits: default/crashy, prod/web"
+//     "5 FailedScheduling events … affecting 2 pod(s): default/mypod — …"
+//
+// For formats that carry no extractable resource (restartStorm, cascadingFailures,
+// healthDrift) the function returns ("", "", "") so BuildChain skips chain
+// construction gracefully.
 func (cb *ChainBuilder) parseInsightResource(insight Insight) (namespace, kind, name string) {
+	detail := insight.Detail
+
+	// -------------------------------------------------------------------------
+	// Strategy 1: legacy format — explicit Kind prefix before "ns/name"
+	// e.g. "Pod default/api-server-7f8d9 is in CrashLoopBackOff"
+	// -------------------------------------------------------------------------
 	knownKinds := []string{
 		"Pod", "Deployment", "ReplicaSet", "StatefulSet", "DaemonSet", "Service",
 		"ConfigMap", "Secret", "Job", "CronJob",
 	}
-
-	detail := insight.Detail
 	for _, k := range knownKinds {
 		idx := strings.Index(detail, k+" ")
 		if idx == -1 {
@@ -317,13 +345,44 @@ func (cb *ChainBuilder) parseInsightResource(insight Insight) (namespace, kind, 
 		} else {
 			resourceRef = rest[:end]
 		}
+		if !strings.Contains(resourceRef, "/") {
+			continue // not a ns/name token — keep trying other kinds
+		}
 		parts := strings.SplitN(resourceRef, "/", 2)
 		if len(parts) == 2 {
 			return parts[0], k, parts[1]
 		}
-		// No namespace prefix — name only.
-		return "", k, parts[0]
 	}
+
+	// -------------------------------------------------------------------------
+	// Strategy 2: actual rule format — "…: ns/name, ns/name2, …"
+	// The first resource after the last colon is used.
+	// -------------------------------------------------------------------------
+	colonIdx := strings.LastIndex(detail, ":")
+	if colonIdx != -1 && colonIdx < len(detail)-1 {
+		afterColon := strings.TrimSpace(detail[colonIdx+1:])
+		// There may be a trailing " — …" clause; take the text up to " —".
+		if dashIdx := strings.Index(afterColon, " —"); dashIdx != -1 {
+			afterColon = strings.TrimSpace(afterColon[:dashIdx])
+		}
+		// The first token before a comma is the first resource reference.
+		firstRef := afterColon
+		if commaIdx := strings.Index(afterColon, ","); commaIdx != -1 {
+			firstRef = strings.TrimSpace(afterColon[:commaIdx])
+		}
+		if strings.Contains(firstRef, "/") {
+			parts := strings.SplitN(firstRef, "/", 2)
+			if len(parts) == 2 && parts[0] != "" && parts[1] != "" {
+				// Determine the Kind from the Rule field.
+				k := ruleKindMap[insight.Rule]
+				if k == "" {
+					return "", "", ""
+				}
+				return parts[0], k, parts[1]
+			}
+		}
+	}
+
 	return "", "", ""
 }
 

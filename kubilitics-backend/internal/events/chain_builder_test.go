@@ -508,3 +508,185 @@ func TestChainBuilder_BuildChain_NoChain(t *testing.T) {
 		t.Errorf("expected nil chain when no events exist, got: %+v", chain)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// parseInsightResource tests
+// ---------------------------------------------------------------------------
+
+// TestParseInsightResource covers all actual Detail formats produced by the
+// built-in insight rules as well as the legacy Kind-prefix format and the
+// no-resource rules (restartStorm, cascadingFailures, healthDrift).
+func TestParseInsightResource(t *testing.T) {
+	_, cb := newTestChainBuilder(t)
+
+	tests := []struct {
+		name      string
+		insight   Insight
+		wantNS    string
+		wantKind  string
+		wantName  string
+	}{
+		// --- legacy / hand-crafted format ---
+		{
+			name: "legacy Pod prefix",
+			insight: Insight{
+				Rule:   "pod_crash",
+				Detail: "Pod default/api-server-7f8d9 is in CrashLoopBackOff",
+			},
+			wantNS:   "default",
+			wantKind: "Pod",
+			wantName: "api-server-7f8d9",
+		},
+		{
+			name: "legacy Deployment prefix",
+			insight: Insight{
+				Rule:   "deployment_unavailable",
+				Detail: "Deployment production/web-app has insufficient replicas",
+			},
+			wantNS:   "production",
+			wantKind: "Deployment",
+			wantName: "web-app",
+		},
+
+		// --- actual crashLoopDetected format ---
+		{
+			name: "crashLoopDetected single pod",
+			insight: Insight{
+				Rule:   "crashLoopDetected",
+				Detail: "1 pod(s) in CrashLoopBackOff: default/api-server-7f8d9",
+			},
+			wantNS:   "default",
+			wantKind: "Pod",
+			wantName: "api-server-7f8d9",
+		},
+		{
+			name: "crashLoopDetected multiple pods — first one extracted",
+			insight: Insight{
+				Rule:   "crashLoopDetected",
+				Detail: "3 pod(s) in CrashLoopBackOff: default/api-server-7f8d9, default/worker-abc, production/db-0",
+			},
+			wantNS:   "default",
+			wantKind: "Pod",
+			wantName: "api-server-7f8d9",
+		},
+
+		// --- actual imagePullFailure format ---
+		{
+			name: "imagePullFailure single pod",
+			insight: Insight{
+				Rule:   "imagePullFailure",
+				Detail: "1 pod(s) with image pull failures: staging/myapp-555dd",
+			},
+			wantNS:   "staging",
+			wantKind: "Pod",
+			wantName: "myapp-555dd",
+		},
+		{
+			name: "imagePullFailure multiple pods",
+			insight: Insight{
+				Rule:   "imagePullFailure",
+				Detail: "2 pod(s) with image pull failures: staging/myapp-555dd, staging/myapp-666ee",
+			},
+			wantNS:   "staging",
+			wantKind: "Pod",
+			wantName: "myapp-555dd",
+		},
+
+		// --- actual oomKillDetected format ---
+		{
+			name: "oomKillDetected",
+			insight: Insight{
+				Rule:   "oomKillDetected",
+				Detail: "2 pod(s) killed due to memory limits: kube-system/metrics-server-abc, default/heavy-job",
+			},
+			wantNS:   "kube-system",
+			wantKind: "Pod",
+			wantName: "metrics-server-abc",
+		},
+
+		// --- actual schedulingFailures format ---
+		{
+			name: "schedulingFailures with em-dash clause",
+			insight: Insight{
+				Rule:   "schedulingFailures",
+				Detail: "5 FailedScheduling events in 10 minutes affecting 2 pod(s): default/mypod — possible resource constraints",
+			},
+			wantNS:   "default",
+			wantKind: "Pod",
+			wantName: "mypod",
+		},
+		{
+			name: "schedulingFailures multiple pods",
+			insight: Insight{
+				Rule:   "schedulingFailures",
+				Detail: "7 FailedScheduling events in 10 minutes affecting 3 pod(s): prod/svc-a, prod/svc-b — possible resource constraints",
+			},
+			wantNS:   "prod",
+			wantKind: "Pod",
+			wantName: "svc-a",
+		},
+
+		// --- restartStorm — no specific pod, should return empty ---
+		{
+			name: "restartStorm returns empty",
+			insight: Insight{
+				Rule:   "restartStorm",
+				Detail: "15 pod restart events in 5 minutes in namespace default",
+			},
+			wantNS:   "",
+			wantKind: "",
+			wantName: "",
+		},
+
+		// --- cascadingFailures — no specific resource ---
+		{
+			name: "cascadingFailures returns empty",
+			insight: Insight{
+				Rule:   "cascadingFailures",
+				Detail: "Correlation group abc123 has 5 affected resources — failure is spreading",
+			},
+			wantNS:   "",
+			wantKind: "",
+			wantName: "",
+		},
+
+		// --- healthDrift — no specific resource ---
+		{
+			name: "healthDrift returns empty",
+			insight: Insight{
+				Rule:   "healthDrift",
+				Detail: "Health score dropped 8.5 points in the last hour (85.0 → 76.5)",
+			},
+			wantNS:   "",
+			wantKind: "",
+			wantName: "",
+		},
+
+		// --- empty detail ---
+		{
+			name: "empty detail returns empty",
+			insight: Insight{
+				Rule:   "crashLoopDetected",
+				Detail: "",
+			},
+			wantNS:   "",
+			wantKind: "",
+			wantName: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotNS, gotKind, gotName := cb.parseInsightResource(tt.insight)
+			if gotNS != tt.wantNS {
+				t.Errorf("namespace: want %q, got %q", tt.wantNS, gotNS)
+			}
+			if gotKind != tt.wantKind {
+				t.Errorf("kind: want %q, got %q", tt.wantKind, gotKind)
+			}
+			if gotName != tt.wantName {
+				t.Errorf("name: want %q, got %q", tt.wantName, gotName)
+			}
+		})
+	}
+}
