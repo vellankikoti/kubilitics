@@ -11,6 +11,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow } from 'date-fns';
+import { getProviderLogo } from '@/topology/icons/providerLogoMap';
 import {
   Server,
   Box,
@@ -250,6 +251,11 @@ function ClusterCard({ cluster, onClick }: { cluster: FleetCluster; onClick: () 
         <div className="flex items-start justify-between gap-2 mb-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
+              {getProviderLogo(cluster.provider) && (
+                <div className="w-6 h-6 rounded-md bg-muted/50 flex items-center justify-center shrink-0">
+                  <img src={getProviderLogo(cluster.provider)!} alt="" className="w-4 h-4" draggable={false} />
+                </div>
+              )}
               {envTag && (
                 <span className="block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: ENV_DOT_COLORS[envTag] }} />
               )}
@@ -404,8 +410,12 @@ function ClusterCard({ cluster, onClick }: { cluster: FleetCluster; onClick: () 
               aria-label={cfg.label}
             />
             {cluster.provider && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted/50 font-medium">
-                <Globe className="h-3 w-3" aria-hidden />
+              <span className="inline-flex items-center gap-1.5 px-1.5 py-0.5 rounded bg-muted/50 font-medium">
+                {getProviderLogo(cluster.provider) ? (
+                  <img src={getProviderLogo(cluster.provider)!} alt="" className="h-3.5 w-3.5" draggable={false} />
+                ) : (
+                  <Globe className="h-3 w-3" aria-hidden />
+                )}
                 {cluster.provider}
               </span>
             )}

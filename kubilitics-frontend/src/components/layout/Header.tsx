@@ -365,12 +365,14 @@ export function Header() {
                     <DropdownMenuTrigger asChild>
                       <button className={cn(HEADER_BTN, 'shrink-0 max-w-[180px] lg:max-w-[280px] group')} aria-label="Select cluster">
                         {activeCluster && getProviderLogo(activeCluster.provider) && (
-                          <img
-                            src={getProviderLogo(activeCluster.provider)!}
-                            alt=""
-                            className="w-4 h-4 shrink-0"
-                            draggable={false}
-                          />
+                          <div className="w-7 h-7 rounded-md bg-white flex items-center justify-center shrink-0 shadow-sm">
+                            <img
+                              src={getProviderLogo(activeCluster.provider)!}
+                              alt=""
+                              className="w-5 h-5"
+                              draggable={false}
+                            />
+                          </div>
                         )}
                         <span
                           className="block w-2 h-2 rounded-full shrink-0"
@@ -443,7 +445,7 @@ export function Header() {
                                     <img
                                       src={getProviderLogo(cluster.provider)!}
                                       alt=""
-                                      className="w-4 h-4 shrink-0 opacity-80"
+                                      className="w-5 h-5 shrink-0"
                                       draggable={false}
                                     />
                                   )}
@@ -507,7 +509,7 @@ export function Header() {
                                       <img
                                         src={getProviderLogo(cluster.provider)!}
                                         alt=""
-                                        className="w-4 h-4 shrink-0 opacity-80"
+                                        className="w-5 h-5 shrink-0"
                                         draggable={false}
                                       />
                                     )}
@@ -565,7 +567,7 @@ export function Header() {
                                     <img
                                       src={getProviderLogo(cluster.provider)!}
                                       alt=""
-                                      className="w-4 h-4 shrink-0 opacity-80"
+                                      className="w-5 h-5 shrink-0"
                                       draggable={false}
                                     />
                                   )}
