@@ -674,6 +674,9 @@ func main() {
 	pipelineManager.SetAlertNotifier(alertAdapter)
 
 	eventsHandler := events.NewEventsHandlerFromManager(pipelineManager)
+	// Wire the shared ChainCache into the handler so GetInsightCausalChain can
+	// short-circuit SQLite lookups for recently built causal chains.
+	eventsHandler.SetChainCache(pipelineManager.GetSharedChainCache())
 	// Register on main router with full /api/v1 prefix (not apiRouter subrouter)
 	// because the main router's NotFoundHandler at line ~720 catches unmatched paths
 	// before the subrouter gets a chance to match.

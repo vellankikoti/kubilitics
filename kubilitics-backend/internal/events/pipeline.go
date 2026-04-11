@@ -39,6 +39,9 @@ type Pipeline struct {
 	insights      *InsightsEngine
 	snapshots     *SnapshotManager
 
+	chainBuilder  *ChainBuilder     // optional — wired to insights engine on Start()
+	chainCache    *ChainCache       // optional — shared across pipelines, wired on Start()
+
 	logCollector  *LogCollector     // optional — log persistence & cross-pod search
 	alertNotifier AlertNotifier     // optional — wired to insights engine on Start()
 	subscribers   []chan *WideEvent // SSE subscribers
@@ -100,6 +103,17 @@ func (p *Pipeline) Store() *Store {
 	return p.store
 }
 
+// SetChainCache attaches a shared ChainCache that will be wired into the
+// InsightsEngine on Start(). Must be called before Start().
+func (p *Pipeline) SetChainCache(cc *ChainCache) {
+	p.chainCache = cc
+}
+
+// ChainCache returns the ChainCache attached to this pipeline (may be nil).
+func (p *Pipeline) ChainCache() *ChainCache {
+	return p.chainCache
+}
+
 // SetAlertNotifier attaches an AlertNotifier to the insights engine so that
 // newly detected insights trigger webhook/Slack/in-app notifications.
 // Must be called before Start(); if the insights engine is already running the
@@ -155,6 +169,23 @@ func (p *Pipeline) Start(clientset kubernetes.Interface, clusterID string) error
 	if p.alertNotifier != nil {
 		p.insights.SetNotifier(p.alertNotifier)
 	}
+
+	// Wire root cause engine: ChainBuilder + ChainCache → InsightsEngine.
+	p.chainBuilder = NewChainBuilder(p.store, p.causality, ChainBuilderConfig{
+		ConfidenceFloor: 0.5,
+		MaxDepth:        5,
+		TimeWindow:      10 * time.Minute,
+	})
+	if p.chainCache == nil {
+		// No shared cache was injected — create a per-pipeline one.
+		p.chainCache = NewChainCache(p.store, 5*time.Minute)
+	}
+	// Restore persisted chains from SQLite so the cache is warm after restart.
+	if err := p.chainCache.Restore(p.ctx, clusterID); err != nil {
+		log.Printf("[events/pipeline] failed to restore chain cache for cluster %s: %v", clusterID, err)
+	}
+	p.insights.SetChainBuilder(p.chainBuilder, p.chainCache)
+
 	p.insights.Start(p.ctx)
 
 	p.snapshots = NewSnapshotManager(p.store, clusterID)

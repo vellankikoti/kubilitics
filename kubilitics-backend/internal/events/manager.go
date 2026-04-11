@@ -39,12 +39,13 @@ type SystemHealth struct {
 // PipelineManager maintains one Pipeline per cluster, replacing the old
 // single-pipeline approach that only served the first connected cluster.
 type PipelineManager struct {
-	db        *sqlx.DB
-	pipelines map[string]*Pipeline
-	mu        sync.RWMutex
-	metrics   MetricsProvider
-	notifier  AlertNotifier
-	startedAt time.Time
+	db               *sqlx.DB
+	pipelines        map[string]*Pipeline
+	mu               sync.RWMutex
+	metrics          MetricsProvider
+	notifier         AlertNotifier
+	startedAt        time.Time
+	sharedChainCache *ChainCache // lazily created, shared across all cluster pipelines
 }
 
 // NewPipelineManager creates a manager that lazily creates per-cluster pipelines
@@ -69,6 +70,17 @@ func (m *PipelineManager) SetAlertNotifier(n AlertNotifier) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.notifier = n
+}
+
+// GetSharedChainCache returns the single ChainCache shared across all cluster
+// pipelines. It is lazily initialised on first call using the shared Store.
+func (m *PipelineManager) GetSharedChainCache() *ChainCache {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.sharedChainCache == nil {
+		m.sharedChainCache = NewChainCache(m.GetStore(), 5*time.Minute)
+	}
+	return m.sharedChainCache
 }
 
 // StartCluster starts a pipeline for a specific cluster. Idempotent — calling
@@ -102,6 +114,12 @@ func (m *PipelineManager) StartCluster(clientset kubernetes.Interface, clusterID
 	if m.notifier != nil {
 		pipeline.SetAlertNotifier(m.notifier)
 	}
+	// Inject the shared chain cache so all cluster pipelines populate the same
+	// in-memory store (lazily created on first StartCluster call).
+	if m.sharedChainCache == nil {
+		m.sharedChainCache = NewChainCache(m.GetStore(), 5*time.Minute)
+	}
+	pipeline.SetChainCache(m.sharedChainCache)
 
 	if err := pipeline.Start(clientset, clusterID); err != nil {
 		return fmt.Errorf("start pipeline for cluster %s: %w", clusterID, err)
