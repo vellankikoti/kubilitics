@@ -10,6 +10,8 @@ interface K8sIconProps {
   className?: string;
   /** Show white circle backdrop behind icon (use on colored headers) */
   backdrop?: boolean;
+  /** Optional cloud provider icon URL — overrides the K8s icon lookup when provided */
+  cloudIconUrl?: string | null;
 }
 
 /**
@@ -19,8 +21,9 @@ interface K8sIconProps {
  * Use backdrop=true when placing on colored backgrounds (e.g. node headers)
  * since the K8s SVGs have blue fill that blends into blue/purple headers.
  */
-function K8sIconInner({ kind, size = 20, className, backdrop }: K8sIconProps) {
-  const url = k8sIconMap[kind.toLowerCase()];
+function K8sIconInner({ kind, size = 20, className, backdrop, cloudIconUrl }: K8sIconProps) {
+  const iconUrl = cloudIconUrl || k8sIconMap[kind.toLowerCase()];
+  const url = iconUrl;
 
   if (!url) {
     return (
