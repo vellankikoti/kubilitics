@@ -59,6 +59,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { toast } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
 import { useOfflineMode } from '@/hooks/useOfflineMode';
+import { getProviderLogo } from '@/topology/icons/providerLogoMap';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   AlertDialog,
@@ -363,6 +364,14 @@ export function Header() {
                   <DropdownMenu onOpenChange={(open) => { if (open) { setClusterSearch(''); setTimeout(() => clusterSearchRef.current?.focus(), 50); } }}>
                     <DropdownMenuTrigger asChild>
                       <button className={cn(HEADER_BTN, 'shrink-0 max-w-[180px] lg:max-w-[280px] group')} aria-label="Select cluster">
+                        {activeCluster && getProviderLogo(activeCluster.provider) && (
+                          <img
+                            src={getProviderLogo(activeCluster.provider)!}
+                            alt=""
+                            className="w-4 h-4 shrink-0"
+                            draggable={false}
+                          />
+                        )}
                         <span
                           className="block w-2 h-2 rounded-full shrink-0"
                           style={{
@@ -430,6 +439,14 @@ export function Header() {
                                   >
                                     <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                                   </button>
+                                  {getProviderLogo(cluster.provider) && (
+                                    <img
+                                      src={getProviderLogo(cluster.provider)!}
+                                      alt=""
+                                      className="w-4 h-4 shrink-0 opacity-80"
+                                      draggable={false}
+                                    />
+                                  )}
                                   <span
                                     className="block w-2.5 h-2.5 rounded-full shrink-0"
                                     style={{ backgroundColor: envTag ? ENV_DOT_COLORS[envTag] : ca.color }}
@@ -486,6 +503,14 @@ export function Header() {
                                     >
                                       <Star className={cn('h-3.5 w-3.5', isFav ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600 hover:text-amber-400')} />
                                     </button>
+                                    {getProviderLogo(cluster.provider) && (
+                                      <img
+                                        src={getProviderLogo(cluster.provider)!}
+                                        alt=""
+                                        className="w-4 h-4 shrink-0 opacity-80"
+                                        draggable={false}
+                                      />
+                                    )}
                                     <span
                                       className="block w-2.5 h-2.5 rounded-full shrink-0"
                                       style={{ backgroundColor: ENV_DOT_COLORS[env] }}
@@ -536,6 +561,14 @@ export function Header() {
                                   >
                                     <Star className={cn('h-3.5 w-3.5', isFav ? 'fill-amber-400 text-amber-400' : 'text-slate-300 dark:text-slate-600 hover:text-amber-400')} />
                                   </button>
+                                  {getProviderLogo(cluster.provider) && (
+                                    <img
+                                      src={getProviderLogo(cluster.provider)!}
+                                      alt=""
+                                      className="w-4 h-4 shrink-0 opacity-80"
+                                      draggable={false}
+                                    />
+                                  )}
                                   <div className="relative shrink-0">
                                     <div className="relative w-2.5 h-2.5 rounded-full" style={{ backgroundColor: ca.color }} />
                                   </div>
