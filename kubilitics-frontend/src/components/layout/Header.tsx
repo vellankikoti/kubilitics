@@ -78,44 +78,37 @@ const statusColors: Record<string, string> = {
 };
 
 /** Header height — keep in sync with Sidebar's top offset */
-export const HEADER_HEIGHT_CLASS = 'h-16';
+export const HEADER_HEIGHT_CLASS = 'h-[60px]';
 
-/* ─── Design tokens: Docker Desktop–inspired flat controls ─── */
+/* ─── Design tokens: Branded header (Docker Desktop style) ─── */
 
-/** Cluster selector — ghost by default, subtle bg on hover */
-const BTN = cn(
-  'h-8 px-3 rounded-lg',
+/** Text button on branded bg — white text, subtle white hover */
+const HEADER_BTN = cn(
+  'h-9 px-3.5 rounded-lg',
   'inline-flex items-center justify-center gap-2',
   'text-[13px] font-medium leading-none',
-  'text-slate-600 dark:text-slate-300',
-  'hover:bg-slate-100 dark:hover:bg-slate-800',
+  'text-white/80',
+  'hover:bg-white/10',
   'transition-colors duration-150',
-  'active:scale-[0.98]',
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20'
+  'active:scale-[0.97]',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30'
 );
 
-/** Feature actions — Shell, Kubeconfig: ghost with icon emphasis */
-const FEATURE_BTN = cn(
-  'h-8 px-3 rounded-lg',
-  'inline-flex items-center justify-center gap-2',
-  'text-[13px] font-medium leading-none',
-  'text-slate-600 dark:text-slate-300',
-  'hover:bg-slate-100 dark:hover:bg-slate-800',
-  'transition-colors duration-150',
-  'active:scale-[0.98]',
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20'
-);
-
-/** Icon button (Notifications, theme, etc.) */
-const ICON_BTN = cn(
-  'h-8 w-8 rounded-lg',
+/** Icon button on branded bg */
+const HEADER_ICON = cn(
+  'h-9 w-9 rounded-lg',
   'inline-flex items-center justify-center',
-  'text-slate-500 dark:text-slate-400',
-  'hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200',
+  'text-white/90',
+  'hover:bg-white/15 hover:text-white',
   'transition-colors duration-150',
-  'active:scale-[0.98]',
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20'
+  'active:scale-[0.97]',
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30'
 );
+
+// Aliases for backward compatibility
+const BTN = HEADER_BTN;
+const FEATURE_BTN = HEADER_BTN;
+const ICON_BTN = HEADER_ICON;
 
 export function Header() {
   const collapsed = useUIStore((s) => s.isSidebarCollapsed);
@@ -305,7 +298,7 @@ export function Header() {
   return (
     <>
       <header
-        className={cn(HEADER_HEIGHT_CLASS, 'border-b border-slate-200/60 dark:border-slate-800 bg-white dark:bg-[hsl(228,14%,9%)] shrink-0 sticky top-0 z-[var(--z-sticky,50)] select-none')}
+        className={cn(HEADER_HEIGHT_CLASS, 'bg-[hsl(221,83%,53%)] dark:bg-[hsl(221,70%,35%)] shrink-0 sticky top-0 z-[var(--z-sticky,50)] select-none')}
         role="banner"
         data-tauri-drag-region
         onDoubleClick={(e) => {
@@ -323,68 +316,55 @@ export function Header() {
       >
         <div className="flex items-center h-full w-full" data-tauri-drag-region>
 
-          {/* ──── Logo zone: Docker Desktop pattern — generous spacing after traffic lights ──── */}
-          <div className="shrink-0 flex items-center h-full pl-[80px] pr-4" data-tauri-drag-region>
+          {/* ──── Left: Brand ──── */}
+          <div className="shrink-0 flex items-center h-full pl-[78px]" data-tauri-drag-region>
             <button
               onClick={() => navigate('/dashboard')}
-              className="flex items-center gap-3.5 group focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 rounded-xl py-1.5 transition-all press-effect"
+              className="flex items-center gap-2.5 group focus:outline-none rounded-lg py-1 -my-1 transition-opacity hover:opacity-80"
               aria-label="Go to Dashboard"
             >
               <BrandLogo
                 mark
-                height={32}
-                className="shrink-0 rounded-[9px] shadow-sm group-hover:shadow-md group-hover:scale-[1.03] transition-all duration-200"
+                height={26}
+                className="shrink-0 rounded-[7px]"
               />
-              <span className="text-[16px] font-bold tracking-[0.05em] text-foreground whitespace-nowrap select-none">
+              <span className="text-[15px] font-semibold tracking-[0.02em] text-white whitespace-nowrap">
                 KUBILITICS
               </span>
             </button>
           </div>
 
-          {/* Separator */}
-          <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 shrink-0" />
+          {/* ──── Center: drag region (empty space) ──── */}
+          <div className="flex-1" data-tauri-drag-region />
 
-          {/* ──── Main bar — gaps between items act as drag regions ──── */}
-          <div className="flex-1 min-w-0 flex items-center gap-4 md:gap-6 px-4 md:px-8" data-tauri-drag-region>
+          {/* ──── Right: Search + Cluster + Tools + Profile ──── */}
+          <div className="shrink-0 flex items-center gap-3 pr-5" data-tauri-drag-region>
             {/* Search resources — global search: refined command palette trigger */}
             <button
               type="button"
               onClick={() => setSearchOpen(true)}
               className={cn(
-                'w-[140px] sm:w-48 md:w-56 lg:w-64 shrink-0 h-8 px-3 md:px-3.5 flex items-center gap-2.5 rounded-lg',
-                'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500',
-                'hover:bg-slate-200/70 hover:text-slate-500 dark:hover:bg-slate-700 dark:hover:text-slate-400',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20',
-                'transition-colors duration-150 group'
+                'w-56 md:w-72 lg:w-96 shrink-0 h-[36px] px-3.5 flex items-center gap-2.5 rounded-lg',
+                'bg-white/15 text-white/60',
+                'hover:bg-white/20',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30',
+                'transition-colors duration-150'
               )}
             >
-              <Search className="h-4 w-4 shrink-0 group-hover:text-primary transition-colors duration-300" />
-              <span className="flex-1 text-left text-[13px] font-semibold tracking-tight hidden md:block">Search resources...</span>
-              <kbd className="hidden sm:inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200/60 dark:border-slate-700/60 bg-white dark:bg-slate-800 px-2.5 font-mono text-[9px] font-bold text-muted-foreground shrink-0 shadow-sm">
+              <Search className="h-4 w-4 shrink-0 text-white/50" />
+              <span className="flex-1 text-left text-[13px] text-white/50 hidden md:block">Search</span>
+              <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium text-white/50 bg-white/10 border border-white/10">
                 <Command className="h-2.5 w-2.5" />K
               </kbd>
             </button>
 
-            {/* Project context badge when in project scope */}
-            {activeProject && (
-              <div className="shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-xl bg-primary/10 border border-primary/20">
-                <span className="text-xs font-semibold text-primary truncate max-w-[120px]" title={activeProject.name}>
-                  {activeProject.name}
-                </span>
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Project</span>
-              </div>
-            )}
-
-            {/* Right group: pushed to the edge with even spacing between items */}
-            <div className="flex items-center gap-3 lg:gap-4 shrink-0 ml-auto">
-
-                {/* Cluster selector — with favorites, env badges, fuzzy search, production confirmation */}
+            {/* Cluster selector */}
                 {activeCluster && (
                   <DropdownMenu onOpenChange={(open) => { if (open) { setClusterSearch(''); setTimeout(() => clusterSearchRef.current?.focus(), 50); } }}>
                     <DropdownMenuTrigger asChild>
-                      <button className={cn(BTN, 'shrink-0 max-w-[160px] lg:max-w-[300px] group press-effect')} aria-label="Select cluster">
+                      <button className={cn(HEADER_BTN, 'shrink-0 max-w-[180px] lg:max-w-[280px] group')} aria-label="Select cluster">
                         <span
-                          className="block w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-white dark:ring-slate-800"
+                          className="block w-2 h-2 rounded-full shrink-0"
                           style={{
                             backgroundColor: backendStatus === 'error' ? '#ef4444' :
                               backendStatus === 'warning' ? '#f59e0b' :
@@ -392,7 +372,7 @@ export function Header() {
                               (activeAppearance?.color ?? undefined),
                           }}
                         />
-                        <span className="truncate text-sm font-semibold tracking-tight">{activeDisplayName}</span>
+                        <span className="truncate text-[13px] font-medium text-white/90">{activeDisplayName}</span>
                         {(orgEnvTags[activeCluster.id] || activeEnvLabel) && (
                           <span className={cn(
                             'text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full border shrink-0',
@@ -403,7 +383,7 @@ export function Header() {
                             {orgEnvTags[activeCluster.id] ? ENV_LABELS[orgEnvTags[activeCluster.id]] : activeEnvLabel}
                           </span>
                         )}
-                        <ChevronDown className="h-4 w-4 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors shrink-0" />
+                        <ChevronDown className="h-3.5 w-3.5 text-white/40 shrink-0" />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-[360px] rounded-[2.5rem] p-4 border-none shadow-2xl mt-2 animate-in fade-in zoom-in-95 duration-200 elevation-2 max-h-[70vh] overflow-hidden flex flex-col">
@@ -607,35 +587,36 @@ export function Header() {
                   </DropdownMenu>
                 )}
 
-                {/* Shell — clear feature button */}
+                {/* Separator between cluster and tools */}
+                <div className="w-px h-4 bg-white/20 mx-1.5 shrink-0" />
+
+                {/* Shell */}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       data-testid="shell-trigger"
                       onClick={() => setShellOpen(true)}
                       disabled={!activeCluster}
-                      className={cn(FEATURE_BTN, 'press-effect')}
-                      aria-label="Open cluster terminal (Shell)"
+                      className={HEADER_ICON}
+                      aria-label="Open cluster terminal"
                     >
-                      <Terminal className="h-5 w-5 shrink-0 text-primary/70" />
-                      <span className="hidden xl:inline">Shell</span>
+                      <Terminal className="h-4 w-4" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom" sideOffset={8}>Open cluster terminal</TooltipContent>
+                  <TooltipContent side="bottom" sideOffset={8}>Shell</TooltipContent>
                 </Tooltip>
 
-                {/* Kubeconfig — clear feature button */}
+                {/* Kubeconfig */}
                 <DropdownMenu>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <DropdownMenuTrigger asChild>
-                        <button className={cn(FEATURE_BTN, 'press-effect')} aria-label="Download kubeconfig">
-                          <FileDown className="h-5 w-5 shrink-0 text-primary/70" />
-                          <span className="hidden xl:inline">Kubeconfig</span>
+                        <button className={HEADER_ICON} aria-label="Download kubeconfig">
+                          <FileDown className="h-4 w-4" />
                         </button>
                       </DropdownMenuTrigger>
                     </TooltipTrigger>
-                    <TooltipContent side="bottom" sideOffset={8}>Download kubeconfig</TooltipContent>
+                    <TooltipContent side="bottom" sideOffset={8}>Kubeconfig</TooltipContent>
                   </Tooltip>
                   <DropdownMenuContent align="end" className="w-72 rounded-[2rem] p-3 border-none shadow-2xl mt-2 elevation-2">
                     <div className="px-4 py-3 mb-2">
@@ -669,28 +650,31 @@ export function Header() {
                 {/* Notifications */}
                 <NotificationCenter clusterId={currentClusterId} />
 
-                {/* Profile — avatar + label + chevron, real account control */}
+                {/* Separator before profile */}
+                <div className="w-px h-4 bg-white/20 mx-1.5 shrink-0" />
+
+                {/* Profile */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
                       className={cn(
-                        'h-12 pl-2 pr-4 rounded-2xl',
-                        'inline-flex items-center gap-3 group',
-                        'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md hover:border-primary/20 dark:hover:border-primary/30',
-                        'hover:translate-y-[-1px] transition-all duration-300 ease-out',
-                        'active:scale-[0.98]',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 press-effect'
+                        'h-9 pl-1 pr-2.5 rounded-lg',
+                        'inline-flex items-center gap-2',
+                        'hover:bg-white/10',
+                        'transition-colors duration-150',
+                        'active:scale-[0.97]',
+                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30'
                       )}
                       aria-label="User menu"
                     >
-                      <Avatar className="h-9 w-9 shrink-0 rounded-[0.9rem] border border-slate-100 dark:border-slate-700 shadow-sm">
+                      <Avatar className="h-6 w-6 shrink-0 rounded-md">
                         <AvatarImage src="" />
                         <AvatarFallback className="bg-primary/5 text-[10px] font-black text-primary uppercase">
                           AD
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-xs font-black tracking-widest hidden xl:inline uppercase text-foreground group-hover:text-primary transition-colors">Admin</span>
-                      <ChevronDown className="h-4 w-4 text-slate-400 shrink-0 group-hover:text-primary transition-colors" />
+                      <span className="text-[12px] font-medium hidden lg:inline text-white/80">Admin</span>
+                      <ChevronDown className="h-3 w-3 text-white/40 shrink-0" />
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56 elevation-2">
@@ -718,7 +702,6 @@ export function Header() {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-            </div>
           </div>
         </div>
       </header>

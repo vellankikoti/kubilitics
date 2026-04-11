@@ -74,14 +74,14 @@ export function ActivePortForwardsIndicator() {
       <button
         onClick={() => setExpanded(!expanded)}
         className={cn(
-          'flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors',
-          'hover:bg-muted/80',
-          expanded && 'bg-muted'
+          'h-9 flex items-center gap-1.5 px-2.5 rounded-lg text-sm font-medium transition-colors',
+          'text-white/90 hover:bg-white/15 hover:text-white',
+          expanded && 'bg-white/10'
         )}
         title={`${forwards.length} active port forward${forwards.length > 1 ? 's' : ''}`}
       >
-        <Cable className="h-4 w-4 text-emerald-500" />
-        <span className="tabular-nums text-emerald-600 dark:text-emerald-400">{forwards.length}</span>
+        <Cable className="h-4 w-4 text-emerald-300" />
+        <span className="tabular-nums text-emerald-300 text-[13px]">{forwards.length}</span>
         {expanded ? (
           <ChevronUp className="h-3 w-3 text-muted-foreground" />
         ) : (

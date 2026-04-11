@@ -469,15 +469,13 @@ export function NotificationCenter({ className, clusterId }: NotificationCenterP
         ref={triggerRef}
         onClick={togglePanel}
         className={cn(
-          'h-11 min-w-[2.75rem] rounded-xl',
-          'inline-flex items-center justify-center gap-2.5',
-          'text-slate-500 dark:text-slate-400',
-          'hover:bg-slate-100/60 hover:text-slate-900 hover:translate-y-[-0.5px]',
-          'dark:hover:bg-slate-700/60 dark:hover:text-slate-100',
-          'transition-all duration-300 ease-spring',
-          'active:scale-[0.98]',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20',
-          'px-4',
+          'h-9 w-9 rounded-lg',
+          'inline-flex items-center justify-center',
+          'text-white/90',
+          'hover:bg-white/15 hover:text-white',
+          'transition-colors duration-150',
+          'active:scale-[0.97]',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30',
           className,
         )}
         aria-label={
@@ -488,19 +486,19 @@ export function NotificationCenter({ className, clusterId }: NotificationCenterP
         aria-expanded={isPanelOpen}
         aria-haspopup="true"
       >
-        <div className="relative shrink-0 flex items-center justify-center h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-800 transition-colors">
-          <Bell className="h-4 w-4" />
+        <div className="relative shrink-0 flex items-center justify-center">
+          <Bell className="h-[18px] w-[18px]" />
           {currentUnreadCount > 0 ? (
             <motion.span
               key={currentUnreadCount}
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-red-500 border-2 border-white dark:border-slate-900 shadow-sm flex items-center justify-center text-[10px] font-black text-white px-0.5"
+              className="absolute -top-2 -right-2 min-w-[18px] h-[18px] rounded-full bg-red-500 border-2 border-[hsl(221,83%,53%)] dark:border-[hsl(221,70%,35%)] shadow-sm flex items-center justify-center text-[10px] font-black text-white px-0.5"
             >
               {currentUnreadCount > 99 ? '99+' : currentUnreadCount}
             </motion.span>
           ) : (
-            <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-blue-500 border-2 border-white dark:border-slate-900 shadow-sm" />
+            <span className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 rounded-full bg-sky-300 border-2 border-[hsl(221,83%,53%)] dark:border-[hsl(221,70%,35%)] shadow-sm" />
           )}
         </div>
         <span className="hidden 2xl:inline text-sm font-bold tracking-tight">

@@ -122,33 +122,19 @@ export function ThemeToggle() {
               onPointerCancel={handlePointerUp}
               onContextMenu={handleContextMenu}
               className={cn(
-                'relative h-10 w-10 rounded-xl',
+                'relative h-9 w-9 rounded-lg',
                 'inline-flex items-center justify-center',
-                'border border-slate-200/50 dark:border-slate-700/50',
-                'bg-white/60 dark:bg-slate-800/60',
-                'hover:bg-slate-100/80 dark:hover:bg-slate-700/60',
-                'hover:border-slate-300/60 dark:hover:border-slate-600/60',
-                'hover:shadow-sm dark:hover:shadow-[0_2px_8px_rgba(0,0,0,0.3)]',
-                'active:scale-[0.95]',
-                'transition-[background-color,border-color,box-shadow] duration-200 ease-out',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20',
+                'text-white/90',
+                'hover:bg-white/15 hover:text-white',
+                'active:scale-[0.97]',
+                'transition-colors duration-150',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30',
                 'select-none'
               )}
               whileTap={{ scale: 0.92 }}
               aria-label={`Theme: ${ThemeLabel(theme, resolvedTheme)}. Click to toggle, right-click for options.`}
               data-testid="theme-toggle"
             >
-              {/* Ambient glow ring */}
-              <motion.div
-                className="absolute inset-0 rounded-xl"
-                animate={{
-                  boxShadow: isDark
-                    ? '0 0 12px 2px hsl(217 91% 60% / 0.08)'
-                    : '0 0 12px 2px hsl(38 92% 50% / 0.08)',
-                }}
-                transition={{ duration: 0.4 }}
-              />
-
               {/* Icon container with crossfade */}
               <div className="relative h-5 w-5">
                 <AnimatePresence mode="wait" initial={false}>
@@ -161,7 +147,7 @@ export function ThemeToggle() {
                       exit="exit"
                       className="absolute inset-0 flex items-center justify-center"
                     >
-                      <Moon className="h-[18px] w-[18px] text-blue-400" strokeWidth={2} />
+                      <Moon className="h-[18px] w-[18px] text-white" strokeWidth={2} />
                     </motion.div>
                   ) : (
                     <motion.div
@@ -173,7 +159,7 @@ export function ThemeToggle() {
                       className="absolute inset-0 flex items-center justify-center"
                     >
                       {/* Sun core */}
-                      <Sun className="h-[18px] w-[18px] text-amber-500" strokeWidth={2} />
+                      <Sun className="h-[18px] w-[18px] text-white" strokeWidth={2} />
                       {/* Animated rays overlay */}
                       <motion.div
                         className="absolute inset-0 flex items-center justify-center"
@@ -181,7 +167,7 @@ export function ThemeToggle() {
                         initial="dark"
                         animate="light"
                       >
-                        <div className="absolute h-[26px] w-[26px] rounded-full border-[1.5px] border-amber-400/20" />
+                        <div className="absolute h-[26px] w-[26px] rounded-full border-[1.5px] border-white/15" />
                       </motion.div>
                     </motion.div>
                   )}
@@ -194,7 +180,7 @@ export function ThemeToggle() {
                   initial={{ scale: 0, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={{ scale: 0, opacity: 0 }}
-                  className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-primary border-2 border-white dark:border-slate-800"
+                  className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-white border-2 border-[hsl(221,83%,53%)] dark:border-[hsl(221,70%,35%)]"
                   title="Following system preference"
                 />
               )}

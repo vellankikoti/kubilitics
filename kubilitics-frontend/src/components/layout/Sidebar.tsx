@@ -974,7 +974,7 @@ export function Sidebar() {
   const fullContent = (
     <div className="flex flex-col flex-1 min-h-0 bg-slate-50/10 dark:bg-transparent">
       {/* Traffic light clearance handled by Header.tsx pl-[78px] */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-1 pb-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-300 dark:hover:scrollbar-thumb-slate-600">
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 pt-6 pb-4 scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700 hover:scrollbar-thumb-slate-300 dark:hover:scrollbar-thumb-slate-600">
         <SidebarContent counts={counts} isLoading={isLoading} isInitialLoad={isInitialLoad} metallbInstalled={metallbInstalled} />
       </div>
 
@@ -1083,10 +1083,10 @@ export function Sidebar() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.15, ease: "easeOut" }}
-              className="fixed left-[5.5rem] top-16 bottom-0 z-40 w-72 border-r border-slate-200/40 dark:border-slate-700/40 bg-white/70 dark:bg-[hsl(228,14%,9%)]/90 backdrop-blur-3xl shadow-apple-xl elevation-3 ring-1 ring-black/5 dark:ring-white/5"
+              className="fixed left-[5.5rem] top-[60px] bottom-0 z-40 w-72 border-r border-slate-200/40 dark:border-slate-700/40 bg-white/70 dark:bg-[hsl(228,14%,9%)]/90 backdrop-blur-3xl shadow-apple-xl elevation-3 ring-1 ring-black/5 dark:ring-white/5"
               onMouseEnter={handleFlyoutEnter}
               onMouseLeave={() => setFlyoutOpen(false)}
-              style={{ height: 'calc(100vh - 4rem)' }}
+              style={{ height: 'calc(100vh - 60px)' }}
               role="navigation"
               aria-label="Main navigation"
             >

@@ -216,9 +216,9 @@ const queryClient = new QueryClient({
       // Keep data in cache for 10 minutes after last subscriber unmounts
       // (Headlamp uses 10min TTL on backend cache; align frontend GC)
       gcTime: 10 * 60_000,
-      // Don't refetch on window focus — WebSocket handles freshness.
-      // (Headlamp also sets refetchOnWindowFocus: false)
-      refetchOnWindowFocus: false,
+      // Refetch when window regains focus — ensures data is fresh when
+      // user switches back to the app (prevents "Updated 12m ago").
+      refetchOnWindowFocus: true,
       // Refetch when connection restored (user reconnects)
       refetchOnReconnect: true,
       // Only refetch on mount if data is stale (>60s old)
