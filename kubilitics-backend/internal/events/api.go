@@ -55,6 +55,7 @@ type EventsHandler struct {
 	store      *Store
 	otelStore  OTelStore
 	manager    *PipelineManager // set when created from manager, nil for single-pipeline mode
+	chainCache *ChainCache      // optional — nil disables in-memory chain lookup
 }
 
 // NewEventsHandler creates a new EventsHandler from a single Pipeline.
@@ -78,6 +79,12 @@ func NewEventsHandlerFromManager(mgr *PipelineManager) *EventsHandler {
 // SetOTelStore sets the OTel store for cross-domain trace queries.
 func (h *EventsHandler) SetOTelStore(otelStore OTelStore) {
 	h.otelStore = otelStore
+}
+
+// SetChainCache attaches a ChainCache used by GetInsightCausalChain to
+// short-circuit database lookups for recently built causal chains.
+func (h *EventsHandler) SetChainCache(cc *ChainCache) {
+	h.chainCache = cc
 }
 
 // SetupEventsRoutes registers all Events Intelligence routes on the given router.
@@ -107,6 +114,7 @@ func SetupEventsRoutes(router *mux.Router, h *EventsHandler) {
 	// Insights
 	router.HandleFunc("/clusters/{clusterId}/insights/active", h.GetActiveInsights).Methods("GET")
 	router.HandleFunc("/clusters/{clusterId}/insights/{insightId}/dismiss", h.DismissInsight).Methods("POST")
+	router.HandleFunc("/clusters/{clusterId}/insights/{insightId}/causal-chain", h.GetInsightCausalChain).Methods("GET")
 
 	// Time-travel
 	router.HandleFunc("/clusters/{clusterId}/state/at", h.GetStateAt).Methods("GET")
@@ -541,6 +549,35 @@ func (h *EventsHandler) DismissInsight(w http.ResponseWriter, r *http.Request) {
 	}
 
 	respondJSON(w, http.StatusOK, map[string]string{"status": "dismissed"})
+}
+
+// GetInsightCausalChain returns the causal chain for a specific insight.
+// It tries the in-memory ChainCache first, then falls back to the store.
+// Returns 404 when no chain exists for the insight.
+func (h *EventsHandler) GetInsightCausalChain(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	clusterID := vars["clusterId"]
+	insightID := vars["insightId"]
+
+	// Try cache first.
+	if h.chainCache != nil {
+		if chain, ok := h.chainCache.Get(insightID); ok {
+			respondJSON(w, http.StatusOK, chain)
+			return
+		}
+	}
+
+	// Fall back to store.
+	chain, err := h.store.GetCausalChain(r.Context(), clusterID, insightID)
+	if err != nil {
+		writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("get causal chain: %v", err))
+		return
+	}
+	if chain == nil {
+		writeJSONError(w, http.StatusNotFound, "no causal chain found")
+		return
+	}
+	respondJSON(w, http.StatusOK, chain)
 }
 
 // ---------------------------------------------------------------------------

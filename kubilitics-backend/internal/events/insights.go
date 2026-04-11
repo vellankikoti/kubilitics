@@ -17,16 +17,28 @@ type AlertNotifier interface {
 
 // InsightsEngine runs anomaly detection rules periodically.
 type InsightsEngine struct {
-	store     *Store
-	clusterID string
-	rules     []InsightRule
-	notifier  AlertNotifier // optional — fires webhook/Slack/in-app alerts
-	stopCh    chan struct{}
+	store        *Store
+	clusterID    string
+	rules        []InsightRule
+	notifier     AlertNotifier // optional — fires webhook/Slack/in-app alerts
+	chainBuilder *ChainBuilder // optional — builds causal chains for new insights
+	chainCache   *ChainCache   // optional — caches built chains in memory
+	stopCh       chan struct{}
 }
 
 // SetNotifier attaches an AlertNotifier that is called for every new insight.
 func (e *InsightsEngine) SetNotifier(n AlertNotifier) {
 	e.notifier = n
+}
+
+// SetChainBuilder attaches a ChainBuilder and its companion cache. Both must be
+// non-nil; if either is nil the call is ignored to prevent panics.
+func (e *InsightsEngine) SetChainBuilder(cb *ChainBuilder, cc *ChainCache) {
+	if cb == nil || cc == nil {
+		return
+	}
+	e.chainBuilder = cb
+	e.chainCache = cc
 }
 
 // InsightRule defines a single anomaly detection rule.
@@ -76,6 +88,16 @@ func (e *InsightsEngine) Start(ctx context.Context) {
 					if err := e.store.InsertInsight(ctx, &insights[i]); err != nil {
 						log.Printf("events/insights: failed to store insight %s: %v", insights[i].InsightID, err)
 						continue
+					}
+					// Build causal chain for the new insight when a ChainBuilder is wired.
+					if e.chainBuilder != nil {
+						chain, err := e.chainBuilder.BuildChain(ctx, insights[i])
+						if err == nil && chain != nil && len(chain.Links) > 0 {
+							e.chainCache.Set(chain)
+							if err := e.store.UpsertCausalChain(ctx, chain); err != nil {
+								log.Printf("events/insights: failed to persist chain for %s: %v", insights[i].InsightID, err)
+							}
+						}
 					}
 					// Fire webhook/Slack/in-app notification for the new insight.
 					if e.notifier != nil {
