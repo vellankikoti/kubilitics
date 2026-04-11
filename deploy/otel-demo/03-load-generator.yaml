@@ -1,0 +1,37 @@
+# Load Generator — sends requests every 2s to order-service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-generator
+  namespace: otel-demo
+  labels:
+    app: load-generator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: load-generator
+  template:
+    metadata:
+      labels:
+        app: load-generator
+    spec:
+      containers:
+        - name: load-gen
+          image: curlimages/curl:8.7.1
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Load generator starting — hitting order-service every 2s"
+              while true; do
+                curl -s -o /dev/null -w "status=%{http_code} time=%{time_total}s\n" \
+                  http://order-service:8080/api/orders || echo "failed"
+                sleep 2
+              done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 50m
+              memory: 64Mi
