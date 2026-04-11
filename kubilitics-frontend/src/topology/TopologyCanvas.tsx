@@ -27,6 +27,7 @@ import { useCausalChainStore } from "@/stores/causalChainStore";
 import {
   getCausalChainNodeClassName,
   getCausalChainNodeStyle,
+  getChainResourceKeys,
   getChainStepIndex,
   getStepBadgeColor,
 } from "@/topology/overlays/CausalChainOverlay";
@@ -518,8 +519,27 @@ function TopologyCanvasInner({
         },
       }));
     }
+    // Causal chain overlay: amber dashed edges between chain nodes, dim the rest
+    if (overlayEnabled && chainData) {
+      const chainKeys = getChainResourceKeys(chainData);
+      return edges.map((e) => {
+        const isChainEdge = chainKeys.has(e.source) && chainKeys.has(e.target);
+        if (isChainEdge) {
+          return {
+            ...e,
+            style: { stroke: '#f59e0b', strokeWidth: 2.5, strokeDasharray: '8,4', opacity: 0.9 },
+            animated: true,
+          };
+        }
+        // Non-chain edges: dim
+        return {
+          ...e,
+          style: { ...(e.style ?? {}), opacity: 0.1 },
+        };
+      });
+    }
     return edges;
-  }, [edges, currentZoom, isExporting, viewMode, simulationAffectedNodes]);
+  }, [edges, currentZoom, isExporting, viewMode, simulationAffectedNodes, overlayEnabled, chainData]);
 
   const onNodeClick = useCallback(
     (_: React.MouseEvent, node: { id: string }) => onSelectNode(node.id),
