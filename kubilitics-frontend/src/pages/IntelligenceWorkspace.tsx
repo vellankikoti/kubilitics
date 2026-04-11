@@ -22,6 +22,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
   ChevronDown,
+  Crosshair,
   Loader2,
   RotateCcw,
   Upload,
@@ -29,6 +30,7 @@ import {
 } from 'lucide-react';
 
 import { useWorkspaceData } from '@/hooks/useWorkspaceData';
+import { useCausalChainStore } from '@/stores/causalChainStore';
 import type { WorkspaceMode } from '@/hooks/useWorkspaceData';
 import { ImpactBar } from '@/components/intelligence/ImpactBar';
 import { YAMLDropZone } from '@/components/intelligence/YAMLDropZone';
@@ -78,6 +80,9 @@ export default function IntelligenceWorkspace() {
   const canFetch = !!clusterId && !!kind && !!name;
 
   const workspace = useWorkspaceData(kind, namespace, name, canFetch);
+
+  // Root cause overlay state
+  const { overlayEnabled, toggleOverlay, chainData } = useCausalChainStore();
 
   // Local UI state
   const [showDropZone, setShowDropZone] = useState(false);
@@ -253,6 +258,17 @@ export default function IntelligenceWorkspace() {
     setCurrentWave(-1);
   }, [workspace.mode]);
 
+  // Escape key clears root cause chain overlay
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && overlayEnabled) {
+        useCausalChainStore.getState().clearActiveChain();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [overlayEnabled]);
+
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleResetFocus = useCallback(() => {
@@ -375,6 +391,25 @@ export default function IntelligenceWorkspace() {
           <RotateCcw className="h-3 w-3" />
           <span className="hidden sm:inline">Reset</span>
         </Button>
+
+        {/* Root Cause overlay toggle */}
+        <button
+          onClick={toggleOverlay}
+          className={cn(
+            'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors shrink-0',
+            overlayEnabled
+              ? 'bg-amber-500/15 text-amber-400 ring-1 ring-amber-500/25'
+              : 'text-slate-400 hover:text-slate-300 hover:bg-slate-800',
+          )}
+          disabled={!chainData}
+          title={chainData ? 'Toggle root cause overlay' : 'No causal chain available'}
+        >
+          <Crosshair className="h-3.5 w-3.5" />
+          Root Cause
+          {overlayEnabled && chainData && (
+            <div className="w-1.5 h-1.5 rounded-full bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
+          )}
+        </button>
 
         {/* Preview Change / Clear Preview */}
         {workspace.mode === 'preview' ? (

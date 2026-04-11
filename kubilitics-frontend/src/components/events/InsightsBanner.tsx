@@ -18,6 +18,8 @@ import { cn } from '@/lib/utils';
 import { useInvestigateData } from '@/hooks/useInvestigateData';
 import { ERROR_KEYWORDS } from '@/lib/rootCauseHeuristic';
 import type { Insight } from '@/services/api/eventsIntelligence';
+import { useCausalChain } from '@/hooks/useCausalChain';
+import { useCausalChainStore } from '@/stores/causalChainStore';
 
 interface InsightsBannerProps {
   insights: Insight[];
@@ -78,6 +80,30 @@ function HighlightedSnippet({ text }: { text: string }) {
         )
       )}
     </span>
+  );
+}
+
+function WhyButton({ insight }: { insight: Insight }) {
+  const navigate = useNavigate();
+  const causalChainQuery = useCausalChain(insight.insight_id ?? null);
+
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        const chain = causalChainQuery.data;
+        if (chain) {
+          useCausalChainStore.getState().setActiveChain(chain);
+          navigate(
+            `/intelligence/${chain.rootCause.kind}/${chain.rootCause.namespace}/${chain.rootCause.name}`
+          );
+        }
+      }}
+      disabled={!causalChainQuery.data}
+      className="text-[10px] font-semibold text-amber-500 hover:text-amber-400 bg-amber-500/10 hover:bg-amber-500/15 px-2 py-0.5 rounded transition-colors disabled:opacity-40"
+    >
+      Why?
+    </button>
   );
 }
 
@@ -226,11 +252,12 @@ export function InsightsBanner({ insights, onDismiss, isDismissing }: InsightsBa
       <div className="flex items-start gap-3">
         <AlertTriangle className={cn('h-5 w-5 mt-0.5 shrink-0', severityText)} />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h3 className={cn('text-sm font-semibold', severityText)}>{primary.title}</h3>
             <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0 h-5', severityText)}>
               {primary.severity}
             </Badge>
+            <WhyButton insight={primary} />
             {insights.length > 1 && (
               <Badge variant="secondary" className="text-[10px] h-5">
                 +{insights.length - 1} more
@@ -302,7 +329,10 @@ export function InsightsBanner({ insights, onDismiss, isDismissing }: InsightsBa
                 <div key={insight.insight_id} className="border-t border-border/40 pt-2">
                   <div className="flex items-center justify-between">
                     <div className="min-w-0">
-                      <p className="text-xs font-medium">{insight.title}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-xs font-medium">{insight.title}</p>
+                        <WhyButton insight={insight} />
+                      </div>
                       <p className="text-[10px] text-muted-foreground truncate">{insight.detail}</p>
                     </div>
                     <div className="flex gap-1 shrink-0 ml-2">
