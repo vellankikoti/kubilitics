@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!-- Kubernetes wheel (helm) - simplified 6-spoke -->
+  <circle cx="12" cy="12" r="10" stroke="#326CE5" stroke-width="1.5" fill="none"/>
+  <circle cx="12" cy="12" r="4" fill="#326CE5"/>
+  <circle cx="12" cy="12" r="2.5" fill="white"/>
+  <!-- 6 spokes -->
+  <line x1="12" y1="2.5" x2="12" y2="8" stroke="#326CE5" stroke-width="2" stroke-linecap="round"/>
+  <line x1="12" y1="16" x2="12" y2="21.5" stroke="#326CE5" stroke-width="2" stroke-linecap="round"/>
+  <line x1="2.5" y1="7" x2="7.2" y2="9.5" stroke="#326CE5" stroke-width="2" stroke-linecap="round"/>
+  <line x1="16.8" y1="14.5" x2="21.5" y2="17" stroke="#326CE5" stroke-width="2" stroke-linecap="round"/>
+  <line x1="2.5" y1="17" x2="7.2" y2="14.5" stroke="#326CE5" stroke-width="2" stroke-linecap="round"/>
+  <line x1="16.8" y1="9.5" x2="21.5" y2="7" stroke="#326CE5" stroke-width="2" stroke-linecap="round"/>
+</svg>

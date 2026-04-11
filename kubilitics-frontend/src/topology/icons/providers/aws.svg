@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!-- AWS smile arrow -->
+  <path d="M6.5 16.5 Q12 19.5 17.5 16.5" stroke="#FF9900" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M16 15.5 L17.5 16.5 L16.5 18" stroke="#FF9900" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- AWS text-like mark: three vertical bars tapering -->
+  <rect x="5" y="7" width="3" height="6" rx="0.5" fill="#FF9900"/>
+  <rect x="10.5" y="5" width="3" height="8" rx="0.5" fill="#FF9900"/>
+  <rect x="16" y="7" width="3" height="6" rx="0.5" fill="#FF9900"/>
+</svg>

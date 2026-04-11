@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+  <!-- K3s: stylized rocket -->
+  <!-- Rocket body -->
+  <path d="M12 3 L15 9 L15 16 L12 18 L9 16 L9 9 Z" fill="#2C2C2C"/>
+  <!-- Rocket tip -->
+  <path d="M12 3 L14 7 L12 6 L10 7 Z" fill="#555"/>
+  <!-- Window -->
+  <circle cx="12" cy="11" r="2" fill="#87CEEB" stroke="#2C2C2C" stroke-width="0.5"/>
+  <!-- Fins -->
+  <path d="M9 14 L6 17 L9 16 Z" fill="#2C2C2C"/>
+  <path d="M15 14 L18 17 L15 16 Z" fill="#2C2C2C"/>
+  <!-- Exhaust -->
+  <path d="M10.5 18 Q12 21 13.5 18" stroke="#FF6B00" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+</svg>
