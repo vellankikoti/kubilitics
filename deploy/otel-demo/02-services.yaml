@@ -1,4 +1,168 @@
-# Order Service — entry point, calls payment + inventory
+# =============================================================================
+# OTel Demo Services — 3 microservices with OpenTelemetry instrumentation
+# Uses python:3.12-slim with init container for package installation
+# =============================================================================
+
+# Shared app code as ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: demo-app-code
+  namespace: otel-demo
+data:
+  order_service.py: |
+    import http.server, json, random, time, urllib.request, os
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.resources import Resource
+
+    resource = Resource.create({
+        "service.name": "order-service",
+        "k8s.namespace.name": os.environ.get("POD_NAMESPACE", "otel-demo"),
+        "k8s.pod.name": os.environ.get("POD_NAME", "unknown"),
+    })
+    provider = TracerProvider(resource=resource)
+    exporter = OTLPSpanExporter(endpoint=os.environ.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://otel-collector:4318/v1/traces"))
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+    trace.set_tracer_provider(provider)
+    tracer = trace.get_tracer("order-service")
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/health":
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b'{"status":"ok"}')
+                return
+            with tracer.start_as_current_span("GET /api/orders") as span:
+                span.set_attribute("http.method", "GET")
+                span.set_attribute("http.route", "/api/orders")
+                try:
+                    with tracer.start_as_current_span("call payment-service"):
+                        urllib.request.urlopen("http://payment-service:8080/api/process", timeout=5)
+                except: pass
+                try:
+                    with tracer.start_as_current_span("call inventory-service"):
+                        urllib.request.urlopen("http://inventory-service:8080/api/check", timeout=5)
+                except: pass
+                with tracer.start_as_current_span("SELECT orders") as db:
+                    db.set_attribute("db.system", "postgresql")
+                    db.set_attribute("db.statement", "SELECT * FROM orders LIMIT 50")
+                    time.sleep(random.uniform(0.01, 0.05))
+                if random.random() < 0.1:
+                    span.set_attribute("http.status_code", 500)
+                    self.send_response(500)
+                    self.end_headers()
+                    self.wfile.write(b'{"error":"internal error"}')
+                    return
+                span.set_attribute("http.status_code", 200)
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps({"order_id": random.randint(1000,9999)}).encode())
+        def log_message(self, format, *args): pass
+
+    print("order-service starting on :8080", flush=True)
+    http.server.HTTPServer(("", 8080), Handler).serve_forever()
+
+  payment_service.py: |
+    import http.server, json, random, time, os
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.resources import Resource
+
+    resource = Resource.create({
+        "service.name": "payment-service",
+        "k8s.namespace.name": os.environ.get("POD_NAMESPACE", "otel-demo"),
+        "k8s.pod.name": os.environ.get("POD_NAME", "unknown"),
+    })
+    provider = TracerProvider(resource=resource)
+    exporter = OTLPSpanExporter(endpoint=os.environ.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://otel-collector:4318/v1/traces"))
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+    trace.set_tracer_provider(provider)
+    tracer = trace.get_tracer("payment-service")
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/health":
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b'{"status":"ok"}')
+                return
+            with tracer.start_as_current_span("POST /api/process") as span:
+                span.set_attribute("http.method", "POST")
+                with tracer.start_as_current_span("stripe.charges.create") as stripe:
+                    stripe.set_attribute("payment.provider", "stripe")
+                    stripe.set_attribute("payment.amount", round(random.uniform(10, 500), 2))
+                    time.sleep(random.uniform(0.05, 0.15))
+                with tracer.start_as_current_span("INSERT payment") as db:
+                    db.set_attribute("db.system", "postgresql")
+                    db.set_attribute("db.statement", "INSERT INTO payments VALUES ($1, $2)")
+                    time.sleep(random.uniform(0.005, 0.02))
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps({"payment_id": f"pay_{random.randint(1000,9999)}"}).encode())
+        def log_message(self, format, *args): pass
+
+    print("payment-service starting on :8080", flush=True)
+    http.server.HTTPServer(("", 8080), Handler).serve_forever()
+
+  inventory_service.py: |
+    import http.server, json, random, time, os
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+    from opentelemetry.sdk.resources import Resource
+
+    resource = Resource.create({
+        "service.name": "inventory-service",
+        "k8s.namespace.name": os.environ.get("POD_NAMESPACE", "otel-demo"),
+        "k8s.pod.name": os.environ.get("POD_NAME", "unknown"),
+    })
+    provider = TracerProvider(resource=resource)
+    exporter = OTLPSpanExporter(endpoint=os.environ.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://otel-collector:4318/v1/traces"))
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+    trace.set_tracer_provider(provider)
+    tracer = trace.get_tracer("inventory-service")
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/health":
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b'{"status":"ok"}')
+                return
+            with tracer.start_as_current_span("GET /api/check") as span:
+                span.set_attribute("http.method", "GET")
+                with tracer.start_as_current_span("redis.GET stock") as cache:
+                    cache.set_attribute("db.system", "redis")
+                    time.sleep(random.uniform(0.001, 0.005))
+                    cache.set_attribute("cache.hit", random.random() > 0.3)
+                with tracer.start_as_current_span("SELECT inventory") as db:
+                    db.set_attribute("db.system", "postgresql")
+                    db.set_attribute("db.statement", "SELECT quantity FROM inventory WHERE product_id = $1")
+                    time.sleep(random.uniform(0.01, 0.03))
+                stock = random.randint(0, 100)
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(json.dumps({"available": stock > 0, "quantity": stock}).encode())
+        def log_message(self, format, *args): pass
+
+    print("inventory-service starting on :8080", flush=True)
+    http.server.HTTPServer(("", 8080), Handler).serve_forever()
+
+  install.sh: |
+    #!/bin/sh
+    set -e
+    python3 -m ensurepip --default-pip 2>/dev/null || true
+    python3 -m pip install --no-cache-dir opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-http
+    echo "OTel packages installed successfully"
+---
+# Order Service (2 replicas)
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,82 +180,24 @@ spec:
       labels:
         app: order-service
     spec:
+      initContainers:
+        - name: install-deps
+          image: python:3.12
+          command: ["sh", "/code/install.sh"]
+          volumeMounts:
+            - name: code
+              mountPath: /code
+            - name: pip-packages
+              mountPath: /usr/local/lib/python3.12/site-packages
       containers:
         - name: app
-          image: python:3.12-slim
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              cat > /tmp/server.py << 'PYEOF'
-              import http.server, json, random, time, urllib.request, os, traceback
-              from opentelemetry import trace
-              from opentelemetry.sdk.trace import TracerProvider
-              from opentelemetry.sdk.trace.export import BatchSpanExporter
-              from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-              from opentelemetry.sdk.resources import Resource
-              from opentelemetry.semconv.resource import ResourceAttributes
-
-              resource = Resource.create({
-                  ResourceAttributes.SERVICE_NAME: "order-service",
-                  "k8s.namespace.name": os.environ.get("POD_NAMESPACE", "otel-demo"),
-                  "k8s.pod.name": os.environ.get("POD_NAME", "unknown"),
-              })
-              provider = TracerProvider(resource=resource)
-              exporter = OTLPSpanExporter(endpoint=os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318") + "/v1/traces")
-              provider.add_span_processor(BatchSpanExporter(exporter))
-              trace.set_tracer_provider(provider)
-              tracer = trace.get_tracer("order-service")
-
-              class Handler(http.server.BaseHTTPRequestHandler):
-                  def do_GET(self):
-                      if self.path == "/health":
-                          self.send_response(200)
-                          self.send_header("Content-Type", "application/json")
-                          self.end_headers()
-                          self.wfile.write(b'{"status":"ok"}')
-                          return
-                      with tracer.start_as_current_span("GET /api/orders") as span:
-                          span.set_attribute("http.method", "GET")
-                          span.set_attribute("http.route", "/api/orders")
-                          # Call payment service
-                          try:
-                              with tracer.start_as_current_span("call payment-service"):
-                                  urllib.request.urlopen("http://payment-service:8080/api/process", timeout=5)
-                          except Exception as e:
-                              span.set_attribute("payment.error", str(e))
-                          # Call inventory service
-                          try:
-                              with tracer.start_as_current_span("call inventory-service"):
-                                  urllib.request.urlopen("http://inventory-service:8080/api/check", timeout=5)
-                          except Exception as e:
-                              span.set_attribute("inventory.error", str(e))
-                          # Simulate DB
-                          with tracer.start_as_current_span("SELECT orders") as db:
-                              db.set_attribute("db.system", "postgresql")
-                              db.set_attribute("db.statement", "SELECT * FROM orders LIMIT 50")
-                              time.sleep(random.uniform(0.01, 0.05))
-                          if random.random() < 0.1:
-                              self.send_response(500)
-                              self.send_header("Content-Type", "application/json")
-                              self.end_headers()
-                              self.wfile.write(b'{"error":"internal error"}')
-                              return
-                          self.send_response(200)
-                          self.send_header("Content-Type", "application/json")
-                          self.end_headers()
-                          self.wfile.write(json.dumps({"order_id": random.randint(1000,9999), "total": round(random.uniform(10,500),2)}).encode())
-                  def log_message(self, format, *args): pass
-
-              print("order-service starting on :8080")
-              http.server.HTTPServer(("", 8080), Handler).serve_forever()
-              PYEOF
-              pip install opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-http opentelemetry-semantic-conventions -q 2>/dev/null
-              python3 /tmp/server.py
+          image: python:3.12
+          command: ["python3", "/code/order_service.py"]
           ports:
             - containerPort: 8080
           env:
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://otel-collector:4318"
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: "http://otel-collector:4318/v1/traces"
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -100,25 +206,36 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+          volumeMounts:
+            - name: code
+              mountPath: /code
+            - name: pip-packages
+              mountPath: /usr/local/lib/python3.12/site-packages
           resources:
             requests:
               cpu: 50m
-              memory: 128Mi
+              memory: 96Mi
             limits:
               cpu: 200m
-              memory: 256Mi
+              memory: 192Mi
           livenessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 5
             periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 20
+            initialDelaySeconds: 3
             periodSeconds: 5
+      volumes:
+        - name: code
+          configMap:
+            name: demo-app-code
+        - name: pip-packages
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -150,71 +267,24 @@ spec:
       labels:
         app: payment-service
     spec:
+      initContainers:
+        - name: install-deps
+          image: python:3.12
+          command: ["sh", "/code/install.sh"]
+          volumeMounts:
+            - name: code
+              mountPath: /code
+            - name: pip-packages
+              mountPath: /usr/local/lib/python3.12/site-packages
       containers:
         - name: app
-          image: python:3.12-slim
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              cat > /tmp/server.py << 'PYEOF'
-              import http.server, json, random, time, os
-              from opentelemetry import trace
-              from opentelemetry.sdk.trace import TracerProvider
-              from opentelemetry.sdk.trace.export import BatchSpanExporter
-              from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-              from opentelemetry.sdk.resources import Resource
-              from opentelemetry.semconv.resource import ResourceAttributes
-
-              resource = Resource.create({
-                  ResourceAttributes.SERVICE_NAME: "payment-service",
-                  "k8s.namespace.name": os.environ.get("POD_NAMESPACE", "otel-demo"),
-                  "k8s.pod.name": os.environ.get("POD_NAME", "unknown"),
-              })
-              provider = TracerProvider(resource=resource)
-              exporter = OTLPSpanExporter(endpoint=os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318") + "/v1/traces")
-              provider.add_span_processor(BatchSpanExporter(exporter))
-              trace.set_tracer_provider(provider)
-              tracer = trace.get_tracer("payment-service")
-
-              class Handler(http.server.BaseHTTPRequestHandler):
-                  def do_GET(self):
-                      if self.path == "/health":
-                          self.send_response(200)
-                          self.send_header("Content-Type", "application/json")
-                          self.end_headers()
-                          self.wfile.write(b'{"status":"ok"}')
-                          return
-                      with tracer.start_as_current_span("POST /api/process") as span:
-                          span.set_attribute("http.method", "POST")
-                          span.set_attribute("http.route", "/api/process")
-                          # Simulate Stripe API call
-                          with tracer.start_as_current_span("stripe.charges.create") as stripe:
-                              stripe.set_attribute("payment.provider", "stripe")
-                              stripe.set_attribute("payment.amount", round(random.uniform(10, 500), 2))
-                              time.sleep(random.uniform(0.05, 0.15))
-                              if random.random() < 0.08:
-                                  stripe.set_attribute("payment.declined", True)
-                          # Simulate DB write
-                          with tracer.start_as_current_span("INSERT payment") as db:
-                              db.set_attribute("db.system", "postgresql")
-                              db.set_attribute("db.statement", "INSERT INTO payments (order_id, amount) VALUES ($1, $2)")
-                              time.sleep(random.uniform(0.005, 0.02))
-                          self.send_response(200)
-                          self.send_header("Content-Type", "application/json")
-                          self.end_headers()
-                          self.wfile.write(json.dumps({"payment_id": f"pay_{random.randint(1000,9999)}", "status": "completed"}).encode())
-                  def log_message(self, format, *args): pass
-
-              print("payment-service starting on :8080")
-              http.server.HTTPServer(("", 8080), Handler).serve_forever()
-              PYEOF
-              pip install opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-http opentelemetry-semantic-conventions -q 2>/dev/null
-              python3 /tmp/server.py
+          image: python:3.12
+          command: ["python3", "/code/payment_service.py"]
           ports:
             - containerPort: 8080
           env:
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://otel-collector:4318"
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: "http://otel-collector:4318/v1/traces"
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -223,23 +293,34 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+          volumeMounts:
+            - name: code
+              mountPath: /code
+            - name: pip-packages
+              mountPath: /usr/local/lib/python3.12/site-packages
           resources:
             requests:
               cpu: 50m
-              memory: 128Mi
+              memory: 96Mi
             limits:
               cpu: 200m
-              memory: 256Mi
+              memory: 192Mi
           livenessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 5
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 20
+            initialDelaySeconds: 3
+      volumes:
+        - name: code
+          configMap:
+            name: demo-app-code
+        - name: pip-packages
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -271,73 +352,24 @@ spec:
       labels:
         app: inventory-service
     spec:
+      initContainers:
+        - name: install-deps
+          image: python:3.12
+          command: ["sh", "/code/install.sh"]
+          volumeMounts:
+            - name: code
+              mountPath: /code
+            - name: pip-packages
+              mountPath: /usr/local/lib/python3.12/site-packages
       containers:
         - name: app
-          image: python:3.12-slim
-          command: ["/bin/sh", "-c"]
-          args:
-            - |
-              cat > /tmp/server.py << 'PYEOF'
-              import http.server, json, random, time, os
-              from opentelemetry import trace
-              from opentelemetry.sdk.trace import TracerProvider
-              from opentelemetry.sdk.trace.export import BatchSpanExporter
-              from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-              from opentelemetry.sdk.resources import Resource
-              from opentelemetry.semconv.resource import ResourceAttributes
-
-              resource = Resource.create({
-                  ResourceAttributes.SERVICE_NAME: "inventory-service",
-                  "k8s.namespace.name": os.environ.get("POD_NAMESPACE", "otel-demo"),
-                  "k8s.pod.name": os.environ.get("POD_NAME", "unknown"),
-              })
-              provider = TracerProvider(resource=resource)
-              exporter = OTLPSpanExporter(endpoint=os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "http://otel-collector:4318") + "/v1/traces")
-              provider.add_span_processor(BatchSpanExporter(exporter))
-              trace.set_tracer_provider(provider)
-              tracer = trace.get_tracer("inventory-service")
-
-              class Handler(http.server.BaseHTTPRequestHandler):
-                  def do_GET(self):
-                      if self.path == "/health":
-                          self.send_response(200)
-                          self.send_header("Content-Type", "application/json")
-                          self.end_headers()
-                          self.wfile.write(b'{"status":"ok"}')
-                          return
-                      with tracer.start_as_current_span("GET /api/check") as span:
-                          span.set_attribute("http.method", "GET")
-                          span.set_attribute("http.route", "/api/check")
-                          # Redis cache check
-                          with tracer.start_as_current_span("redis.GET stock") as cache:
-                              cache.set_attribute("db.system", "redis")
-                              cache.set_attribute("db.statement", "GET product:stock:*")
-                              time.sleep(random.uniform(0.001, 0.005))
-                              cache.set_attribute("cache.hit", random.random() > 0.3)
-                          # DB query
-                          with tracer.start_as_current_span("SELECT inventory") as db:
-                              db.set_attribute("db.system", "postgresql")
-                              db.set_attribute("db.statement", "SELECT quantity FROM inventory WHERE product_id = $1")
-                              time.sleep(random.uniform(0.01, 0.03))
-                          stock = random.randint(0, 100)
-                          if stock == 0:
-                              span.set_attribute("inventory.out_of_stock", True)
-                          self.send_response(200)
-                          self.send_header("Content-Type", "application/json")
-                          self.end_headers()
-                          self.wfile.write(json.dumps({"available": stock > 0, "quantity": stock}).encode())
-                  def log_message(self, format, *args): pass
-
-              print("inventory-service starting on :8080")
-              http.server.HTTPServer(("", 8080), Handler).serve_forever()
-              PYEOF
-              pip install opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-http opentelemetry-semantic-conventions -q 2>/dev/null
-              python3 /tmp/server.py
+          image: python:3.12
+          command: ["python3", "/code/inventory_service.py"]
           ports:
             - containerPort: 8080
           env:
-            - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://otel-collector:4318"
+            - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+              value: "http://otel-collector:4318/v1/traces"
             - name: POD_NAME
               valueFrom:
                 fieldRef:
@@ -346,23 +378,34 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+          volumeMounts:
+            - name: code
+              mountPath: /code
+            - name: pip-packages
+              mountPath: /usr/local/lib/python3.12/site-packages
           resources:
             requests:
               cpu: 50m
-              memory: 128Mi
+              memory: 96Mi
             limits:
               cpu: 200m
-              memory: 256Mi
+              memory: 192Mi
           livenessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 5
           readinessProbe:
             httpGet:
               path: /health
               port: 8080
-            initialDelaySeconds: 20
+            initialDelaySeconds: 3
+      volumes:
+        - name: code
+          configMap:
+            name: demo-app-code
+        - name: pip-packages
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
