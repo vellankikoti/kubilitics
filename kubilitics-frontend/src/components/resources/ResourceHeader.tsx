@@ -96,49 +96,42 @@ export function ResourceHeader({
           Back to {backLabel}
         </Link>
 
-        {/* Main Header - subtle depth */}
+        {/* Main Header */}
         <div
           role="banner"
-          className="elevation-2 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between rounded-xl border border-border/50 bg-card p-3 sm:p-4"
+          className="elevation-2 rounded-xl border border-border/50 bg-card p-4 sm:p-5"
         >
-          <div className="flex items-center gap-4">
-            <div className="p-3 rounded-2xl bg-primary/10 shadow-sm">
-              <Icon className="h-8 w-8 text-primary" />
+          {/* Top row: Icon + Name + Status */}
+          <div className="flex items-start gap-4">
+            <div className="p-2.5 rounded-xl bg-primary/10 shrink-0">
+              <Icon className="h-7 w-7 text-primary" />
             </div>
-            <div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl sm:text-2xl font-semibold tracking-tight break-all">{name}</h1>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="press-effect h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
-                        onClick={copyDisplayName}
-                        aria-label="Copy resource name"
-                      >
-                        <motion.div
-                          initial={false}
-                          animate={{ scale: isCopied ? 1 : 1, opacity: 1 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          {isCopied ? (
-                            <Check className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <Copy className="h-4 w-4" />
-                          )}
-                        </motion.div>
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isCopied ? 'Copied!' : `Copy ${namespace ? 'namespace/name' : 'name'}`}
-                    </TooltipContent>
-                  </Tooltip>
-                </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg sm:text-xl font-semibold tracking-tight truncate">{name}</h1>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={copyDisplayName}
+                      aria-label="Copy resource name"
+                    >
+                      {isCopied ? (
+                        <Check className="h-3.5 w-3.5 text-green-600" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isCopied ? 'Copied!' : `Copy ${namespace ? 'namespace/name' : 'name'}`}
+                  </TooltipContent>
+                </Tooltip>
                 <div className={cn(
-                  'flex items-center gap-2 px-2 py-1 rounded-full text-sm font-medium',
+                  'flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium shrink-0',
                   statusStyle.bg,
                   statusStyle.text
                 )}>
@@ -146,23 +139,22 @@ export function ResourceHeader({
                   {status}
                 </div>
               </div>
-              <div className="flex items-center gap-3 mt-2 text-sm text-foreground/60 flex-wrap">
-                <span className="flex items-center gap-2">
+              <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground flex-wrap">
+                <span className="flex items-center gap-1.5">
                   {resourceType}
                   {namespace ? (
                     <>
                       {' '}in
-                      <NamespaceBadge namespace={namespace} className="ml-1" />
-                      namespace
+                      <NamespaceBadge namespace={namespace} className="ml-0.5" />
                     </>
                   ) : (
-                    <Badge variant="secondary" className="ml-1">Cluster-scoped</Badge>
+                    <Badge variant="secondary" className="ml-1 text-[10px]">Cluster-scoped</Badge>
                   )}
                 </span>
                 {(createdLabel ?? createdAt) && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-1.5">
                         Created {createdLabel ?? (createdAt ? new Date(createdAt).toLocaleString() : '')}
                       </span>
                     </TooltipTrigger>
@@ -174,9 +166,9 @@ export function ResourceHeader({
             </div>
           </div>
 
-          {/* Actions */}
+          {/* Actions row — separate line, right-aligned */}
           {actions.length > 0 && (
-            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
+            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border/40 justify-end flex-wrap">
               {actions.map((action) => (
                 <Button
                   key={action.label}
@@ -184,9 +176,9 @@ export function ResourceHeader({
                   size="sm"
                   onClick={action.onClick}
                   aria-label={action.label}
-                  className="press-effect gap-2"
+                  className="gap-1.5 text-xs"
                 >
-                  <action.icon className="h-4 w-4" />
+                  <action.icon className="h-3.5 w-3.5" />
                   {action.label}
                 </Button>
               ))}
