@@ -638,7 +638,7 @@ export function Header() {
                       <Terminal className="h-4 w-4" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom" sideOffset={8}>Shell</TooltipContent>
+                  <TooltipContent side="bottom" sideOffset={8}>Cluster Shell</TooltipContent>
                 </Tooltip>
 
                 {/* Kubeconfig */}

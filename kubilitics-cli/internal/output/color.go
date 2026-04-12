@@ -41,20 +41,20 @@ func darkTheme() *Theme {
 	switch caps.ColorDepth {
 	case TrueColor:
 		return &Theme{
-			Primary:       lipgloss.NewStyle().Foreground(lipgloss.Color("#7AA2F7")),
+			Primary:       lipgloss.NewStyle().Foreground(lipgloss.Color("#C0CAF5")),
 			Secondary:     lipgloss.NewStyle().Foreground(lipgloss.Color("#9ECE6A")),
 			Success:       lipgloss.NewStyle().Foreground(lipgloss.Color("#9ECE6A")),
 			Warning:       lipgloss.NewStyle().Foreground(lipgloss.Color("#E0AF68")),
 			Error:         lipgloss.NewStyle().Foreground(lipgloss.Color("#F7768E")),
-			Info:          lipgloss.NewStyle().Foreground(lipgloss.Color("#7AA2F7")),
-			Muted:         lipgloss.NewStyle().Foreground(lipgloss.Color("#565F89")),
+			Info:          lipgloss.NewStyle().Foreground(lipgloss.Color("#7DCFFF")),
+			Muted:         lipgloss.NewStyle().Foreground(lipgloss.Color("#737AA2")),
 			Highlight:     lipgloss.NewStyle().Foreground(lipgloss.Color("#BB9AF7")),
 			Header:        lipgloss.NewStyle().Foreground(lipgloss.Color("#7AA2F7")).Bold(true),
-			Border:        lipgloss.NewStyle().Foreground(lipgloss.Color("#565F89")),
+			Border:        lipgloss.NewStyle().Foreground(lipgloss.Color("#3B4261")),
 			StatusReady:   lipgloss.NewStyle().Foreground(lipgloss.Color("#9ECE6A")),
 			StatusPending: lipgloss.NewStyle().Foreground(lipgloss.Color("#E0AF68")),
 			StatusError:   lipgloss.NewStyle().Foreground(lipgloss.Color("#F7768E")),
-			StatusUnknown: lipgloss.NewStyle().Foreground(lipgloss.Color("#565F89")),
+			StatusUnknown: lipgloss.NewStyle().Foreground(lipgloss.Color("#737AA2")),
 		}
 	case Color256:
 		return &Theme{
