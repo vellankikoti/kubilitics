@@ -1,4 +1,4 @@
-module github.com/kubilitics/kcli
+module github.com/kubilitics/kubilitics/kubilitics-cli
 
 go 1.25.0
 
