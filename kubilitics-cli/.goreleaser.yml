@@ -1,0 +1,97 @@
+project_name: kcli
+
+before:
+  hooks:
+    - go mod download
+    - go mod tidy
+
+builds:
+  - id: kcli
+    main: ./cmd/kcli
+    binary: kcli
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -X github.com/kubilitics/kcli/internal/version.Version={{ .Version }}
+      - -X github.com/kubilitics/kcli/internal/version.Commit={{ .Commit }}
+      - -X github.com/kubilitics/kcli/internal/version.BuildDate={{ .Date }}
+
+archives:
+  - format: tar.gz
+    name_template: 'kcli-{{ .Version }}-{{ .Os }}-{{ .Arch }}'
+    replacements:
+      darwin: macos
+      linux: linux
+      windows: windows
+      amd64: x86_64
+      arm64: aarch64
+    files:
+      - LICENSE
+      - README.md
+      - CHANGELOG.md
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ .Tag }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - Merge pull request
+      - Merge branch
+
+release:
+  draft: false
+  prerelease: auto
+  name_template: 'Release {{ .Version }}'
+
+brews:
+  - name: kcli
+    repository:
+      owner: kubilitics
+      name: homebrew-tap
+    folder: Formula
+    homepage: "https://github.com/kubilitics/kcli"
+    description: "A modern Kubernetes CLI — the last CLI a Kubernetes engineer will ever need"
+    license: "Apache 2.0"
+    test: |
+      system "#{bin}/kcli", "version"
+
+nfpms:
+  - package_name: kcli
+    homepage: "https://github.com/kubilitics/kcli"
+    maintainer: "Kubilitics Team <team@kubilitics.io>"
+    description: "A modern Kubernetes CLI — the last CLI a Kubernetes engineer will ever need"
+    license: "Apache 2.0"
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/kcli/LICENSE
+      - src: README.md
+        dst: /usr/share/doc/kcli/README.md
+
+scoop:
+  bucket:
+    owner: kubilitics
+    name: scoop-bucket
+  homepage: "https://github.com/kubilitics/kcli"
+  description: "A modern Kubernetes CLI — the last CLI a Kubernetes engineer will ever need"
+  license: "Apache 2.0"
