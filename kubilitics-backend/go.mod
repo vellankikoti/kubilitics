@@ -212,3 +212,5 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 	sigs.k8s.io/controller-runtime v0.18.4
 )
+
+replace github.com/vellankikoti/kotg-schema => /Users/koti/code/kotg-schema
