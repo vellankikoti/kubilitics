@@ -33,12 +33,18 @@ type ToolBehavior struct {
 }
 
 // registry is the single source of truth for tool classification.
-// Phase 1: list_pods + get_pod_yaml only. Adding a tool is the
-// rollout knob — every new tool ships in Analytical mode by default
-// (see Lookup), and going live is a deliberate edit here.
+// Phase 1: list_resources + get_resource (the production MCP tool
+// names). Adding a tool is the rollout knob — every new tool ships
+// in Analytical mode by default (see Lookup), and going live is a
+// deliberate edit here.
+//
+// list_pods / get_pod_yaml are retained as test-only entries so the
+// fixture-driven shaper tests + hallucination probes keep working.
 var registry = map[string]ToolBehavior{
-	"list_pods":    {Class: Deterministic, Render: RenderKubectlTable},
-	"get_pod_yaml": {Class: Deterministic, Render: RenderYAMLBlock},
+	"list_resources": {Class: Deterministic, Render: RenderKubectlTable},
+	"get_resource":   {Class: Deterministic, Render: RenderYAMLBlock},
+	"list_pods":      {Class: Deterministic, Render: RenderKubectlTable},
+	"get_pod_yaml":   {Class: Deterministic, Render: RenderYAMLBlock},
 }
 
 // Lookup returns the ToolBehavior for a registered tool, or the

@@ -524,6 +524,8 @@ func (s *Server) event(turnID string, variant interface{}) *kotgv1.AssistantEven
 		ev.Event = v
 	case *kotgv1.AssistantEvent_Done:
 		ev.Event = v
+	case *kotgv1.AssistantEvent_RenderBlock:
+		ev.Event = v
 	}
 	return ev
 }
