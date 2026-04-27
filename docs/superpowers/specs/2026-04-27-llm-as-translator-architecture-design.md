@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-27
 **Status:** Spec — pending implementation plan
-**Branch:** `fix/llm-as-translator` (in `vellankikoti/kubilitics` and `vellankikoti/kotg.ai`)
+**Branch:** `fix/llm-as-translator` (in `vellankikoti/kubilitics`, `kubilitics/kotg.ai`, `vellankikoti/kotg-schema`)
 **Predecessor:** `dca5c20c` — AI layer foundation merged on `main`
 **Successor (separate spec, not this one):** kagent runtime as planner
 
@@ -77,13 +77,14 @@ ToolBehavior lookup
 | Repo | Branch | Responsibility |
 |---|---|---|
 | `vellankikoti/kotg-schema` | `fix/llm-as-translator` | Add `RenderBlock` variant to `AssistantEvent`. Patch tag. |
-| `vellankikoti/kotg.ai` | `fix/llm-as-translator` | Registry, chokepoint, shapers, summary generator, structural + behavioral tests, hallucination probe bench. |
+| `kubilitics/kotg.ai` (path: `kotg-ai/kotg-toolserver`) | `fix/llm-as-translator` | Registry, chokepoint, shapers, summary generator, structural + behavioral tests, hallucination probe bench. |
 | `vellankikoti/kubilitics` | `fix/llm-as-translator` | Backend WS passthrough; frontend `render-blocks/` namespace; e2e tests. |
 
-PR sequencing: schema → brain → app. `kotg-schema` and `kotg.ai`
-push to their own `vellankikoti/*` origins. `kubilitics` pushes
-**only** to `vellankikoti/kubilitics`. Org repo
-`github.com/kubilitics/*` remains frozen.
+PR sequencing: schema → brain → app. `kotg-schema` pushes to
+`vellankikoti/kotg-schema`. `kotg.ai` pushes to its own origin
+(`kubilitics/kotg.ai`) — allowed. `kubilitics` pushes **only** to
+`vellankikoti/kubilitics`; the org repo `kubilitics/kubilitics`
+remains frozen at v1.0.0/v0.3.0.
 
 ### 3.3 Out of scope (parking lot)
 
@@ -103,7 +104,7 @@ push to their own `vellankikoti/*` origins. `kubilitics` pushes
 
 ## 4. Tool registry & classification
 
-Located at `kotg-ai-layer/internal/render/registry.go`.
+Located at `kotg-toolserver/internal/render/registry.go`.
 
 ```go
 type Class string
@@ -289,7 +290,7 @@ passthrough.
 ## 9. Shapers
 
 Per-tool transforms from raw K8s data → wire `data` field. Live in
-`kotg-ai-layer/internal/render/shapers/`. The only place per-tool
+`kotg-toolserver/internal/render/shapers/`. The only place per-tool
 formatting lives. Deterministic — no LLM.
 
 ```go
@@ -449,8 +450,9 @@ rendering lives in the frontend. Backend exists only to move bytes.
 
 ### 12.3 Hallucination probe bench
 
-Lives at `kotg.ai/bench/hallucination_probes/`. Extends the existing
-250-prompt bench (per `project_chat_quality_bench_results`).
+Lives at `kubilitics/brain/cmd/chat-quality-bench/suites/hallucination_probes/`.
+Extends the existing 250-prompt bench (per
+`project_chat_quality_bench_results`).
 
 **30 probes for Phase 1** — 15 `list_pods`, 15 `get_pod_yaml`. Each
 probe is tagged with coverage axes so future expansion to 50+ is gap-aware.
