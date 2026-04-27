@@ -9,7 +9,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.11.1
-	github.com/vellankikoti/kotg-schema v1.0.1
+	github.com/vellankikoti/kotg-schema v1.0.2-0.20260427081620-d281dfd0473f
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.80.0
 	google.golang.org/protobuf v1.36.11
@@ -58,5 +58,3 @@ require (
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
 )
-
-replace github.com/vellankikoti/kotg-schema => /Users/koti/code/kotg-schema

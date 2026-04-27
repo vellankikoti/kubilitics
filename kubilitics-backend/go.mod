@@ -99,7 +99,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/pquerna/otp v1.5.0
 	github.com/prometheus/client_golang v1.23.2
-	github.com/vellankikoti/kotg-schema v1.0.1
+	github.com/vellankikoti/kotg-schema v1.0.2-0.20260427081620-d281dfd0473f
 	golang.org/x/crypto v0.48.0
 	golang.org/x/sync v0.19.0
 	k8s.io/apiextensions-apiserver v0.33.3
@@ -212,5 +212,3 @@ require (
 	modernc.org/memory v1.11.0 // indirect
 	sigs.k8s.io/controller-runtime v0.18.4
 )
-
-replace github.com/vellankikoti/kotg-schema => /Users/koti/code/kotg-schema
