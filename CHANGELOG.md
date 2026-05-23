@@ -7,68 +7,478 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [UNRELEASED]
 
-## [1.4.0] - 2026-05-21
 
 ### Fixed
 
-- **macOS keychain: no more repeated "enter login password" dialogs** — `list_profiles` and `get_active_profile` no longer probe the OS keychain on every call. The `has_key` field is now read from the persisted journal (already correctly maintained on save/delete) instead of issuing a live keychain query. This eliminates the macOS Keychain ACL dialog that fired on every profile list after an app upgrade or re-sign.
-- **macOS 26 (Darwin 25+) launch failure** — Tauri hard-codes `LSRequiresCarbon = true` in `Info.plist`; macOS 26 (Darwin 25.4.0) refuses to spawn any bundle with this key set, returning `NSPOSIXErrorDomain Code=163`. CI now strips the key post-build, adds `NSPrincipalClass = NSApplication`, sets `LSMinimumSystemVersion = 12.0`, and re-signs the app before notarization.
-- **DMG build failure on CI runners** — `bundle_dmg.sh` requires `create-dmg`; added `brew install create-dmg` to the macOS release step so CI always has it.
+- Pass GITHUB_TOKEN to git-cliff so it can fetch commit metadata by @vellankikoti ([ebecbcf](https://github.com/vellankikoti/kubilitics/commit/ebecbcfbe060c2ea9ec7807a2ca32dfac6dcb01b))
 
-### Removed
+## [1.2.0] - 2026-05-23
 
-- Releases v1.3.0, v1.3.1, v1.3.2 deprecated and removed — v1.4.0 supersedes all three with the above stability fixes.
 
-## [1.3.0] - 2026-05-18
+### Documentation
+
+- Record Session 2 root cause — allow-unsigned-executable-memory blocked on macOS 26 by @vellankikoti ([7316d58](https://github.com/vellankikoti/kubilitics/commit/7316d589edd9e23b961b5d05f9eacaf73d33148d))
+- Promote desktop app to primary install path by @vellankikoti ([a893cfb](https://github.com/vellankikoti/kubilitics/commit/a893cfb6cd6957d4889910a2f5b7cd27d34a1507))
+- Fix Windows install + add verified AI tools cheatsheet by @vellankikoti ([291a6f3](https://github.com/vellankikoti/kubilitics/commit/291a6f3e216d17bcc8e157995154fc20eaa8680b))
+- Color logo, SVG architecture diagram, 8-screen app showcase by @vellankikoti ([6bb765a](https://github.com/vellankikoti/kubilitics/commit/6bb765a62a6925f2815b10d6856d9b219b066786))
+- Fix app-screens link to render via htmlpreview.github.io by @vellankikoti ([c4ca3d7](https://github.com/vellankikoti/kubilitics/commit/c4ca3d74edce031ded41da49432b00479e2a4998))
+- Replace fake mockups with 8 real app screenshots by @vellankikoti ([91e8d19](https://github.com/vellankikoti/kubilitics/commit/91e8d19c325af3492602c0e3f2e5f3a6e48227f3))
+
+
+### Fixed
+
+- Harden macOS signing pipeline — restore inside-out codesign, fix CLI version by @vellankikoti ([df9c42c](https://github.com/vellankikoti/kubilitics/commit/df9c42c71e5cc3137d123dc50251b829913f6d23))
+- Rewrite Carbon.framework → HIToolbox for macOS 26 launch by @vellankikoti ([dba4227](https://github.com/vellankikoti/kubilitics/commit/dba422705d4bbb4569091398e30994e90777cf23))
+- Carbon→HIToolbox rewrite for macOS 26 (Tahoe) compatibility by @vellankikoti ([7ac5c75](https://github.com/vellankikoti/kubilitics/commit/7ac5c7568c741abf8f584d75b47fbe8ca9e05f3d))
+- Remove allow-unsigned-executable-memory — blocked on macOS 26 by @vellankikoti ([ee5966b](https://github.com/vellankikoti/kubilitics/commit/ee5966b2be5a88e4a3a066a04ac8f99285e5fe6d))
+- Remove allow-unsigned-executable-memory — blocked on macOS 26 by @vellankikoti ([7ee362d](https://github.com/vellankikoti/kubilitics/commit/7ee362d31c882c067d7562d3a535a2523d967fa9))
+- Remove keychain-access-groups — blocks macOS 26 launch by @vellankikoti ([5f5b7fa](https://github.com/vellankikoti/kubilitics/commit/5f5b7fa1b52752a02322b3cefc6e7daa8c3624f8))
+- Correct resource count + remove macOS keychain ACL prompt by @vellankikoti ([92b08d3](https://github.com/vellankikoti/kubilitics/commit/92b08d38403eb619c6c40abe60d4869484da1004))
+- List_problems rejects 'all' filter and stops stealing 'list pods' by @vellankikoti ([f5296ba](https://github.com/vellankikoti/kubilitics/commit/f5296babe09031eab477138b2387d3734533e3ed))
+
+## [1.4.0] - 2026-05-21
+
 
 ### Added
 
-- **AI: Pod listing now shows all pods** — AI responses for "list pods" show the real cluster total (`total_count` forwarded from backend `metadata.total`). Responses on 1000-pod clusters correctly say "1000 pods total, showing 50" instead of silently capping at 8–16.
-- **AI: Slim list items** — `slimSummarizeItem` strips annotations, managedFields, IPs, full spec; keeps semantic labels, container names, phase/health, restart counts. 32 pods now fits in ~10.5 KB (vs 64 KB raw) without binary-halving.
-- **AI: 16 KB list output ceiling** — `MaxListOutputBytes = 16 KB` (vs 8 KB for detail views) via new `capListOutput` function. All three list call sites (composite, inspect, observation) use it.
-- **AI: Invalid API key detection** — Brain marks `credentialError` on HTTP 401/403 from any LLM provider and reports `ready=false` via the Capabilities gRPC endpoint so the desktop shows "AI Not Configured" immediately instead of a stuck "Checking AI…" spinner.
-- **AI: API key error banner** — Red destructive banner above the chat input when the last turn returned an auth error, with a "Fix in AI Settings" deep link.
-- **AI: Auto-hotwire on brain start** — Sidecar reads the active LLM profile key from the OS keychain and POSTs it to the brain's `/api/v1/config/provider` immediately on startup, so AI is ready without any user action after app launch.
-- **AI: Chat history persistence** — History dropdown in the Chat header lets users re-open past sessions from the current app session.
-- **AI: Token counts + deployment health** — Chat responses include input/output token counts and per-deployment health status derived from replica counts.
-- **AI: Execution plane classification** — Thinking vs execution metrics tracked per AI turn for observability.
-- **AI: OpenRouter support** — Full OpenRouter provider support including correct URL joining, headers, and error display. Auto-detects and repairs OpenRouter misconfigured as Anthropic.
-- **Cluster onboarding: Two-pane layout** — Headlamp-style add-cluster dialog with detected kubeconfig contexts as the primary path (left: cluster list, right: add cluster); context upload promoted from secondary to primary.
-- **OTel spans on AI execution paths** — `feat(observability)`: spans emitted for every AI turn through the execution pipeline.
-- **PostgreSQL + Redis config plumbing** — Schema verification and config plumbing for persistent storage.
+- Add OTel spans to AI execution paths by @vellankikoti ([d115ec9](https://github.com/vellankikoti/kubilitics/commit/d115ec9e75b96504d5f7054fda97bc3cef9195f0))
+- PostgreSQL + Redis config plumbing and schema verification by @vellankikoti ([f054fab](https://github.com/vellankikoti/kubilitics/commit/f054fab9c102056496444dfd1a28e8991fd5ff60))
+- Execution plane classification — thinking vs execution metrics by @vellankikoti ([537db29](https://github.com/vellankikoti/kubilitics/commit/537db2914c0dbceac03cda3e754caf8e3be95227))
+- Token counts + deployment health status in AI responses by @vellankikoti ([0a65073](https://github.com/vellankikoti/kubilitics/commit/0a650731377aa3ade82b9332eeb788636db7596c))
+- Persist past sessions — History dropdown in ChatHeader by @vellankikoti ([4ce0376](https://github.com/vellankikoti/kubilitics/commit/4ce03767eedff13b906e79bde52ca7dabab1d0ae))
+- Headlamp-style AddClusterDialog — detected contexts as primary path by @vellankikoti ([bbb18b7](https://github.com/vellankikoti/kubilitics/commit/bbb18b70b9b6d1f1de8bf90769c411fce7b1bf26))
+- Two-pane cluster onboarding — list left, add-cluster right by @vellankikoti ([ea5cad2](https://github.com/vellankikoti/kubilitics/commit/ea5cad2b88d283f42ad1c2829bc5f7b6ad500bad))
+- Auto-hotwire active LLM profile on brain start by @vellankikoti ([1b53aee](https://github.com/vellankikoti/kubilitics/commit/1b53aee14cfa9513cce844959183fb97854200c0))
+- Prominent API key error banner above input by @vellankikoti ([9b8ffaa](https://github.com/vellankikoti/kubilitics/commit/9b8ffaa36d65d4c9ceb49beb441a105d833cd2df))
+
 
 ### Changed
 
-- **AI: MCP tool outputs use compact findings** — `analyze_*`, `narrate_*`, `plan_*`, `recommend_*`, `security_*`, `cost_*`, `automation_*` tools now return structured compact findings instead of raw K8s JSON dumps. Reduces per-turn token cost by ~80% for analysis tools.
-- **AI: `list_resources` default limit raised to 50** — Backend is queried with `limit=50` instead of the implicit 25, matching the new 16 KB ceiling.
-- **AI: Routing improvements** — `describe`/`inspect` queries routed to `inspect_<kind>` tools; `list services` routed to `list_resources`; `explain` added to inspect patterns; `get_resource` forbidden for conversational queries.
-- **AI: `observe_services_by_filter` adds summary field** — LLM can now distinguish healthy vs missing services in one response.
-- **macOS**: desktop binaries now signed with Apple Developer ID Application (Team `DJAF5D948L`) and notarized via `xcrun notarytool`. Eliminates the macOS keychain "enter login password" prompt on every save. See `docs/macos-signing.md` for the operator runbook.
+- Extract k8siface narrow interfaces to reduce coupling by @vellankikoti ([e0e4841](https://github.com/vellankikoti/kubilitics/commit/e0e484194100b1b29594b47bf2547a129a0e8973))
+
+
+### Documentation
+
+- CHANGELOG + AI-CAPABILITIES updated for release by @vellankikoti ([f6d2fc8](https://github.com/vellankikoti/kubilitics/commit/f6d2fc879db7d47ba81c9ddca7b7aee6f0db5150))
+
 
 ### Fixed
 
-- **AI: Session staleness after brain restart** — Chat sessions that return `not found` from the brain are automatically cleared so the next message creates a fresh session.
-- **AI: Namespace hallucination** — LLM completer no longer injects a namespace into all-namespace results.
-- **AI: Unknown status for K8s resources** — All resource kinds (ConfigMap, Secret, ServiceAccount, Role, etc.) now emit a health/status value; "Unknown" is eliminated.
-- **AI: Namespace labels + deployment status** — Namespace label reads from data; deployment health derived from replica counts.
-- **AI: Brain port discovery** — Sidecar auto-discovers backend port after Tauri health-monitor restarts (dynamic port assignment).
-- **AI: Transient brain-unreachable errors suppressed** — Short connectivity blips no longer flash "AI Not Configured" to the user.
-- **Terminal: double prompt on tab activation** — Terminal now connects only when the tab is visible.
-- **Terminal: timer leaks + auto-reconnect timeout** — e2e audit fixed timer leaks, tightened auto-reconnect, and corrected the connecting-state timeout.
-- **Terminal: garbled text on tab switch** — Text corruption when switching between Terminal and File Explorer tabs is resolved.
-- **Terminal: duplicate container bar** — Removed duplicate container selector bar; fixed container picker clipping.
-- **Terminal: history across container switches** — Terminal history is now preserved when switching between containers.
-- **Terminal: multi-container tab switching** — Consistent session behavior across container tabs.
-- **File Explorer: directory refresh on tab switch** — Directory listing now refreshes when switching back from the Terminal tab.
-- **UX: action bar buttons** — Consistent styling: red Cancel (outline/border), blue Add Cluster, equal size.
-- **UX: cluster picker** — Equal panes, bottom action bar, no top back button, back button + auto-open add dialog from nav.
-- **UX: logo + tab switcher** — Correct logo size, prominent tab switcher, renamed "Paste KubeConfig" label.
-- **gzip: streaming response corruption** — `WriteHeader` forward path plugged; headers committed before `Flush` to prevent `Content-Encoding: gzip` corruption on streaming endpoints.
-- **Events: causal_chains migration** — `EnsureTables` wired on startup; `causal_chains` table present before any event processing.
-- **MCP: action_* tools removed from LLM registry** — Execution tools are used instead; dead `createActionHandler`/`routeActionTool` code deleted.
-- **Production: resilient 500 responses** — Backend 500s now return partial data signals instead of empty responses where possible.
-- **Production: data_source field** — All tool results carry `data_source` and `derived_from` lineage fields.
-- **k8s interface extraction** — Narrow `k8siface` interfaces extracted to reduce coupling in the backend.
+- Add causal_chains migration + wire EnsureTables on startup by @vellankikoti ([1e2e7c6](https://github.com/vellankikoti/kubilitics/commit/1e2e7c69548efcf5c59a99243b96c09138cdc502))
+- Dynamic brain gRPC port — fall back when 50061 is occupied by @vellankikoti ([d0f234b](https://github.com/vellankikoti/kubilitics/commit/d0f234b2e5c3f0f2569a23270539b369f33d8f12))
+- Silence dead_code warning on save_ai_config_inner by @vellankikoti ([3d57235](https://github.com/vellankikoti/kubilitics/commit/3d57235ac58899b2af3196f9a437d3bb4c9848b5))
+- Permanently suppress transient brain-unreachable errors from UI by @vellankikoti ([5fbd38c](https://github.com/vellankikoti/kubilitics/commit/5fbd38c40dccc6332c734b90327fb1a72c99c7a9))
+- Commit headers before Flush to prevent streaming response corruption by @vellankikoti ([9138928](https://github.com/vellankikoti/kubilitics/commit/91389287a8008554f92e4b65334f7f8039e0cb8e))
+- Plug WriteHeader forward path + add regression tests by @vellankikoti ([f814e48](https://github.com/vellankikoti/kubilitics/commit/f814e48b9f899e47024034bb8df753af55df5b3e))
+- Brain auto-discovers backend port after Tauri health-monitor restart by @vellankikoti ([594d3e8](https://github.com/vellankikoti/kubilitics/commit/594d3e8d8563106034e0cae6fb54be2fd552fbe1))
+- Correct namespace labels, token counts, and text selection by @vellankikoti ([50aa609](https://github.com/vellankikoti/kubilitics/commit/50aa60950395ec85f7d397278d9e829580d22dec))
+- Deployment status + namespace label root causes by @vellankikoti ([d21ce13](https://github.com/vellankikoti/kubilitics/commit/d21ce1366031cbb56c167f2a25553f3282e4c094))
+- Namespace label reads from data + header offset fixes blue line by @vellankikoti ([73eee05](https://github.com/vellankikoti/kubilitics/commit/73eee05aeac91f933ba72be6ceb157496f742ff5))
+- Merge duplicate style props — restores drag-resize width by @vellankikoti ([3a0e310](https://github.com/vellankikoti/kubilitics/commit/3a0e310a92ba4a9a903a47fa6b775c14691c634e))
+- Eliminate Unknown status for all K8s resource kinds by @vellankikoti ([2ce21ce](https://github.com/vellankikoti/kubilitics/commit/2ce21cecfda19e60f487f9d21800a9007605e7cd))
+- Route 'list services' to list_resources, not observe_services_by_filter by @vellankikoti ([4c3a2fc](https://github.com/vellankikoti/kubilitics/commit/4c3a2fc5167894fe6695717275178efe18765a65))
+- Stop LLM completer hallucinating namespace in all-namespace results by @vellankikoti ([a0fa832](https://github.com/vellankikoti/kubilitics/commit/a0fa8321b3059d9e586518f93c5e75a2adddf4a0))
+- Route describe/inspect queries to inspect_<kind> tools, not list_resources by @vellankikoti ([f3ed643](https://github.com/vellankikoti/kubilitics/commit/f3ed643199fdbb9439749f7b1ab9fa16b9f1742f))
+- Remove action_* tools from LLM registry — use execution tools instead by @vellankikoti ([d9215a0](https://github.com/vellankikoti/kubilitics/commit/d9215a069b9919f9636cd9578889bccb3040d89b))
+- Observe_services_by_filter adds summary field so LLM distinguishes healthy vs missing by @vellankikoti ([8c30e5d](https://github.com/vellankikoti/kubilitics/commit/8c30e5d09badaa63ead99391dcaf8584f3571beb))
+- Replace raw-data dumps with compact findings in Tier-1 analysis tools by @vellankikoti ([41ee5bf](https://github.com/vellankikoti/kubilitics/commit/41ee5bfe3d17b5efbd15ce4b3f7dfa14e1405407))
+- Add 'explain' and other query patterns to inspect routing; forbid get_resource for user queries by @vellankikoti ([92929c2](https://github.com/vellankikoti/kubilitics/commit/92929c27dc1493854596af948b8fa16110eac99e))
+- Plan_* tools return compact findings instead of raw K8s JSON dumps by @vellankikoti ([15783ee](https://github.com/vellankikoti/kubilitics/commit/15783ee24b4fbf3893cf1a7d4b3ad253f4cf8666))
+- Narrate_* tools return compact summaries instead of raw K8s JSON dumps by @vellankikoti ([86c665e](https://github.com/vellankikoti/kubilitics/commit/86c665edeff54dcbcc6951e38a1ee500dbf1506e))
+- Recommend_*/security_*/cost_*/automation_* replace raw K8s dumps with compact findings by @vellankikoti ([f502f83](https://github.com/vellankikoti/kubilitics/commit/f502f83876d2ae834793161634a9656a38d7d2d1))
+- Data_source field + execution tools rewired to REST by @vellankikoti ([25aaf5c](https://github.com/vellankikoti/kubilitics/commit/25aaf5cafc5355ce2ebb1a71b4435742635cb2db))
+- 5 production-readiness fixes from systematic audit by @vellankikoti ([91598ac](https://github.com/vellankikoti/kubilitics/commit/91598ac107a5ddfec039351eaf82ea3f7ec64522))
+- Cluster picker — back button + auto-open add dialog from nav by @vellankikoti ([9b0a8b4](https://github.com/vellankikoti/kubilitics/commit/9b0a8b46ad51303e92489ae828b80ba0558c6d64))
+- Remove redundant overlay — picker page IS the add-cluster screen by @vellankikoti ([6442025](https://github.com/vellankikoti/kubilitics/commit/644202532fcb45397227b08050e762b5bb2dbf69))
+- Cluster picker — equal panes, bottom action bar, no top back button by @vellankikoti ([3214b62](https://github.com/vellankikoti/kubilitics/commit/3214b621e1fc264f900316a545df382083609502))
+- Logo size, prominent tab switcher, rename Paste KubeConfig by @vellankikoti ([d4ddc3d](https://github.com/vellankikoti/kubilitics/commit/d4ddc3d76b13d43167b7110674b204665f52e5f3))
+- Action bar buttons — red Cancel, blue Add Cluster, equal size by @vellankikoti ([02bb92d](https://github.com/vellankikoti/kubilitics/commit/02bb92d6f2ddf5057872135ab95bb53f8a145d5e))
+- Add Cluster always enabled on upload tab — click opens file picker by @vellankikoti ([7303259](https://github.com/vellankikoti/kubilitics/commit/7303259effb5005bad3c7e92aa09a4261a16e3f4))
+- Cancel button — outline variant using theme border color by @vellankikoti ([9bffdb6](https://github.com/vellankikoti/kubilitics/commit/9bffdb674a193bd8520976ac41215e46bce450f7))
+- Consistent multi-container tab switching and new sessions by @vellankikoti ([28e0ad3](https://github.com/vellankikoti/kubilitics/commit/28e0ad35fc981ee163ba5d4a34e5a7415e7de1f5))
+- Preserve history across container switches; fix AI panel z-index by @vellankikoti ([dd22360](https://github.com/vellankikoti/kubilitics/commit/dd223609543c85fd4d49ab5eff8855a73a2b0a50))
+- Remove duplicate container bar, fix + picker clipping by @vellankikoti ([906bbe0](https://github.com/vellankikoti/kubilitics/commit/906bbe01c1937435d0ef7ad3081e8a577b6af6bf))
+- Garbled text after Terminal↔FileExplorer tab switch by @vellankikoti ([3706d4d](https://github.com/vellankikoti/kubilitics/commit/3706d4de66067fcfcca496bcb3de5f70299af0f1))
+- E2e audit — timer leaks, auto-reconnect, connecting timeout by @vellankikoti ([c3c954c](https://github.com/vellankikoti/kubilitics/commit/c3c954cbbb6b0fdb271c6efa1406969a916f8638))
+- Url joining, missing headers, cleaner error display by @vellankikoti ([7344a65](https://github.com/vellankikoti/kubilitics/commit/7344a65be5311ae47a018343c447886748e01256))
+- Detect and auto-fix OpenRouter misconfigured as Anthropic by @vellankikoti ([935a5f7](https://github.com/vellankikoti/kubilitics/commit/935a5f7931f2aec10b2fe6532359b4a3f31e49e7))
+- Three bugs causing the blink+reconnect loop by @vellankikoti ([78366cc](https://github.com/vellankikoti/kubilitics/commit/78366cc93dd2e9fb78b83fddf26f533638bdbae9))
+- Refresh directory when switching from Terminal tab by @vellankikoti ([92796b3](https://github.com/vellankikoti/kubilitics/commit/92796b334191ab6bbd330c20181dc34019f0bba7))
+- Connect only when visible — eliminates double prompt by @vellankikoti ([f37384a](https://github.com/vellankikoti/kubilitics/commit/f37384af20f6430dada701d6b9cb8ec6b9860fc9))
+- Session staleness after brain restart + cleaner error messages by @vellankikoti ([8d7366a](https://github.com/vellankikoti/kubilitics/commit/8d7366a7bb574bb6697baee597abceecb3684a89))
+- Stop reporting AI Ready when API key is invalid (401/403) by @vellankikoti ([4454dd2](https://github.com/vellankikoti/kubilitics/commit/4454dd2db0b1f507759f126075415b16dec67307))
+- Show all pods — slim list items, 16KB cap, total_count from backend by @vellankikoti ([6bada34](https://github.com/vellankikoti/kubilitics/commit/6bada345371fbaf7e71a2303de5e90a82cd98026))
+- Install create-dmg before Tauri macOS DMG build by @vellankikoti ([46dd0aa](https://github.com/vellankikoti/kubilitics/commit/46dd0aa0d0b0b00e24366f160ef25aefbe59592d))
+- Update Tauri 2.10.3→2.11.2, wry→0.55.1, tao→0.35.2 for macOS 26 support by @vellankikoti ([0de4321](https://github.com/vellankikoti/kubilitics/commit/0de43213b1fcd0e9e4d637c6c42bf23b7b05d696))
+- Remove LSRequiresCarbon — launchd POSIX 163 spawn failure on macOS 26 by @vellankikoti ([9843ce2](https://github.com/vellankikoti/kubilitics/commit/9843ce2b480573db1f4e69120ef6ad57720335e3))
+- Correct macOS DMG build — pin macos-15, build .app-only, create DMG ourselves by @vellankikoti ([12b893d](https://github.com/vellankikoti/kubilitics/commit/12b893dde249bf7a44b11f9f24a9cb27a7f1dc83))
+- Fix YAML parse error — heredoc Python must be indented in run blocks by @vellankikoti ([be4749a](https://github.com/vellankikoti/kubilitics/commit/be4749a5451b157bae96f6cd5330538d867ba760))
+- Remove infoPlistData — not in Tauri CLI 2.10.1 schema by @vellankikoti ([b1d868d](https://github.com/vellankikoti/kubilitics/commit/b1d868de00f541e29b7690cf5a65785a9285b5d9))
+- Sign DMG with codesign before notarize; use --deep re-sign by @vellankikoti ([bbfb37d](https://github.com/vellankikoti/kubilitics/commit/bbfb37def0ca849947468763b86894389af82d26))
+
+
+### Misc
+
+- Delete dead createActionHandler/routeActionTool/CategoryAction code by @vellankikoti ([0a4ff1a](https://github.com/vellankikoti/kubilitics/commit/0a4ff1a7d49ea11af01959699f8b4f30f6bda96b))
+- Add tool catalog + desktop launch script by @vellankikoti ([972769d](https://github.com/vellankikoti/kubilitics/commit/972769d2116d08959e1e016733c23eb94fe132fc))
+
+
+### Tests
+
+- Add behavior coverage for recommend, cost, narrate, plan tools by @vellankikoti ([ef972f1](https://github.com/vellankikoti/kubilitics/commit/ef972f16261ba24ec5f5acdf878b36721facdfb6))
+- Add health-analysis tool tests for statefulset/job/cronjob/service/ingress/daemonset/replicaset by @vellankikoti ([8d58773](https://github.com/vellankikoti/kubilitics/commit/8d58773106008185c628450d862e3fa0e8bb2d6c))
+- Fix stale blast-radius test — scope inference changed behavior by @vellankikoti ([a1b3427](https://github.com/vellankikoti/kubilitics/commit/a1b3427c42d5ffcc9cbb82d5f760a6a6b6480db1))
+
+## [1.2.0-rc.11] - 2026-04-30
+
+
+### Misc
+
+- Systematic cleanup — dead code, redundancy, back-and-forths by @vellankikoti ([6be88e9](https://github.com/vellankikoti/kubilitics/commit/6be88e988ef7a510481e8f8c28da88ef45bf384a))
+
+## [1.2.0-rc.10] - 2026-04-30
+
+
+### Fixed
+
+- Dynamic brain port — fall back when 8081 is occupied by @vellankikoti ([fa3b20b](https://github.com/vellankikoti/kubilitics/commit/fa3b20b6381fa576a7fe4c6e42e897fd7e417225))
+
+## [1.2.0-rc.9] - 2026-04-30
+
+
+### Fixed
+
+- Drain stdout/stderr receivers to stop binary garbage in logs by @vellankikoti ([1909bc8](https://github.com/vellankikoti/kubilitics/commit/1909bc808154c7888db50a30e7bfcb239544ae7a))
+
+## [1.2.0-rc.8] - 2026-04-29
+
+
+### Fixed
+
+- Add EnforcementPolicy to kubilitics-backend gRPC server by @vellankikoti ([f540846](https://github.com/vellankikoti/kubilitics/commit/f5408465310f94284f8dcb418b8b42147184673b))
+
+## [1.2.0-rc.7] - 2026-04-29
+
+
+### Added
+
+- UseAIReady — single source of truth for AI gating by @vellankikoti ([5c1ff80](https://github.com/vellankikoti/kubilitics/commit/5c1ff80edba0f21b3075eeb388ed49cdaba1f719))
+- UseInvalidateAI — awaitable refetch of all AI queries by @vellankikoti ([49fac8d](https://github.com/vellankikoti/kubilitics/commit/49fac8d5dc836c3cacbfd7f024cc96b393214335))
+- UseBrainStatusListener — invalidate on Tauri brain-status events by @vellankikoti ([0ce1ae9](https://github.com/vellankikoti/kubilitics/commit/0ce1ae94c4297f025ce2b7b35355c8e37cf7f46c))
+- Mount useBrainStatusListener at App root by @vellankikoti ([08f508d](https://github.com/vellankikoti/kubilitics/commit/08f508d3212c7a2efd730819148c756b0b0cfc73))
+- Check-frontend-discipline scanner — AI single-source rule + rename by @vellankikoti ([4b1b8a6](https://github.com/vellankikoti/kubilitics/commit/4b1b8a6b3f2672a7956d24ac1348c7db0f0c8334))
+- Add Profile struct + uuid/chrono deps by @vellankikoti ([1c3ed18](https://github.com/vellankikoti/kubilitics/commit/1c3ed1879e4a4c5470a3e5bc736c9e78cb853f03))
+- Atomic journal load/save with tempfile+rename by @vellankikoti ([195dc2d](https://github.com/vellankikoti/kubilitics/commit/195dc2db697080046886e75f69a88e43b11c8c7e))
+- First-run migration from legacy YAML + ghost cleanup by @vellankikoti ([6a94c79](https://github.com/vellankikoti/kubilitics/commit/6a94c798952ece798d6e728bae70d7166b2f1ed3))
+- UUID-keyed keychain helpers by @vellankikoti ([f527d7a](https://github.com/vellankikoti/kubilitics/commit/f527d7aea83a3b2ac698924e416ceca2c01eaf1e))
+- List/save/update/delete Tauri commands with rollback by @vellankikoti ([4c7bbaa](https://github.com/vellankikoti/kubilitics/commit/4c7bbaa2f000c003262597b977bb435b4850aa28))
+- Activate_profile + test_profile via brain hot-wire by @vellankikoti ([824b31b](https://github.com/vellankikoti/kubilitics/commit/824b31b54af6c2006ce88b62d039a1170a2580bd))
+- Wire commands + migration into Tauri startup; drop brain config path by @vellankikoti ([3fc1d08](https://github.com/vellankikoti/kubilitics/commit/3fc1d08813d7509b677a8bdc68201f3ed6bfd558))
+- Replace /ai/config with /ai/active-profile (delete ghost YAML reader) by @vellankikoti ([6b4c177](https://github.com/vellankikoti/kubilitics/commit/6b4c177726762e4f7aecbd43f6159509dbe964d7))
+- UseAIProfiles hook (list + active via Tauri invoke) by @vellankikoti ([a6680b5](https://github.com/vellankikoti/kubilitics/commit/a6680b5b7913ba3bb42dc5a21c382e8e458e8f7f))
+- UseActiveProfile derived hook by @vellankikoti ([1f36f20](https://github.com/vellankikoti/kubilitics/commit/1f36f20b62e13f89a82f096a5e92b0694787015c))
+- Wire AISettingsPage Save/Test/QuickConnect to new Tauri commands by @vellankikoti ([9c6d8f9](https://github.com/vellankikoti/kubilitics/commit/9c6d8f98d2321f8fe04c131ee413321280951b9b))
+- Profile list UI with switch/new/edit/delete actions by @vellankikoti ([f55180e](https://github.com/vellankikoti/kubilitics/commit/f55180e22eea4aa1bb62edcc97c4e1a0a8680098))
+- One-time migration toast prompting key re-entry by @vellankikoti ([fa8c6bc](https://github.com/vellankikoti/kubilitics/commit/fa8c6bc1f4e00dd269585aa8597dffadb08beefc))
+- Scanner — block direct invoke('save_profile' | ...) outside helpers by @vellankikoti ([ca80de3](https://github.com/vellankikoti/kubilitics/commit/ca80de3fb116eceea9d07b12700f360091c43cea))
+- LLM-as-translator — render structured tool data, not LLM prose (#96) by @vellankikoti ([dfda2f5](https://github.com/vellankikoti/kubilitics/commit/dfda2f506dbb697333ce5305f8e42513b9ef340b))
+- Rewrite LLM stub for present-tense visibility + no-kubectl-suggestion (#97) by @vellankikoti ([9f5ad75](https://github.com/vellankikoti/kubilitics/commit/9f5ad75072c7b2296e28ad5798eff6e20dcd8853))
+- Register all 27 inspect_<kind> tools as Deterministic+yaml_block (#98) by @vellankikoti ([5e78cff](https://github.com/vellankikoti/kubilitics/commit/5e78cff4d0ee6d27d98353390cccc66a30ba2b55))
+- Wire LLM-backed summary completer with deterministic fallback (#99) by @vellankikoti ([4a8c6e1](https://github.com/vellankikoti/kubilitics/commit/4a8c6e1b3a2a60f2520399709ef13724d0647e75))
+- LogBlock — line-oriented render type for get_logs (Phase 2 #4) (#101) by @vellankikoti ([1be01cf](https://github.com/vellankikoti/kubilitics/commit/1be01cf32a9b5245e1b61d6052bd1fef8967765f))
+- Per-turn query flow diagram with token counts by @vellankikoti ([2b2a6a7](https://github.com/vellankikoti/kubilitics/commit/2b2a6a78e90cd3a7bc541010d1b3501879650a63))
+
+
+### Changed
+
+- UseAIReady reads from useActiveProfile; delete useAIUserConfig + aiConfigStore by @vellankikoti ([e71d0eb](https://github.com/vellankikoti/kubilitics/commit/e71d0eb0eba3ea9c29ec2926622bbcb3fae34cd9))
+
+
+### Documentation
+
+- AiConfigStore — header comment forbidding UI gating by @vellankikoti ([a3d2554](https://github.com/vellankikoti/kubilitics/commit/a3d25542b1afec461a80122cf10f574412e46590))
+
+
+### Fixed
+
+- Pass submitted key to post-save Test — stop the misleading 'missing key' error by @vellankikoti ([61a3b97](https://github.com/vellankikoti/kubilitics/commit/61a3b97e0e7083caace565f2120d16870bf805e0))
+- Hide Quick Connect once a key is configured by @vellankikoti ([98b4c41](https://github.com/vellankikoti/kubilitics/commit/98b4c41c6dc079e8b525b132efc8044ba7d5ee4d))
+- Trim API key on save and test — defeat clipboard whitespace by @vellankikoti ([b8d86f0](https://github.com/vellankikoti/kubilitics/commit/b8d86f0cc8a72cfda1af4b98795d44c738eefb88))
+- Restore Quick Connect + warn on key/provider prefix mismatch by @vellankikoti ([c180450](https://github.com/vellankikoti/kubilitics/commit/c180450913bd180cec85ad35da86f1665492bf15))
+- Non-fatal /models probe in Custom client + 15s timeout by @vellankikoti ([5e52680](https://github.com/vellankikoti/kubilitics/commit/5e52680f87f258400c929cc0bcda8314eabe198d))
+- Fail loud on port 8190 conflict + dev preflight kill by @vellankikoti ([fc9f885](https://github.com/vellankikoti/kubilitics/commit/fc9f885d282b571cd2eb81838f5ab7b7a5d7fb8d))
+- Cross-platform port preflight + Windows-aware PID lookup by @vellankikoti ([3cda366](https://github.com/vellankikoti/kubilitics/commit/3cda366aca402b283a5044d9d41eafee08a5fe0a))
+- Option B — drop Vite proxy, route every fetch via apiUrl() by @vellankikoti ([47e9d0b](https://github.com/vellankikoti/kubilitics/commit/47e9d0b714d229d0805293139f43f5d7a26b8477))
+- UseAICapabilities — lockstep refetch with useAIStatus by @vellankikoti ([65791a2](https://github.com/vellankikoti/kubilitics/commit/65791a24fab3aa52a8721bb6800f40c79b010ec5))
+- UseAIUserConfig — lockstep refetch with useAIStatus by @vellankikoti ([58c68be](https://github.com/vellankikoti/kubilitics/commit/58c68be9ada46604f8896cd0aefa55c12486bc3d))
+- Migrate ChatStatusPill + ChatPanel to useAIReady; delete decodeNotReady by @vellankikoti ([3423351](https://github.com/vellankikoti/kubilitics/commit/342335134dfed41db31aaf0c3a6f6e943d6d43e4))
+- AISettingsPage.handleSave awaits useInvalidateAI by @vellankikoti ([3f4fdec](https://github.com/vellankikoti/kubilitics/commit/3f4fdecc7d7beb6ef9e979bd968d3529802d89c6))
+- Test_llm_connection — fall back to provider-specific env vars by @vellankikoti ([051dee9](https://github.com/vellankikoti/kubilitics/commit/051dee9d53ddd33ce767a552f331da0c52c95086))
+- UseAIReady — accept empty status.state when capabilities is ready by @vellankikoti ([1452ba8](https://github.com/vellankikoti/kubilitics/commit/1452ba8634ec19fc6cac2bd2bbffbcb01dc705e1))
+- Delete_profile restores in-memory on disk fail; drop unused BrainHotwire variant by @vellankikoti ([7e4458a](https://github.com/vellankikoti/kubilitics/commit/7e4458a6119cc33c945eec2d87e207ef7b9ac849))
+- Overlay drawer pattern — main content no longer squeezed when chat opens by @vellankikoti ([a0f0e42](https://github.com/vellankikoti/kubilitics/commit/a0f0e42c1a664d22bafcecbb05dcb45a0bbb1f50))
+- Replace global migration toast with inline banner on AI Settings by @vellankikoti ([63d3ed4](https://github.com/vellankikoti/kubilitics/commit/63d3ed490f937dc5ecfca5829b4cac6405e8a06a))
+- Test button uses typed key + tighten 'configured' for hosted custom by @vellankikoti ([0b77d8e](https://github.com/vellankikoti/kubilitics/commit/0b77d8e4fb16854f2c77f4c4cfdf6c16157d5794))
+- Cold-start hot-wire active profile on Tauri startup by @vellankikoti ([42b5954](https://github.com/vellankikoti/kubilitics/commit/42b5954963623aea32dc97bdaecd076244a5a910))
+- Surface active.last_error as brain_error + lock 4 regression guards by @vellankikoti ([dca5c20](https://github.com/vellankikoti/kubilitics/commit/dca5c20cb33522ebe550c791a709cbc8ab633d9e))
+- Silence ENHANCE_YOUR_CALM — disable idle pings, add server enforcement policy by @vellankikoti ([001e7d7](https://github.com/vellankikoti/kubilitics/commit/001e7d7c5281386c24bba1f3eee8abf1ee1f1444))
+
+
+### Tests
+
+- Expand hallucination probes 10 → 30 with axis tags (#100) by @vellankikoti ([83e96a2](https://github.com/vellankikoti/kubilitics/commit/83e96a23e27d9a2ff3af80ed534af7c0e18a0bfc))
+
+## [1.2.0-rc.6] - 2026-04-24
+
+
+### Added
+
+- Real token counts + cost + finish-state in every turn footer by @vellankikoti ([07bfc23](https://github.com/vellankikoti/kubilitics/commit/07bfc236bc0764a0b24169e5e7abc6d5157fd967))
+- Add macOS entitlements with keychain-access-groups by @vellankikoti ([6c08ffc](https://github.com/vellankikoti/kubilitics/commit/6c08ffc2bb5cc547b70290c458425086ab66d333))
+- Wire entitlements.plist into tauri.conf macOS bundle by @vellankikoti ([a78a323](https://github.com/vellankikoti/kubilitics/commit/a78a323e1a509757a0559ba3ad849e608d91e169))
+- Regression guard for macOS signing config by @vellankikoti ([b4cb39d](https://github.com/vellankikoti/kubilitics/commit/b4cb39d1fcd5fb50260788678caac8c9bd9c15db))
+
+
+### Documentation
+
+- Add macOS signing + notarization runbook by @vellankikoti ([5c8d364](https://github.com/vellankikoti/kubilitics/commit/5c8d3648263a1a4249c55458e5cdb6e4357363df))
+- Note macOS signing + notarization in v1.2.0 by @vellankikoti ([d0f8656](https://github.com/vellankikoti/kubilitics/commit/d0f8656dba7e66d76ec5a12ed8786f86d3fe83d3))
+
+
+### Fixed
+
+- Three systemic bugs that made local-dev "AI Unreachable" permanent by @vellankikoti ([1e536ab](https://github.com/vellankikoti/kubilitics/commit/1e536ab5086008a1a158929502da4ba5931c95fd))
+- Kill the SECOND keychain probe on AI Settings page load by @vellankikoti ([3582576](https://github.com/vellankikoti/kubilitics/commit/35825766af6f118f1cc9f3f2574451cd6f8b0521))
+- Remove keychain migration — no prompts on page open, ever by @vellankikoti ([0219194](https://github.com/vellankikoti/kubilitics/commit/0219194400c8807ec33af55cbb93c39fbd0661c4))
+- Test connection for Ollama hits /api/tags, not /chat/completions by @vellankikoti ([c65d173](https://github.com/vellankikoti/kubilitics/commit/c65d1735d1fdb9d1b764a81d09e71da97e432d0c))
+- Ollama model list is dynamic — fetch from /api/tags, auto-select by @vellankikoti ([c4b2be9](https://github.com/vellankikoti/kubilitics/commit/c4b2be918b4b96ec7407d0236ecda0bbf866bd52))
+- Reconcile the "Connected" / "AI Unreachable" paradox by @vellankikoti ([9482f65](https://github.com/vellankikoti/kubilitics/commit/9482f65e2c929d1ad8d8802c0b3ecccfc27602a2))
+- Never fatal on LLM init failure — hot-wire works even from cold start by @vellankikoti ([fa7b962](https://github.com/vellankikoti/kubilitics/commit/fa7b9623aa0d2ff16871b2c1bba6f92120e9b786))
+- Surface real stream errors instead of masquerading them as 0-token done by @vellankikoti ([118b16d](https://github.com/vellankikoti/kubilitics/commit/118b16d5835ef92ee2ea927d95e24905d6830001))
+- Enable tool router by default for Ollama (small-model prompt overflow fix) by @vellankikoti ([711d642](https://github.com/vellankikoti/kubilitics/commit/711d6429d8dc6585976fec06b1ddb21a6c060b9c))
+- Fail-closed notarization — no silent un-notarized ships by @vellankikoti ([e291047](https://github.com/vellankikoti/kubilitics/commit/e291047ac76ef77735d5af224a449c4f6e11d9ee))
+- Honest readiness — adapter probe drives ready flag end-to-end by @vellankikoti ([f1cb864](https://github.com/vellankikoti/kubilitics/commit/f1cb864b5c9d7730386469f66871af4574c2a568))
+- Skip beforeBuildCommand in CI — frontend dist is prebuilt by @vellankikoti ([3ccfbed](https://github.com/vellankikoti/kubilitics/commit/3ccfbed5553d2ac953a6c5869f70fb96ebf74383))
+- Portable beforeBuildCommand — extract to bash script by @vellankikoti ([003472d](https://github.com/vellankikoti/kubilitics/commit/003472ddd95cad44aaf464da3c67ff1e27fc14d9))
+
+
+### Misc
+
+- Call macOS signing-config guard by @vellankikoti ([4ee7c8b](https://github.com/vellankikoti/kubilitics/commit/4ee7c8bb86caeef76b99b9bb609922cb796c35af))
+
+## [1.2.0-rc.4] - 2026-04-24
+
+
+### Fixed
+
+- Dynamic backend port + never piggyback — kills the 1000th-time orphan-UI regression by @vellankikoti ([d5d7ace](https://github.com/vellankikoti/kubilitics/commit/d5d7acef0d1e8687403ac84005f401eef0c8f753))
+
+## [1.2.0-rc.3] - 2026-04-24
+
+
+### Added
+
+- Setup-ollama.sh — one-shot bootstrap for throwaway bench VM by @vellankikoti ([9675185](https://github.com/vellankikoti/kubilitics/commit/96751852956703fcd48946a63a8a94fe1f9dd833))
+- Implement KOTG.AI local AI agent — Phase 1 foundation by @claude ([aa3fa14](https://github.com/vellankikoti/kubilitics/commit/aa3fa14725d3bc0e20aca49bd7380348a0daec73))
+- Add EC2 development machine setup guide and bootstrap script by @claude ([0e24336](https://github.com/vellankikoti/kubilitics/commit/0e243360ccfc3c8b84fc6d0af4ceb525124db8c6))
+- Add EC2 launch and SSH tunnel management scripts by @claude ([4ed71ea](https://github.com/vellankikoti/kubilitics/commit/4ed71ea26b8d78188cfef8faef237547b2d94b25))
+- Add kubilitics-ai module from kubilitics-os-emergent by @vellankikoti ([87039a4](https://github.com/vellankikoti/kubilitics/commit/87039a48eb602b736baa5ca66528903564f13e4e))
+- Add agent_runtime.proto for backend→AI runtime contract by @vellankikoti ([9404108](https://github.com/vellankikoti/kubilitics/commit/94041085dd51a6b57334ecc5367c60a9ad83bc8e))
+- Minimal AgentRuntimeService stub (LLM-direct only) for subproject 3a by @vellankikoti ([5c0ced2](https://github.com/vellankikoti/kubilitics/commit/5c0ced25473a21e6e0d930b832f2684159a12c1c))
+- Register AgentRuntimeService gRPC + /status HTTP endpoint by @vellankikoti ([d631615](https://github.com/vellankikoti/kubilitics/commit/d63161536c6c926a93cdc402e096d90ba3bbf5c4))
+- Introduce Router + Engine abstraction (subproject 3b) by @vellankikoti ([0bbc5fe](https://github.com/vellankikoti/kubilitics/commit/0bbc5fed2f0be5d9cf4f1b3e98f6f278a586a867))
+- Add kagent + python multi-agent Engine skeletons (3c + 3d) by @vellankikoti ([c001498](https://github.com/vellankikoti/kubilitics/commit/c001498fe26967afa039e3fdded019ca58e04d82))
+- Wrap Router with v1 Safety wrapper (subproject 3e) by @vellankikoti ([cb9c617](https://github.com/vellankikoti/kubilitics/commit/cb9c617c7ce783d5c55fca1e7cad5f4fc8175eeb))
+- Kubilitics-ai chart for one-command in-cluster install (subproject 3f) by @vellankikoti ([fdc4811](https://github.com/vellankikoti/kubilitics/commit/fdc481172480b35394315a36107cbb4875ddb8b8))
+- Wide-event LLM benchmarking harness for kubilitics-ai (Ollama/OpenAI/Anthropic) by @vellankikoti ([4ce41e4](https://github.com/vellankikoti/kubilitics/commit/4ce41e4f88f0ea744aaa10d7408b913e3b2a6bf8))
+- V1.5 wire-level engine + audit bridge by @vellankikoti ([c704ab1](https://github.com/vellankikoti/kubilitics/commit/c704ab18c2f35dcecae8d8105bd8ba2e5f28380a))
+- Wire CompleteWithTools so MCP tools fire from LLM-direct path by @vellankikoti ([be50e5e](https://github.com/vellankikoti/kubilitics/commit/be50e5eb39bbd1e9671ae9cd391e7ebc187b8b06))
+- Comprehensive 498-case AI tool coverage bench (auto-generated from taxonomy) by @vellankikoti ([361a1d6](https://github.com/vellankikoti/kubilitics/commit/361a1d6c79090865e7ad672745371dcad43e7b67))
+- Expand aliases (50+), fix content:null bug, support autonomy=3 by @vellankikoti ([e9c8512](https://github.com/vellankikoti/kubilitics/commit/e9c8512a302f7689a52bff1ff945c9e7f3fc9ef3))
+- Extract + harden chat system prompt by @vellankikoti ([f0a3856](https://github.com/vellankikoti/kubilitics/commit/f0a3856e841441b3b77f11813e50a76c7da2f5ec))
+- Extract summarizer + add 8KB hard cap by @vellankikoti ([7ad64ff](https://github.com/vellankikoti/kubilitics/commit/7ad64ffda7f60a17d5069c3d32ff842314d6d19e))
+- Cap every tool dispatch output at 8KB by @vellankikoti ([7ae50e6](https://github.com/vellankikoti/kubilitics/commit/7ae50e618251e1ff111f3bd10e27bf2efaf91116))
+- Add end-to-end chat quality harness by @vellankikoti ([0780d0f](https://github.com/vellankikoti/kubilitics/commit/0780d0f80cb5c16768fedcda90b38948746af2ea))
+- Per-turn routing recorder (JSONL) by @vellankikoti ([be058f0](https://github.com/vellankikoti/kubilitics/commit/be058f0ec199231d70fa44c64453f61d12d187fb))
+- Per-turn token tally + USD from price table by @vellankikoti ([ff8b29a](https://github.com/vellankikoti/kubilitics/commit/ff8b29a4ee1aaf684015f229e11caea982583d26))
+- Inject routing stages at every chat boundary by @vellankikoti ([9ef5300](https://github.com/vellankikoti/kubilitics/commit/9ef530066aa086089abe800f0d4caa913fac0332))
+- --trace-dir wires per-turn routing JSONL by @vellankikoti ([9987ed8](https://github.com/vellankikoti/kubilitics/commit/9987ed89ada7c2ce60d9c2574e87a4908578f925))
+- Self-contained HTML + inline SVG renderer by @vellankikoti ([2048692](https://github.com/vellankikoti/kubilitics/commit/2048692380ae5390b23c39fd9459d6691fc217b5))
+- AgentStreamEvent carries optional TokenUsage by @vellankikoti ([96b6cfa](https://github.com/vellankikoti/kubilitics/commit/96b6cfae2852b8db1328999886788d3959890ea0))
+- Surface prompt_eval_count + eval_count to AgentStreamEvent by @vellankikoti ([ef26795](https://github.com/vellankikoti/kubilitics/commit/ef26795094169b24a9f557b1070da7487f21dba6))
+- Emit done + cost stages at end of each chat turn by @vellankikoti ([697eb11](https://github.com/vellankikoti/kubilitics/commit/697eb11cdc255251f9b903330439083cfecae6df))
+- Tool-catalog extractor + 20 seed plain-english entries by @vellankikoti ([8a0c523](https://github.com/vellankikoti/kubilitics/commit/8a0c52388674f27d0f4caeafd29b44ae77285de9))
+- V2 interactive template with tool explorer by @vellankikoti ([5f48923](https://github.com/vellankikoti/kubilitics/commit/5f48923a41635d77fc13f8b714eb6b656c7dbe81))
+- Realistic incident-scenarios suite + walkthrough journey cards by @vellankikoti ([ba40147](https://github.com/vellankikoti/kubilitics/commit/ba40147ae840d31669ea9c14ca2efb01470aa6e0))
+- Topic-aware tool selection — 163 tools → top 30 per query by @vellankikoti ([c5658ff](https://github.com/vellankikoti/kubilitics/commit/c5658ff6793a44e5a49e5a2dd51aa22227de6613))
+- Together.ai provider config + API-only orchestrator by @vellankikoti ([95424b4](https://github.com/vellankikoti/kubilitics/commit/95424b41080dc5e340cf627426287dfef7051b3e))
+- Capture first 4KB of assistant text in llm_text_out by @vellankikoti ([047bb43](https://github.com/vellankikoti/kubilitics/commit/047bb4386b22fa071d6a3a85552c69a6eceae372))
+- Inspect_<kind> composites — fold detailed+events+ownership into one call per kind by @vellankikoti ([d3d4ed4](https://github.com/vellankikoti/kubilitics/commit/d3d4ed4a62c0fc980ef74fb125432deb6d707fac))
+- Close gap 6 — analyze_blast_radius schema (scope-aware) by @vellankikoti ([6a50997](https://github.com/vellankikoti/kubilitics/commit/6a5099730c646a5386bcd245743607f1c4bb231a))
+- Close gap 2 — resolve_resource name-hint -> namespace by @vellankikoti ([235c2d1](https://github.com/vellankikoti/kubilitics/commit/235c2d16e614cc5d75672a76ec92377876067cd9))
+- Close gap 5 — log-streaming REST fallback by @vellankikoti ([1a9de17](https://github.com/vellankikoti/kubilitics/commit/1a9de17788e292b27ea793757f741ae3d896898f))
+- Close gap 4 — observe_recent_changes timeline fusion by @vellankikoti ([5565b73](https://github.com/vellankikoti/kubilitics/commit/5565b7363d60a808ed1145bb3aa898b5a0f5a0be))
+- Close gap 3 — who_can_do RBAC aggregator by @vellankikoti ([b4fc17f](https://github.com/vellankikoti/kubilitics/commit/b4fc17fc8539e980c3423123d2c6c37bc830a632))
+- Close gap 1 — live metrics adapter (pod/node/top-N) by @vellankikoti ([40b83f7](https://github.com/vellankikoti/kubilitics/commit/40b83f781b9a4328c28a1e406c19954ac600efc5))
+- Self-redirecting tool descriptions — aggregators claim their scope by @vellankikoti ([271eeed](https://github.com/vellankikoti/kubilitics/commit/271eeed91eb958180366f68c528da506426ef439))
+- Validate tool args — reject fabricated wildcard params with redirect hints by @vellankikoti ([49d9fe5](https://github.com/vellankikoti/kubilitics/commit/49d9fe5feff855b62ddc06a9db662341b5a67d9a))
+- 3 real-world aggregators — services_by_filter, secrets_usage, ingresses_by_tls_expiry by @vellankikoti ([40cddcf](https://github.com/vellankikoti/kubilitics/commit/40cddcf6c331d8d3aeb28fec1d72460e879b9b0d))
+- Bias aggregator + composite tools to the top of the filtered list by @vellankikoti ([c1b629f](https://github.com/vellankikoti/kubilitics/commit/c1b629f807316d5ad24f0514ced6eba2e2444b80))
+- Retry with exp-backoff on 5xx by @vellankikoti ([e560e7e](https://github.com/vellankikoti/kubilitics/commit/e560e7ed06b575e1edec4ca05e45a1d4f5ee9c94))
+- Honor standard Retry-After header on 429 by @vellankikoti ([20f042d](https://github.com/vellankikoti/kubilitics/commit/20f042d19ffe354234e0d409cb46ff33f22bb2bb))
+- SQLite session persistence by @vellankikoti ([8719b06](https://github.com/vellankikoti/kubilitics/commit/8719b06ac0e30e13fa0ea8f0b978c547d7f4a476))
+- Multi-cluster session isolation by @vellankikoti ([e11c0b9](https://github.com/vellankikoti/kubilitics/commit/e11c0b94b3ef2ec3da944cadf34aa41c84c76343))
+- Pre-spend Gate primitive for live enforcement by @vellankikoti ([8a903fe](https://github.com/vellankikoti/kubilitics/commit/8a903fe5f2719f97577b482219a5b5b348ea5704))
+- Wire chat.SessionStore into grpc Send path by @vellankikoti ([3737467](https://github.com/vellankikoti/kubilitics/commit/3737467d9727ef27ce5975640626e42625cf0286))
+- Wire Gate into Send path + admin HTTP + reset by @vellankikoti ([1258e4d](https://github.com/vellankikoti/kubilitics/commit/1258e4dad2b1a60949ea5688cdc2d02fd8fe19cb))
+- Phase 3 C1 — 10 observability aggregators by @vellankikoti ([d1247dc](https://github.com/vellankikoti/kubilitics/commit/d1247dcadab889f1d624a2f9c9cbf4b320e1de07))
+- Phase 3 C2 — 10 root-cause diagnostics by @vellankikoti ([20078f8](https://github.com/vellankikoti/kubilitics/commit/20078f829b246471db2793f6828eb90eae6bd577))
+- Phase 3 C3 — 10 planning tools by @vellankikoti ([7bac7d2](https://github.com/vellankikoti/kubilitics/commit/7bac7d28134ed032b90d834c7e3638e78b44849c))
+- Phase 3 C4 — 10 compliance checks by @vellankikoti ([c098fae](https://github.com/vellankikoti/kubilitics/commit/c098fae4d211f57acfd30b7ef52a4984e2e62ac1))
+- Phase 3 C5 — 10 narrative tools (Phase 3 complete) by @vellankikoti ([e592ef3](https://github.com/vellankikoti/kubilitics/commit/e592ef369629c70710c11577dd9d7421cf8ddff1))
+- LLM-as-judge for chat-quality bench (Phase 4 D) by @vellankikoti ([2a8c372](https://github.com/vellankikoti/kubilitics/commit/2a8c37238ef3ea7e02a1ee841a4fcc6c5d73f345))
+- Phase 4 D.3 — render LLM-as-judge scores by @vellankikoti ([4dbb992](https://github.com/vellankikoti/kubilitics/commit/4dbb992a852cc460590b0a8a5a3cd3d801a46b9c))
+- KUBILITICS_AI_GRPC_PORT env overrides :50051 default by @vellankikoti ([49a063b](https://github.com/vellankikoti/kubilitics/commit/49a063bbbb15a74b7b1e5940d19e527c0fe7ad73))
+- Honor KUBILITICS_LLM_API_KEY / _BASE_URL as post-yaml override by @vellankikoti ([6d3b835](https://github.com/vellankikoti/kubilitics/commit/6d3b835114aca695f346081b5e33aaef94b70458))
+- Add severity-scoring primitives (ScorePod, ScoreNode, ScoreEvent) by @vellankikoti ([12e6ca0](https://github.com/vellankikoti/kubilitics/commit/12e6ca02f37f492a6fc24429a962a566b0a936c3))
+- Add RankCluster composition over pod/node/event scores by @vellankikoti ([9c016b0](https://github.com/vellankikoti/kubilitics/commit/9c016b0c7cb3aae4c4ad0cd7fca7ee731fd832c1))
+- Add RankProblems with filter-enum predicates by @vellankikoti ([db5f68d](https://github.com/vellankikoti/kubilitics/commit/db5f68d42b659b23fe72c2273a8708cae31f7a08))
+- Extract with ordered regex-template strip rules by @vellankikoti ([24e4701](https://github.com/vellankikoti/kubilitics/commit/24e47015f9c73a4da87a4ac7866d2260180c12cf))
+- Cluster aggregates lines by extracted template by @vellankikoti ([4b64ce1](https://github.com/vellankikoti/kubilitics/commit/4b64ce1300b70b7079c0f86d4fa81d438739b408))
+- Add buildComposableResult envelope builder by @vellankikoti ([312c8d2](https://github.com/vellankikoti/kubilitics/commit/312c8d21351e5933a2ebddf85d078e9974e266f7))
+- HandleTriageCluster composite with triage.RankCluster by @vellankikoti ([a500753](https://github.com/vellankikoti/kubilitics/commit/a500753b5d7929848f7302ce788113ba32f3ebc2))
+- HandleListProblems typed-filter enumerator by @vellankikoti ([02efc37](https://github.com/vellankikoti/kubilitics/commit/02efc37fa4d794fec2268a616c4d2dbdbe466741))
+- HandleSearchLogs with logpattern.Cluster aggregation by @vellankikoti ([1802da6](https://github.com/vellankikoti/kubilitics/commit/1802da62ce0b9450ec0a9eb0499d1fdaaaa05b02))
+- +triage_cluster +list_problems +search_logs by @vellankikoti ([3fe883b](https://github.com/vellankikoti/kubilitics/commit/3fe883bb0e4b88b94bbf498a496abb5b266aa45a))
+- Retire 25 folded observe_* tools; add retirement-guard test by @vellankikoti ([9e83af8](https://github.com/vellankikoti/kubilitics/commit/9e83af849d9a6fa9a5f5660ef7bed0860868474a))
+- ResilientResponse envelope type by @vellankikoti ([135b801](https://github.com/vellankikoti/kubilitics/commit/135b8012f2aec1efc8a3bf8459bd8733cb975d7e))
+- Thread-safe LRU cache with entry timestamps by @vellankikoti ([8be93ef](https://github.com/vellankikoti/kubilitics/commit/8be93ef4a0af6745b34c46d51f444f9df9cd81e7))
+- IsTransientClusterError classifier by @vellankikoti ([49de71d](https://github.com/vellankikoti/kubilitics/commit/49de71df3cf95a20311c8ee96cc7b6183d3f5c42))
+- WrapClusterHandler middleware by @vellankikoti ([3438ad9](https://github.com/vellankikoti/kubilitics/commit/3438ad9271d216a746296ad83f72bb6b1043a0e5))
+- LogicalIdentity \u2014 (name, serverUrl) replaces UUID by @vellankikoti ([8b4127c](https://github.com/vellankikoti/kubilitics/commit/8b4127c5eb7f8c1642b09869f06ba49e7f6559f7))
+- GET /api/v1/presence endpoint stub by @vellankikoti ([1c17661](https://github.com/vellankikoti/kubilitics/commit/1c176616a50a5722aceedf6be9ebb3985b622965))
+- Wire presence endpoint into router + feature flag by @vellankikoti ([8c6aa15](https://github.com/vellankikoti/kubilitics/commit/8c6aa156586267b7e3f70c113ca1fcafa43176c9))
+- DiscoverySource interface + event types by @vellankikoti ([8348028](https://github.com/vellankikoti/kubilitics/commit/83480288d26a5b1655ef133fedf4a25e65cc9ea6))
+- KubeconfigFileSource Enumerate by @vellankikoti ([2b684df](https://github.com/vellankikoti/kubilitics/commit/2b684df7713de08572de8db02a7b26474ccfab63))
+- Fsnotify-backed kubeconfig live watching by @vellankikoti ([9e68e9f](https://github.com/vellankikoti/kubilitics/commit/9e68e9fec13649e38d6534275bb70620256045ff))
+- KubernetesSecretSource implements DiscoverySource by @vellankikoti ([28b7f11](https://github.com/vellankikoti/kubilitics/commit/28b7f11c8fd622007104bfd5842944c57cbfd7f3))
+- ManualSource — sqlite-backed + pub/sub by @vellankikoti ([3f49f68](https://github.com/vellankikoti/kubilitics/commit/3f49f68abe71da8d6cbf6adedf9086e44afdcc2c))
+- Manager composes sources + fans in events by @vellankikoti ([f991b0a](https://github.com/vellankikoti/kubilitics/commit/f991b0a8bf92b969b195f37f7dda60a499c4e7d5))
+- Real Manager wired + SSE event stream by @vellankikoti ([85d1d3f](https://github.com/vellankikoti/kubilitics/commit/85d1d3f9d220b535c0b901bf4e2ab611fdfbdadb))
+- Feature flag reader for onboarding-v2 by @vellankikoti ([9591d98](https://github.com/vellankikoti/kubilitics/commit/9591d9833a690a24d8328e52f051bd6285adc17e))
+- LogicalIdentity + ResilientResponse types by @vellankikoti ([24a37bc](https://github.com/vellankikoti/kubilitics/commit/24a37bc669bda3c87148f05860644bd971c74f4b))
+- ClusterPresenceStore — single source of truth by @vellankikoti ([bba5ce8](https://github.com/vellankikoti/kubilitics/commit/bba5ce8e26a120702a1f9459766d4d7c8b76735c))
+- UseClusterPresence SSE subscription by @vellankikoti ([420148d](https://github.com/vellankikoti/kubilitics/commit/420148d05da87b11eceacab61bc217405dc00a3f))
+- UseResilientQuery hook — generalizes 10848cf by @vellankikoti ([80ffbf9](https://github.com/vellankikoti/kubilitics/commit/80ffbf9b48f28201b1b06e668f080b66c4e3acde))
+- ClusterUnreachableBoundary component by @vellankikoti ([9fa965a](https://github.com/vellankikoti/kubilitics/commit/9fa965a9b8ddb6b76b5bbe3640867c0653806f5c))
+- ClusterPickerPage — new /clusters landing by @vellankikoti ([01a43de](https://github.com/vellankikoti/kubilitics/commit/01a43de33aacc14cf017f3c353a7ea73caeb0eac))
+- WelcomePage zero-state for new users by @vellankikoti ([4814976](https://github.com/vellankikoti/kubilitics/commit/4814976af070ace30af5ceeaa1428220410fbc9c))
+- Flag-gated routing to /clusters + /welcome by @vellankikoti ([c852a75](https://github.com/vellankikoti/kubilitics/commit/c852a75f550bd5f7f5e5f1d96cdd498c9ba34411))
+- FEATURE_PRESENCE_V2 default on — onboarding v2 live by @vellankikoti ([5cd2ee7](https://github.com/vellankikoti/kubilitics/commit/5cd2ee7db849efa289a6b05d414d02b0b1d01a4a))
+- Deprecation banner on /connect page by @vellankikoti ([b700375](https://github.com/vellankikoti/kubilitics/commit/b700375336a33e807f7defa8b23e4dea4cbc9a02))
+- Wire session_id + provider through to ConnectedCluster by @vellankikoti ([c338145](https://github.com/vellankikoti/kubilitics/commit/c338145a1aa7218fd3af907f3db994345739453a))
+- AddClusterDialog — reusable modal extracted from /connect page by @vellankikoti ([f6927d9](https://github.com/vellankikoti/kubilitics/commit/f6927d9e0f4c8fa1ec800e180680def68f7e42db))
+- Integrate AddClusterDialog into ClusterPickerPage + WelcomePage by @vellankikoti ([8d2a995](https://github.com/vellankikoti/kubilitics/commit/8d2a995ae83f68c857eb1170e589cb9877835a72))
+
+
+### Changed
+
+- Name threshold constants + wire ScoreEvent into RankCluster by @vellankikoti ([3138985](https://github.com/vellankikoti/kubilitics/commit/31389855d5c7ea0c73eed6121a7fcd836e776fd1))
+- Per-filter tests + harden image_pull/unhealthy predicates by @vellankikoti ([2416ca6](https://github.com/vellankikoti/kubilitics/commit/2416ca6a773dca8b7c47658e005d4f8e01c3b483))
+- Extract shared types to break import cycle by @vellankikoti ([b12d5a9](https://github.com/vellankikoti/kubilitics/commit/b12d5a9bdfafac9beb32d9b41234f90aee0b4233))
+- Migrate /summary onto resilient.WrapClusterHandler by @vellankikoti ([928d2b0](https://github.com/vellankikoti/kubilitics/commit/928d2b015193057c5f3be22898f100646231dccf))
+- UseResourceCounts rebuilt on useResilientQuery by @vellankikoti ([4fe4d00](https://github.com/vellankikoti/kubilitics/commit/4fe4d00e99b53b04293ed14c2cd80533000f0139))
+- Migrate /events onto resilient.WrapClusterHandler by @vellankikoti ([9f96821](https://github.com/vellankikoti/kubilitics/commit/9f96821a19d288b563fc6017ccabe589fad1b1f0))
+- Use shared ClusterUnreachableBoundary by @vellankikoti ([34c2390](https://github.com/vellankikoti/kubilitics/commit/34c2390ee8a3c95b9e975f7a41b7e69984036a9d))
+- Delete onboardingStore, derive onboarded-state from clusterPresenceStore by @vellankikoti ([ab5c6d8](https://github.com/vellankikoti/kubilitics/commit/ab5c6d8df373b11f8046449dc80cb8727a8f3348))
+- Remove FEATURE_PRESENCE_V2 flag; V2 path is now the path by @vellankikoti ([5b42f39](https://github.com/vellankikoti/kubilitics/commit/5b42f393ab79186bde1249ce5978e1b5b9f0f3bd))
+- Extract namespaceStore from clusterStore by @vellankikoti ([4c6e248](https://github.com/vellankikoti/kubilitics/commit/4c6e248cae6a642f8d4b359e550cb24a08950304))
+- Extract demoStore from clusterStore by @vellankikoti ([61a81cf](https://github.com/vellankikoti/kubilitics/commit/61a81cf203e4aff20aa12d0333444a997c1fe2d4))
+- Extract kubeconfigStore from clusterStore by @vellankikoti ([800fdde](https://github.com/vellankikoti/kubilitics/commit/800fdde80609968ca8dacfd0af24d60c7eaaf091))
+- Extract appModeStore from clusterStore; derive isOnboarded from presence by @vellankikoti ([c46bda0](https://github.com/vellankikoti/kubilitics/commit/c46bda00e2f6deea80bb9cc6361d251d3c5b0809))
+- Remove clusterStore mirror writes from domain stores by @vellankikoti ([46a6d0c](https://github.com/vellankikoti/kubilitics/commit/46a6d0c7dda5d4740f92dfe5a7090529b2403a5f))
+- UseActiveClusterId prefers presence session_id by @vellankikoti ([cf201ee](https://github.com/vellankikoti/kubilitics/commit/cf201ee2ac5658307bfc2d8340c471df46675fe7))
+- Migrate cluster readers to clusterPresenceStore by @vellankikoti ([2162630](https://github.com/vellankikoti/kubilitics/commit/216263096f71cba986395a37bd37aa7303cd91f5))
+- Delete /connect page + FlagGatedRoute + reroute CTAs by @vellankikoti ([6066e75](https://github.com/vellankikoti/kubilitics/commit/6066e754fccc78b719ba62fcfff1e5f67ffee6e7))
+- Complete sweep + delete legacy stores/pages by @vellankikoti ([5bc5b2e](https://github.com/vellankikoti/kubilitics/commit/5bc5b2e499191694790c69aaf6912f44a0cabe8d))
+
+
+### Documentation
+
+- Open-core tiers + 1.2.0 roadmap drafts (#91) by @vellankikoti ([2388c83](https://github.com/vellankikoti/kubilitics/commit/2388c835dfb5d5ea5290b4281aa2a475bd404077))
+- Monorepo migration plan — kotg.ai → kubilitics by @vellankikoti ([57808ca](https://github.com/vellankikoti/kubilitics/commit/57808ca31178bb2f3e2d6445ed156bf0f718dd59))
+- UI smoke harness as migration-phase gate by @vellankikoti ([d13c7bd](https://github.com/vellankikoti/kubilitics/commit/d13c7bde9eb31789dfd0f84fd8d11b1e0384e6c9))
+- Comprehensive research-validated architecture update (v2.0) by @claude ([6294464](https://github.com/vellankikoti/kubilitics/commit/6294464f1e7247830484f947d94ede5775352890))
+- Chat-quality bench — 250 prompts, systematic-quality validation by @vellankikoti ([a9a6019](https://github.com/vellankikoti/kubilitics/commit/a9a60199303195e7897bc739fd09a81796c7ffb0))
+- Attach bench log artifact by @vellankikoti ([c39de6b](https://github.com/vellankikoti/kubilitics/commit/c39de6b0134350697d6b340d996c73a5d162abe8))
+- Rate-limit runbook by @vellankikoti ([470d8e1](https://github.com/vellankikoti/kubilitics/commit/470d8e10c84681813d69bcb476feec5f16f1622e))
+- 2026-04-22 Together.ai iteration traces + scenarios-100 suite by @vellankikoti ([6b56eae](https://github.com/vellankikoti/kubilitics/commit/6b56eae96c7a6660bf9f090676f208166f13e55a))
+- Phase 3 C.51 — plain-English for all 183 tools by @vellankikoti ([dd0e2b6](https://github.com/vellankikoti/kubilitics/commit/dd0e2b685c28c3e749001b0f6bab8105a95d9d3a))
+- Week 1 — complete inspect surface + retire 42 observe_* by @vellankikoti ([4c8e8b1](https://github.com/vellankikoti/kubilitics/commit/4c8e8b1f0df9fc65a27685a7ed6d66abdaecdc83))
+- Correct retirement count 42 → 25 with exact name lists by @vellankikoti ([9711c9c](https://github.com/vellankikoti/kubilitics/commit/9711c9ce28e67c90feb9e89bd39c565153c9ff80))
+- Refresh onboarding docs for auto-discover flow by @vellankikoti ([730dd17](https://github.com/vellankikoti/kubilitics/commit/730dd17f24fcc96d0adf98e0a1e334ebf5747f40))
+
+
+### Fixed
+
+- Soft-fail cosmetic aux workflows by @vellankikoti ([b364f55](https://github.com/vellankikoti/kubilitics/commit/b364f55e3bdeb93fe7ad9ba2a9afaeb146fc5e64))
+- Adopt self-pull Pattern E for tap sync (#88) by @vellankikoti ([f46fe7e](https://github.com/vellankikoti/kubilitics/commit/f46fe7ed13769bf522128d9094b8b77931300d1d))
+- Consolidate chart publishing to signed OCI on ghcr.io (#90) by @vellankikoti ([75bb4ae](https://github.com/vellankikoti/kubilitics/commit/75bb4ae01d2a314e5bcdebbc11277c61e09f74b5))
+- Surface helm push errors in workflow log (#92) by @vellankikoti ([c0b2b4a](https://github.com/vellankikoti/kubilitics/commit/c0b2b4af57fc6fc6e9e8b00f5fd21a965685a420))
+- Use kotg-schema chat.proto + AIControl as the contract by @vellankikoti ([6bc16c9](https://github.com/vellankikoti/kubilitics/commit/6bc16c91668f7911b3dc0e761bef5a5f27717469))
+- Honor -config flag and fail loud on misconfigured LLM by @vellankikoti ([19caad7](https://github.com/vellankikoti/kubilitics/commit/19caad7d4b51b08d01033711dfccd13260afd714))
+- Standardize backend HTTP port to 8190 (was stale 819) by @vellankikoti ([7db7c6e](https://github.com/vellankikoti/kubilitics/commit/7db7c6e5303039fcaf85b91ee07fcb7ff85e8389))
+- Accept JSON array shape from backend /events endpoint by @vellankikoti ([b18bb74](https://github.com/vellankikoti/kubilitics/commit/b18bb74a8fdc74eb00562bfffe29e7ba30c372e3))
+- Inject focus_cluster_id into LLM system prompt + tool args by @vellankikoti ([bfb5469](https://github.com/vellankikoti/kubilitics/commit/bfb5469f49f06eebdff11e1facc306200832409f))
+- Honor session focus_cluster_id, drop first-cluster fallback by @vellankikoti ([b818d0b](https://github.com/vellankikoti/kubilitics/commit/b818d0bb29bf6e5227599a2055ab7417738dd2c4))
+- Teach LLM that list_resources handles namespaces by @vellankikoti ([dc03b78](https://github.com/vellankikoti/kubilitics/commit/dc03b789931dd3b8804d614e7e043ce208a7c2d1))
+- Summarize large list payloads so gpt-4o-mini can answer by @vellankikoti ([4a5894e](https://github.com/vellankikoti/kubilitics/commit/4a5894e1cb2c93062a31c0900351a87c9335c827))
+- Belt-and-braces string truncation on tool output by @vellankikoti ([fb18059](https://github.com/vellankikoti/kubilitics/commit/fb18059656237ed56265a90ea40ae60aabff6f2e))
+- MaxTurns 10 -> 20 with KOTG_AGENT_MAX_TURNS override by @vellankikoti ([4460895](https://github.com/vellankikoti/kubilitics/commit/44608957cd7fc297bc1f99d50e3b5d6d94ce15c4))
+- Retry on 429 with hint-aware backoff by @vellankikoti ([f04e7dd](https://github.com/vellankikoti/kubilitics/commit/f04e7ddf6eb772da9004c08b8ae0b7a047a91e43))
+- Small-VM root disk 8GB -> 30GB by @vellankikoti ([9ff0063](https://github.com/vellankikoti/kubilitics/commit/9ff0063bfa19be266058136acb0dcc347a5bc452))
+- Stream=false must be explicit; accept object OR string tool args by @vellankikoti ([70713cf](https://github.com/vellankikoti/kubilitics/commit/70713cf7e3dc4db967576808296d53b974cd3eb6))
+- Honest headline + INCOMPLETE badges + real latencies by @vellankikoti ([f5aa42b](https://github.com/vellankikoti/kubilitics/commit/f5aa42b2b8aa4c5150e3364202254fa5a71d9880))
+- Use plan-canonical plain-english seed names (20/20 match taxonomy) by @vellankikoti ([ccfe219](https://github.com/vellankikoti/kubilitics/commit/ccfe21908a1fa5511b904e391d363c0336708545))
+- Recover from json.Marshal panic in compactArgs by @vellankikoti ([19416f1](https://github.com/vellankikoti/kubilitics/commit/19416f1e0927684b78822f80fbf3056adbe212a5))
+- Retire 3 duplicate/loop-trap tools from MCP taxonomy by @vellankikoti ([3f011e8](https://github.com/vellankikoti/kubilitics/commit/3f011e8064bd64a5c8944697013ac1f6c3265dba))
+- Retire 4 legacy RBAC event observers superseded by who_can_do by @vellankikoti ([23f8d6b](https://github.com/vellankikoti/kubilitics/commit/23f8d6b55de469059ed27128c59632cb4ea1f337))
+- Read rollout changeCause camelCase by @vellankikoti ([df0c523](https://github.com/vellankikoti/kubilitics/commit/df0c523b31341352a986b2aa84544ae7cb3ca678))
+- Honor ctx cancellation during retry backoff by @vellankikoti ([56545bc](https://github.com/vellankikoti/kubilitics/commit/56545bc9f28e8a46d1bf34ca4425a0413dae66ca))
+- DeriveSessionID rejects empty cluster_id by @vellankikoti ([d6cc724](https://github.com/vellankikoti/kubilitics/commit/d6cc7240efd32b2c55cf8cf7cbbcfac6822a8d88))
+- Dispatch triage_cluster / list_problems / search_logs by @vellankikoti ([4489748](https://github.com/vellankikoti/kubilitics/commit/4489748dd410ad45ae46b8b28ab7e55f5d153173))
+- Isolated brain ports (:50071/:28081) to preserve desktop backend by @vellankikoti ([24b3914](https://github.com/vellankikoti/kubilitics/commit/24b39140cc1ff92068c6fd6657f8bdefb5f3d2a1))
+- Passthrough Flusher on response recorder (SSE fix) by @vellankikoti ([817604f](https://github.com/vellankikoti/kubilitics/commit/817604f3b67c0635e6c6ec0271cccab809192121))
+- PresenceEntryPoint waits for presence snapshot before redirecting by @vellankikoti ([5091ab2](https://github.com/vellankikoti/kubilitics/commit/5091ab276c1690e019f01152aec4bb9f4983d3e8))
+- Stop the loading-spinner-forever on stale backend by @vellankikoti ([4b7cc26](https://github.com/vellankikoti/kubilitics/commit/4b7cc2603e2cce65f503f9b61d1714db2a530741))
+- Normalize backend wire-shape server_url \u2192 serverUrl by @vellankikoti ([3a8169d](https://github.com/vellankikoti/kubilitics/commit/3a8169de28fa9a3fcb7625408d688f09334c5bcb))
+- Auto-register kubeconfig clusters on click by @vellankikoti ([4af70fe](https://github.com/vellankikoti/kubilitics/commit/4af70fe0813312072c1ae414baedb12581adcd2b))
+- Pass real kubeconfig_path when auto-registering by @vellankikoti ([512c553](https://github.com/vellankikoti/kubilitics/commit/512c553598fe241d856d8c86f21782341f388dec))
+- Working end-to-end click-to-register flow by @vellankikoti ([1026932](https://github.com/vellankikoti/kubilitics/commit/10269325c63506dd0ccdb86da88d35a5d474f6dd))
+- Registered[] populates end-to-end — dedup merge + refresh on mutation by @vellankikoti ([ac00b78](https://github.com/vellankikoti/kubilitics/commit/ac00b782c90475496fa4d665c0d31a3f35a90201))
+- Page-inner truly responsive \u2014 kill the max-width cap by @vellankikoti ([82b3c84](https://github.com/vellankikoti/kubilitics/commit/82b3c846271c0c5241341534e4e10fe3e50095e2))
+- Sidebar 0s + AI settings crash (permanent, tests locked) by @vellankikoti ([423a878](https://github.com/vellankikoti/kubilitics/commit/423a878a378828f13cbd9d914a42b69277d82d03))
+- ChatStore UnknownBlock test uses a genuinely unknown frame type by @vellankikoti ([03514cb](https://github.com/vellankikoti/kubilitics/commit/03514cbf649100765783481746379dc16982f458))
+- Sweep all '&& backendBaseUrl' gates — '' means same-origin by @vellankikoti ([8d53ce6](https://github.com/vellankikoti/kubilitics/commit/8d53ce68457db551bd845c62ad352816b48b1928))
+- .gitignore was hiding brain source — release workflow could never build by @vellankikoti ([7602abc](https://github.com/vellankikoti/kubilitics/commit/7602abc43d086894b5e5ab5c862836ed74cf9147))
+- Populate go.sum /go.mod hashes for standalone (GOWORK=off) builds by @vellankikoti ([248c40e](https://github.com/vellankikoti/kubilitics/commit/248c40ee25dd5eaefb14cce9cdfae32c881367b7))
+
+
+### Misc
+
+- Regenerate for v1.1.0 (#89) by @github-actions[bot] ([e2c1d01](https://github.com/vellankikoti/kubilitics/commit/e2c1d017741d8a1ca1f8847f2ac811d61ba5b2d6))
+- Rename module path to github.com/vellankikoti/kotg.ai/kubilitics-ai by @vellankikoti ([47cd5c0](https://github.com/vellankikoti/kubilitics/commit/47cd5c0310478f333ec380bf804abee0b685973b))
+- Include earlier systematic-quality plan + count-tools diagnostic by @vellankikoti ([28b5089](https://github.com/vellankikoti/kubilitics/commit/28b5089317cb2f0b3270474548b36156938572fe))
+- Delete legacy k8s/cluster_discovery.go shim by @vellankikoti ([76c9040](https://github.com/vellankikoti/kubilitics/commit/76c90409b6b841720acc48bce1aacd1fc71d2f30))
+
+
+### Tests
+
+- Pre-migration UI smoke — 8 PASS, 1 PARTIAL, 1 known-FAIL by @vellankikoti ([67dd26a](https://github.com/vellankikoti/kubilitics/commit/67dd26abacc1bedaf6dd1ebc1d6e9e1ad4408645))
+- Lock guardrails against sensitive K8s data leaks by @vellankikoti ([6d1d1b8](https://github.com/vellankikoti/kubilitics/commit/6d1d1b8d2bb5411c708fe00ed47ed2787bab189f))
+- Stabilize pre-1.1.0 flakes on CI by @vellankikoti ([59cb7a7](https://github.com/vellankikoti/kubilitics/commit/59cb7a7a44cf77e3ed96e018002374cccd619f44))
+- Retarget tests to Week-1 composites after observe_* retirement by @vellankikoti ([c513803](https://github.com/vellankikoti/kubilitics/commit/c5138034664e7b9922c818ddfad0fa8f0a7bcecd))
+- Assert switch-cluster navigates per FEATURE_PRESENCE_V2 by @vellankikoti ([7b30007](https://github.com/vellankikoti/kubilitics/commit/7b30007242817e3bf869d29fa8e51466d3412c77))
 
 ## [1.1.0-rc.1] - 2026-04-23
 
