@@ -321,7 +321,7 @@ export default function HealthDashboard() {
   );
 
   const sortedNamespaces = useMemo(() => {
-    if (!data?.namespaces) return [];
+    if (!Array.isArray(data?.namespaces)) return [];
     const sorted = [...data.namespaces];
     sorted.sort((a, b) => {
       let cmp = 0;

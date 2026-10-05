@@ -114,5 +114,9 @@ export function useClusterUtilization(clusterId: string | undefined) {
     metricsAvailable: anyMetricsSucceeded,
   };
 
-  return { utilization, isLoading };
+  // nodesQuery failing previously produced nodeCount:0, cpuPercent:0,
+  // memoryPercent:0 — indistinguishable from a real, tiny, empty cluster.
+  // metricsAvailable already covers the "metrics server has no data" case;
+  // this covers the separate "we couldn't even list nodes" case.
+  return { utilization, isLoading, isError: nodesQuery.isError };
 }

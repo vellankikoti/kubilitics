@@ -193,7 +193,7 @@ function EventsTab({ namespaces, clusterId, effectiveBaseUrl }: EventsTabProps) 
             namespace: ns,
             limit: 20,
           });
-          for (const item of result.items) {
+          for (const item of result.items ?? []) {
             const ev = item as Record<string, unknown>;
             const involvedObject = (ev.involvedObject ?? {}) as Record<string, unknown>;
             allEvents.push({
@@ -322,7 +322,7 @@ function WhatChangedTab({ namespaces, clusterId, effectiveBaseUrl }: WhatChanged
           const result = await listResources(effectiveBaseUrl, clusterId, 'deployments', {
             namespace: ns,
           });
-          for (const item of result.items) {
+          for (const item of result.items ?? []) {
             const dep = item as Record<string, unknown>;
             const metadata = (dep.metadata ?? {}) as Record<string, unknown>;
             const status = (dep.status ?? {}) as Record<string, unknown>;

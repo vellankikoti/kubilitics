@@ -193,6 +193,10 @@ export function useInsights(): { insights: Insight[]; isLoading: boolean } {
   }, [podsList.data?.items, nodesList.data?.items, eventsQuery.data]);
 
   const isLoading = podsList.isLoading || nodesList.isLoading || eventsQuery.isLoading;
+  // A failed source (eventsQuery especially) previously just produced fewer
+  // insights with no signal that anything failed — indistinguishable from
+  // "nothing's wrong" in the Intelligence Panel.
+  const isError = podsList.isError || nodesList.isError || eventsQuery.isError;
 
-  return { insights, isLoading };
+  return { insights, isLoading, isError };
 }

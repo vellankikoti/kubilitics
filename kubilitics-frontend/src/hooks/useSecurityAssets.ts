@@ -23,6 +23,16 @@ export function useSecurityAssets() {
         roleBindings.isLoading ||
         clusterRoleBindings.isLoading;
 
+    // Any one failing (clusterrolebindings under restrictive RBAC is a common
+    // case) previously silently showed 0 for that kind with no indication —
+    // same bug class as the overview-pages-show-0 fix.
+    const isError =
+        serviceAccounts.isError ||
+        roles.isError ||
+        clusterRoles.isError ||
+        roleBindings.isError ||
+        clusterRoleBindings.isError;
+
     const assets = useMemo(() => {
         const list: SecurityAsset[] = [];
 
@@ -71,6 +81,7 @@ export function useSecurityAssets() {
         assets,
         counts,
         isLoading,
+        isError,
         refetch: () => {
             serviceAccounts.refetch();
             roles.refetch();

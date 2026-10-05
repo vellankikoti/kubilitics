@@ -171,6 +171,18 @@ export function useClusterWatcher() {
   // HPA replica counts are tracked separately for scaling detection.
   const prevHPAReplicas = useRef<Record<string, number>>({});
 
+  // Last successfully-fetched items per kind. On a transient per-kind
+  // failure we fall back to this instead of `[]` — wiping to empty made the
+  // diff logic see a false "everything disappeared" transition, and if the
+  // *next* poll also failed to notice a real ongoing issue (state having
+  // been reset to empty), a genuine alert could be silently dropped.
+  const lastGoodItems = useRef<{
+    pods: unknown[];
+    deployments: unknown[];
+    nodes: unknown[];
+    hpas: unknown[];
+  }>({ pods: [], deployments: [], nodes: [], hpas: [] });
+
   // ── Fetch all watched resource kinds in a single query ──
   const fetchWatchedResources = useCallback(async () => {
     if (!clusterId) return null;
@@ -182,12 +194,14 @@ export function useClusterWatcher() {
       listResources(backendBaseUrl, clusterId, 'horizontalpodautoscalers', { limit: 100 }),
     ]);
 
-    return {
-      pods: podsRes.status === 'fulfilled' ? podsRes.value.items : [],
-      deployments: deploymentsRes.status === 'fulfilled' ? deploymentsRes.value.items : [],
-      nodes: nodesRes.status === 'fulfilled' ? nodesRes.value.items : [],
-      hpas: hpasRes.status === 'fulfilled' ? hpasRes.value.items : [],
+    const result = {
+      pods: podsRes.status === 'fulfilled' ? podsRes.value.items : lastGoodItems.current.pods,
+      deployments: deploymentsRes.status === 'fulfilled' ? deploymentsRes.value.items : lastGoodItems.current.deployments,
+      nodes: nodesRes.status === 'fulfilled' ? nodesRes.value.items : lastGoodItems.current.nodes,
+      hpas: hpasRes.status === 'fulfilled' ? hpasRes.value.items : lastGoodItems.current.hpas,
     };
+    lastGoodItems.current = result;
+    return result;
   }, [backendBaseUrl, clusterId]);
 
   const { data } = useQuery({
