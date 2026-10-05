@@ -63,40 +63,113 @@ happy path. **If the `ns-spine` crash recurs, grab the DevTools stack trace**
 (right-click → Inspect in the Tauri window) — that pinpoints it in seconds
 versus more static guessing.
 
-## Flagged for next-round audit (not yet investigated this session)
+## Round 2 findings (this session, continued)
 
-Found via grep for the same "0 `isError` usages despite aggregating live
-data" signature. Not confirmed bugs — just unaudited:
+**Confirmed clean (direct `useQuery` passthroughs, safe by construction):**
+`useSPOFInventory`, `useRiskRanking` (via `useClusterHealth.ts`),
+`useAutoPilotFindings`/`useAutoPilotActions`, `useReportSchedules`. All
+correctly propagate `error`/`isError` to their pages, which correctly branch
+on it. `RiskRanking.tsx`, `AutoPilotDashboard.tsx`, `ReportSchedules.tsx`,
+`SPOFInventory.tsx` need no fix.
 
-- `ProjectDetailPage.tsx`, `ProjectDashboardPage.tsx` — project rollup pages
-- `SPOFInventory.tsx`, `RiskRanking.tsx` — Blast Radius intelligence pages
-- `AutoPilotDashboard.tsx`
-- `ReportSchedules.tsx`
-- `Topology.tsx` — appeared in the original "Failed to load" grep; worth
-  checking given its complexity and the namespace-crash's topology-adjacency
+**New finding — `ProjectDetailPage.tsx` / `ProjectDashboardPage.tsx`:** both
+use `useClustersFromBackend()` (a clean `useQuery`) to enrich each project's
+configured cluster references with live connection status, via
+`allClusters.find(c => c.id === clusterId)`. Neither page checks that
+query's `isError`. Unlike the overview-zero bug, a failure here doesn't
+render "0 clusters" — `project.clusters` comes from a separate, correctly-
+error-handled query — it instead makes every cluster silently render as
+"not found / disconnected" even if truly connected. Lower severity, same
+family. **Not fixed this session** — the per-cluster status-badge logic
+needs full tracing first to avoid a sloppy fix; flagged for next round.
+
+## Headlamp comparison (grounded in real upstream engineering history)
+
+Researched Headlamp's actual recent architecture decisions (not guessing)
+via its GitHub releases/PRs. Three concrete, comparable points:
+
+1. **Informer/cache coverage breadth.** Headlamp recently expanded its
+   `filterImportantResources` cache-invalidation allowlist from **11 to 46**
+   resource kinds — previously, edits to networking/RBAC/storage/Gateway
+   API/policy/autoscaling/quota resources left cached views stale.
+   **Kubilitics' `resourceKindToStoreKey` map (`informer.go`) tracks only
+   27 kinds** — and critically, it's **missing exactly the kinds behind the
+   4 overview pages fixed earlier this session**: `ResourceQuota`,
+   `LimitRange`, `ResourceSlice`, `DeviceClass` (→ Resources Overview),
+   `VerticalPodAutoscaler` (→ Scaling Overview),
+   `MutatingWebhookConfiguration`/`ValidatingWebhookConfiguration` (→
+   Admission Overview), `CustomResourceDefinition` (→ CRDs Overview). Also
+   missing: `EndpointSlice`, `Lease`, `APIService`, `VolumeAttachment`.
+   Every request for these kinds falls back to a live, uncached K8s API
+   call on every load — slower, and more exposed to exactly the kind of
+   transient failure that triggers the silent-zero bug class. **This is the
+   single highest-leverage structural fix available**: expanding informer
+   coverage improves both performance and reliability for the pages most
+   recently found to be fragile.
+2. **Bounded live-data strategy.** Headlamp moved Cluster Overview from
+   persistent watch streams to 1-minute polling specifically to stop
+   browser OOMs on large clusters, and added a 1,000-item pagination budget
+   to Pod lists. Kubilitics is already aligned here: `useFleetOverview`
+   polls every 30s, `useWorkloadsOverview`'s backend path polls every 60s,
+   `useOverviewStream`'s WebSocket has proper cleanup on unmount (verified,
+   no leak). No action needed.
+3. **Asset compression — not applicable.** Checked: `vite.config.ts` only
+   has `brotliSize: true` (a build-report stat, not real compression).
+   Confirmed this Headlamp optimization doesn't actually transfer: Headlamp
+   is a server-delivered web app where Brotli cuts HTTP download size.
+   Kubilitics is a **Tauri desktop app** — assets are bundled into the app
+   and served locally from its own webview, not downloaded over a network
+   on each load. Closing this out as not a real gap rather than a lingering
+   todo.
+
+## Flagged for next-round audit
+
+- `ProjectDetailPage.tsx` / `ProjectDashboardPage.tsx` — per-cluster status
+  badge can silently show "disconnected" on a `clustersQuery` failure (see
+  Round 2 findings above). Needs full status-badge trace before fixing.
+
+**Checked and confirmed clean this session (Topology.tsx):** full trace of
+`focusSet`'s `new Set([...upstream, ...downstream])` down through
+`getUpstreamChain`/`getDownstreamChain` (`graphTraversal.ts`) to
+`GraphModel.getParents`/`getChildren` (`graphModel.ts`) — all have strict
+`Set`/array return types enforced by class-based construction, not raw API
+passthrough. Not the source of the namespace crash; no fix needed.
+
+**Checked and confirmed not applicable (Brotli/asset compression):** see
+Headlamp comparison point 3 above — doesn't apply to a Tauri desktop app.
 
 ## Not started
 
-- Systematic Headlamp pattern comparison (informer-cache-first data model,
-  error UX conventions, perf characteristics) — the user's "100x better in
-  every aspect" ask. This is a multi-session effort; recommend scoping it as
-  its own investigation phase rather than folding into this patch.
+- Backend informer-cache expansion (the fix for the coverage-gap finding
+  above) — identified, not implemented. This is real new backend surface:
+  extend `resourceKindToStoreKey` + register informers for the missing
+  ~12 kinds, several via different clientsets than the existing typed
+  `SharedInformerFactory` pattern (CRDs via apiextensions client, APIService
+  via apiregistration client, VerticalPodAutoscaler via a CRD/dynamic
+  informer since it's not a built-in K8s type). Own testing surface (watch
+  correctness per clientset, memory footprint of ~12 more informers per
+  cluster) — should not be rushed into this patch branch. **This is the
+  natural next scoped piece of work**, separate from the patch fixes below.
+- Remaining Headlamp comparison dimensions not yet researched: RBAC-aware
+  UI gating, multi-cluster context switching UX, plugin architecture.
 
 ## Release plan
 
 Per the established versioning policy (PATCH for small fixes, MINOR only for
-genuinely major capability — see `v1.2.2`'s precedent): this session's two
-commits are a coherent, tested, low-risk patch.
+genuinely major capability — see `v1.2.2`'s precedent).
 
-- **v1.2.3** (this branch, ready once typecheck/build verified): the 2
-  commits above. Both are defensive/additive — no behavior change on any
-  currently-working path, only activates previously-dead error handling and
-  adds guards against a crash class.
-- **Next**: finish auditing the "flagged for next-round" pages above. If
-  they turn up the same bug class, bundle into v1.2.4. If something
-  genuinely architectural turns up (e.g. a real root cause for `ns-spine`
-  via live repro), that may warrant its own release depending on blast
-  radius.
-- **Later / separate initiative**: Headlamp-grade stability/performance
-  pass — scope this as its own multi-session campaign with its own
-  checkpoint structure, not bundled into patch releases.
+- **v1.2.3** (this branch, `feat/stability`, typecheck/build verified clean):
+  the 3 commits on this branch — overview-zero fix, PVC/namespace crash
+  hardening, this audit doc. All defensive/additive, no behavior change on
+  any currently-working path.
+- **v1.2.4 candidate**: resolve the `ProjectDetailPage`/`ProjectDashboardPage`
+  status-badge gap once traced.
+- **v1.3.0 candidate (MINOR — genuinely new capability, not a patch)**:
+  the informer-cache expansion. ~12 new resource kinds watched means
+  meaningfully faster + more reliable reads for Resources/Scaling/Admission/
+  CRDs Overview and anything else touching those kinds — a real capability
+  jump, not a bug fix, and warrants its own dedicated investigation +
+  testing phase per the project's versioning policy.
+- **Separate initiative, not release-numbered**: remaining Headlamp
+  dimensions (RBAC UI gating, multi-cluster UX, plugin architecture) — scope
+  as its own investigation phase when picked up.
