@@ -60,9 +60,12 @@ func (h *SecurityHandler) ListSecurityEvents(w http.ResponseWriter, r *http.Requ
 
 	var sincePtr *time.Time
 	if sinceStr != "" {
-		if since, err := time.Parse(time.RFC3339, sinceStr); err == nil {
-			sincePtr = &since
+		since, err := time.Parse(time.RFC3339, sinceStr)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "Invalid since parameter: must be RFC3339, e.g. 2026-01-02T15:04:05Z")
+			return
 		}
+		sincePtr = &since
 	}
 
 	limit := 100

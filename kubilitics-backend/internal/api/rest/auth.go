@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"strings"
@@ -602,7 +603,13 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 			ExpiresAt: expiresAt,
 			Reason:    "token_rotation",
 		}
-		_ = h.repo.CreateTokenBlacklistEntry(r.Context(), oldTokenEntry)
+		if blErr := h.repo.CreateTokenBlacklistEntry(r.Context(), oldTokenEntry); blErr != nil {
+			// A failed blacklist write means the "revoked" old token keeps
+			// validating — a real security-relevant failure that was
+			// previously invisible. Logging only; rotation still proceeds
+			// below as before (best-effort, matches prior behavior).
+			slog.Default().Error("token rotation: failed to blacklist old refresh token", "user", u.ID, "error", blErr)
+		}
 
 		// Issue new refresh token
 		newRefreshTokenStr, err := auth.IssueRefreshToken(h.cfg.AuthJWTSecret, u.ID)
@@ -613,6 +620,13 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 			if newRefreshClaims != nil && newRefreshClaims.ID != "" {
 				_ = h.repo.UpdateRefreshTokenFamilyToken(r.Context(), family.FamilyID, newRefreshClaims.ID)
 			}
+		} else {
+			// Previously silent: a repeatedly-failing rotation here means the
+			// client keeps using its old (still-valid, since blacklisting may
+			// also be failing) refresh token indefinitely, with zero signal
+			// to anyone investigating. newRefreshToken stays empty — same
+			// behavior as before, just now observable.
+			slog.Default().Error("token rotation: failed to issue new refresh token", "user", u.ID, "error", err)
 		}
 	}
 
@@ -1869,7 +1883,15 @@ func (h *AuthHandler) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 				// not yet implemented; the token is only ever persisted as a hash below.
 				// The audit trail intentionally carries no token material.
 				h.logAuthEvent(ctx, "password_reset_requested", user.Username, ip, r.Header.Get("User-Agent"), &user.ID, "")
+			} else {
+				// Previously silent: the 200 response above already went out
+				// (correct, anti-enumeration), so without this log a real
+				// user's reset silently never works with zero way to find out
+				// why. No token material logged — see VALID-03 note above.
+				slog.Default().Error("password reset: failed to persist reset token", "user", user.ID, "error", err)
 			}
+		} else {
+			slog.Default().Error("password reset: failed to hash reset token", "user", user.ID, "error", err)
 		}
 	}
 }
@@ -1912,6 +1934,13 @@ func (h *AuthHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 		}
+	} else {
+		// Response below stays identical either way (enumeration protection:
+		// "invalid token" must not distinguish from "we couldn't check") —
+		// but previously a DB outage here was completely indistinguishable
+		// in logs from a user simply submitting a bad token. Log it so an
+		// admin investigating "reset always fails" has a real signal.
+		slog.Default().Error("password reset: failed to list active reset tokens", "error", err)
 	}
 
 	if resetToken == nil || !resetToken.IsValid() {

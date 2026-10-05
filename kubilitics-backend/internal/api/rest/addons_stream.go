@@ -2,6 +2,7 @@ package rest
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -81,6 +82,11 @@ func (h *Handler) StreamInstall(w http.ResponseWriter, r *http.Request) {
 	pingStop := make(chan struct{})
 	defer close(pingStop)
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in addon install ping goroutine", "error", r)
+			}
+		}()
 		ticker := time.NewTicker(addonPingInterval)
 		defer ticker.Stop()
 		for {
@@ -128,9 +134,16 @@ func (h *Handler) StreamInstall(w http.ResponseWriter, r *http.Request) {
 	done := make(chan struct{})
 	var installErr error
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in addon install execution goroutine", "error", r)
+			}
+		}()
 		defer close(done)
+		// close(progressCh) via defer (not a sequential call) so the reader's
+		// `for ev := range progressCh` below is still released on a panic above.
+		defer close(progressCh)
 		_, installErr = h.addonService.ExecuteInstall(r.Context(), clusterID, req, progressCh)
-		close(progressCh)
 	}()
 
 	for ev := range progressCh {

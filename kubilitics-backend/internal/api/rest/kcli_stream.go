@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -153,6 +154,11 @@ func (h *Handler) GetKCLIStream(w http.ResponseWriter, r *http.Request) {
 	})
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in kcli stream ping/write pump goroutine", "error", r)
+			}
+		}()
 		defer close(writerDone)
 		pingTicker := time.NewTicker(execPingPeriod)
 		defer pingTicker.Stop()
@@ -183,11 +189,21 @@ func (h *Handler) GetKCLIStream(w http.ResponseWriter, r *http.Request) {
 
 	stdoutW := &chanWriter{ch: outChan, typ: wsMsgStdout}
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in kcli stream PTY reader goroutine", "error", r)
+			}
+		}()
 		defer closeExecDone()
 		_, _ = io.Copy(stdoutW, ptmx)
 	}()
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in kcli stream cmd.Wait goroutine", "error", r)
+			}
+		}()
 		err := cmd.Wait()
 		if err != nil && ctx.Err() == nil {
 			audit.LogCommand(requestID, resolvedID, "kcli_stream", "mode="+mode, "failure", err.Error(), -1, time.Since(start))

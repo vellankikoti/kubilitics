@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/exec"
@@ -210,6 +211,11 @@ func (h *Handler) GetShellStream(w http.ResponseWriter, r *http.Request) {
 
 	// Single writer goroutine: send all messages to WebSocket; exit on write error to avoid EPIPE.
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in shell stream writer goroutine", "error", r)
+			}
+		}()
 		defer close(writerDone)
 		for m := range outChan {
 			b, _ := json.Marshal(m)
@@ -223,6 +229,11 @@ func (h *Handler) GetShellStream(w http.ResponseWriter, r *http.Request) {
 	stdoutW := &chanWriter{ch: outChan, typ: wsMsgStdout}
 	// PTY combines stdout+stderr into one stream; send as stdout
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in shell stream PTY reader goroutine", "error", r)
+			}
+		}()
 		defer closeExecDone()
 		_, _ = io.Copy(stdoutW, ptmx)
 		select {
@@ -241,6 +252,11 @@ func (h *Handler) GetShellStream(w http.ResponseWriter, r *http.Request) {
 	pingDone := make(chan struct{})
 	defer close(pingDone)
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in shell stream ping goroutine", "error", r)
+			}
+		}()
 		ticker := time.NewTicker(pingInterval)
 		defer ticker.Stop()
 		for {

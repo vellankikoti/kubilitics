@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -278,10 +279,24 @@ func (h *Handler) notifyClusterConnected(clusterID string) {
 		return
 	}
 	go func() {
-		for _, hook := range h.lifecycleHooks {
-			if err := hook.OnClusterConnected(client.Clientset, clusterID); err != nil {
-				fmt.Printf("[handler] lifecycle hook: failed for cluster %s: %v\n", clusterID, err)
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in cluster-connected lifecycle hook goroutine", "cluster", clusterID, "error", r)
 			}
+		}()
+		for _, hook := range h.lifecycleHooks {
+			// Run each hook's error handling here too — a panic in one hook
+			// must not prevent the remaining hooks from running.
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						slog.Default().Error("panic in lifecycle hook", "cluster", clusterID, "error", r)
+					}
+				}()
+				if err := hook.OnClusterConnected(client.Clientset, clusterID); err != nil {
+					fmt.Printf("[handler] lifecycle hook: failed for cluster %s: %v\n", clusterID, err)
+				}
+			}()
 		}
 	}()
 }

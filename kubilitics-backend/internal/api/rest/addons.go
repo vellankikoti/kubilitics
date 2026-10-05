@@ -3,6 +3,8 @@ package rest
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -745,8 +747,18 @@ func (h *Handler) ApplyProfile(w http.ResponseWriter, r *http.Request) {
 	errCh := make(chan error, 1)
 
 	go func() {
+		defer close(progressCh)
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in addon profile apply goroutine", "error", r)
+				// errCh is buffered(1); the caller always reads it after
+				// progressCh drains, so send a synthetic error here too —
+				// otherwise a panic mid-ApplyProfile leaves errCh empty and
+				// the caller's `<-errCh` below blocks forever.
+				errCh <- fmt.Errorf("internal error applying profile: %v", r)
+			}
+		}()
 		errCh <- h.addonService.ApplyProfile(r.Context(), clusterID, body.ProfileID, actor, progressCh)
-		close(progressCh)
 	}()
 
 	enc := json.NewEncoder(w)

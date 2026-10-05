@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -209,6 +210,11 @@ func (h *Handler) GetPodExec(w http.ResponseWriter, r *http.Request) {
 	})
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in pod exec ping/write pump goroutine", "error", r)
+			}
+		}()
 		pingTicker := time.NewTicker(execPingPeriod)
 		defer pingTicker.Stop()
 
@@ -296,6 +302,11 @@ fi`
 	}
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in pod exec stream goroutine", "error", r)
+			}
+		}()
 		defer close(execDone)
 		err := executor.StreamWithContext(ctx, remotecommand.StreamOptions{
 			Stdin:             stdinR,
