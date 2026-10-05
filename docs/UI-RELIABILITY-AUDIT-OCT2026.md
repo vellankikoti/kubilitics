@@ -10,13 +10,18 @@ and/or `go build`/`go vet`/`go test` clean) code location, not a style nit:
 | Overview-pages-show-0 (5 hooks) + array-safety hardening (3 sites) | 8 | `dd0fe0cc`, `7e008947` |
 | Dashboard health score, Simulation/HealthIssueDetail crashes, 4 more silent-failure hooks | 11 | `8c29ff3f` |
 | Backend: 18 goroutine panic-recovery sites + 2 bonus deadlock fixes + 3 query-param 400s + 4 auth logging fixes | 27 | `9974329d` |
-| **Total** | **46** | 5 commits on `feat/stability` |
+| 4 Dashboard widgets (WorkloadCapacitySnapshot, WorkloadResourceBudget, ClusterEfficiencyCard, ActivityFeed) | 4 | `a149c35f` |
+| **Total** | **50** | 8 commits on `feat/stability` |
 
-4 short of the 50 floor. Two independent 3-pronged parallel audits (frontend
-hooks, frontend pages, backend handlers) have now run this session — the
-remaining highest-confidence unexplored surface is `src/components/` (UI
-components, not yet systematically audited) and the `ProjectDetailPage`/
-`ProjectDashboardPage` status-badge gap already flagged below.
+**50-issue floor reached.** Four independent audit passes this session
+(frontend hooks, frontend pages, backend handlers, dashboard/resource
+components) — every fix verified with `tsc --noEmit` and/or
+`go build`/`go vet`/`go test`, zero errors across the board. Remaining known
+work, not yet done (listed for the next round, not blocking this release):
+`ProjectDetailPage`/`ProjectDashboardPage` status-badge gap, the informer-
+cache expansion (scoped as v1.3.0, see Release plan below), and
+`src/components/resources/` beyond `GenericResourceDetail.tsx` (came back
+clean in the round-4 audit, but wasn't exhaustively read file-by-file).
 
 ## Context
 
