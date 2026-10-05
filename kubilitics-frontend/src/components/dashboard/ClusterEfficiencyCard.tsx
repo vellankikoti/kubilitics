@@ -292,7 +292,13 @@ export function ClusterResourceIntelligence() {
     [cpu.percent, memory.percent]
   );
 
-  const status = getEfficiencyLabel(efficiencyScore);
+  // nodesList/podsList feeding cpu/memory percent above have no prior error
+  // check — a failed fetch computes capacity/requests as 0, rendering an
+  // "efficiency score" indistinguishable from a genuinely idle cluster.
+  const hasDataError = nodesList.isError || podsList.isError;
+  const status = hasDataError
+    ? { label: 'Data unavailable', color: 'text-destructive', bgColor: 'bg-destructive/10', borderColor: 'border-destructive/30' }
+    : getEfficiencyLabel(efficiencyScore);
   const gaugeColor = getGaugeColor(efficiencyScore);
 
   // ── Actual usage percentages ──

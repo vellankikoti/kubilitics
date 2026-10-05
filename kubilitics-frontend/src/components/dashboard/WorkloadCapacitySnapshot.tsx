@@ -101,8 +101,14 @@ export function WorkloadCapacitySnapshot() {
       .map((p) => ({ phase: p, count: phaseCounts[p], color: PHASE_COLORS[p] ?? 'bg-muted' }));
   }, [phaseCounts]);
 
-  const trendLabel =
-    signals.failedPods > 0 || signals.nodePressureCount > 0
+  // podsList/nodesList feed the phase counts, node readiness, and namespace
+  // chart above with no prior error check — a failed fetch rendered
+  // identically to a genuinely idle/empty cluster ("Stable", 0 everywhere).
+  const hasDataError = podsList.isError || nodesList.isError;
+
+  const trendLabel = hasDataError
+    ? 'Unavailable'
+    : signals.failedPods > 0 || signals.nodePressureCount > 0
       ? 'Critical'
       : signals.pendingPods > 2 || signals.podRestarts > 5
         ? 'Elevated'
@@ -122,7 +128,7 @@ export function WorkloadCapacitySnapshot() {
         <span
           className={cn(
             'text-xs font-medium px-2 py-0.5 rounded-full',
-            trendLabel === 'Critical' && 'bg-[hsl(var(--error)/0.12)] text-[hsl(var(--error))]',
+            (trendLabel === 'Critical' || trendLabel === 'Unavailable') && 'bg-[hsl(var(--error)/0.12)] text-[hsl(var(--error))]',
             trendLabel === 'Elevated' && 'bg-[hsl(var(--warning)/0.12)] text-[hsl(var(--warning))]',
             trendLabel === 'Stable' && 'bg-[hsl(var(--accent))] text-[hsl(var(--primary))]'
           )}

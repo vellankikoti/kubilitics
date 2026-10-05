@@ -254,6 +254,14 @@ export function ActivityFeed() {
             <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--ring))]" aria-hidden />
             <span className="text-xs text-muted-foreground">Loading events...</span>
           </div>
+        ) : (isBackendConfigured ? backendEventsQuery.isError : k8sEventsList.isError) ? (
+          <div className="flex flex-col items-center justify-center py-10 gap-2 px-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-[hsl(var(--error)/0.1)] flex items-center justify-center">
+              <AlertTriangle className="h-6 w-6 text-[hsl(var(--error))]" aria-hidden />
+            </div>
+            <p className="text-sm font-medium text-foreground">Couldn't load events</p>
+            <p className="text-xs text-muted-foreground">This isn't "no recent activity" — the fetch actually failed.</p>
+          </div>
         ) : filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 gap-2 px-4 text-center">
             <div className="w-12 h-12 rounded-full bg-[hsl(var(--accent))] flex items-center justify-center">
