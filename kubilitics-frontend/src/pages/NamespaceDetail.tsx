@@ -34,8 +34,11 @@ function OverviewTab({ resource: ns, age, resourceCounts, resourceQuotas }: Reso
   const labels = ns?.metadata?.labels || {};
   const annotations = ns?.metadata?.annotations || {};
   const phase = ns?.status?.phase || 'Active';
-  const finalizers = ns?.spec?.finalizers || [];
-  const hasQuota = resourceQuotas.length > 0;
+  // `|| []` only protects against falsy values — a malformed API response
+  // with finalizers serialized as `{}` instead of `[]` is truthy and would
+  // slip through, so guard the shape explicitly.
+  const finalizers = Array.isArray(ns?.spec?.finalizers) ? ns.spec.finalizers : [];
+  const hasQuota = Array.isArray(resourceQuotas) && resourceQuotas.length > 0;
 
   return (
     <div className="space-y-6">

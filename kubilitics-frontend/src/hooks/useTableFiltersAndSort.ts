@@ -259,7 +259,12 @@ export function useTableFiltersAndSort<T>(
   }, [items, filterableColumns]);
 
   const filteredAndSortedItems = useMemo(() => {
-    let result = items;
+    // `items` is typed as T[], but callers occasionally pass a value derived
+    // from an API response that wasn't actually an array (e.g. a malformed
+    // or not-yet-loaded payload) — guard here once rather than trust every
+    // call site, since the crash this produces downstream ("X is not
+    // iterable" at the spread below) gives no indication of which caller.
+    let result = Array.isArray(items) ? items : [];
 
     for (const col of columns) {
       if (!col.filterable) continue;
