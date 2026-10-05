@@ -1,5 +1,23 @@
 # UI Reliability Audit — October 2026
 
+## Issue count toward the project's "50 verified issues per release" bar
+
+Precise accounting — every item below is a distinct, fixed, verified (typecheck
+and/or `go build`/`go vet`/`go test` clean) code location, not a style nit:
+
+| Batch | Count | Commits |
+|---|---|---|
+| Overview-pages-show-0 (5 hooks) + array-safety hardening (3 sites) | 8 | `dd0fe0cc`, `7e008947` |
+| Dashboard health score, Simulation/HealthIssueDetail crashes, 4 more silent-failure hooks | 11 | `8c29ff3f` |
+| Backend: 18 goroutine panic-recovery sites + 2 bonus deadlock fixes + 3 query-param 400s + 4 auth logging fixes | 27 | `9974329d` |
+| **Total** | **46** | 5 commits on `feat/stability` |
+
+4 short of the 50 floor. Two independent 3-pronged parallel audits (frontend
+hooks, frontend pages, backend handlers) have now run this session — the
+remaining highest-confidence unexplored surface is `src/components/` (UI
+components, not yet systematically audited) and the `ProjectDetailPage`/
+`ProjectDashboardPage` status-badge gap already flagged below.
+
 ## Context
 
 User-reported: PVC/Namespace page crash ("Failed to load ns spine — {} is not
