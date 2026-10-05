@@ -39,5 +39,5 @@ export function useCRDOverview() {
         };
     }, [crds.data]);
 
-    return { data, isLoading: crds.isLoading };
+    return { data, isLoading: crds.isLoading, isError: crds.isError };
 }

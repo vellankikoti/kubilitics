@@ -48,5 +48,9 @@ export function useAdmissionOverview() {
         };
     }, [mutating.data, validating.data]);
 
-    return { data, isLoading: mutating.isLoading || validating.isLoading };
+    return {
+        data,
+        isLoading: mutating.isLoading || validating.isLoading,
+        isError: mutating.isError || validating.isError,
+    };
 }
