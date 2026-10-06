@@ -62,6 +62,11 @@ func (e *Engine) Run(ctx context.Context, cfg ScanConfig) ([]ScanResult, []Findi
 		wg.Add(1)
 		go func(sc Scanner) {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					e.logger.Error("panic in scanner goroutine", "tool", sc.Name(), "error", r)
+				}
+			}()
 
 			if !sc.Available() {
 				mu.Lock()

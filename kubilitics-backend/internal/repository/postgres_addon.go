@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -452,7 +453,12 @@ func (r *PostgresRepository) GetAddOn(ctx context.Context, id string) (*models.A
 	var versions []models.VersionChangelog
 	vQuery := `SELECT version, release_date, changelog_url, breaking_changes, highlights FROM addon_versions WHERE addon_id = $1 ORDER BY release_date DESC`
 	vRows, err := r.db.QueryxContext(ctx, vQuery, id)
-	if err == nil {
+	if err != nil {
+		// A failed query here previously left detail.Versions nil with no
+		// trace, indistinguishable from "this addon genuinely has no
+		// version history" to the caller.
+		slog.Default().Error("failed to query addon version history", "addon_id", id, "error", err)
+	} else {
 		defer func() { _ = vRows.Close() }()
 		for vRows.Next() {
 			var v models.VersionChangelog
