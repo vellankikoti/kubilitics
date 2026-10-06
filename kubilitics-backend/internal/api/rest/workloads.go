@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"log"
 	"log/slog"
 	"net/http"
 	"time"
@@ -29,11 +30,17 @@ func fromUnstructured(obj map[string]interface{}, out interface{}) error {
 // (see buildClusterSummary in handler.go).
 func cacheItemsAs[T any](items []unstructured.Unstructured) []T {
 	result := make([]T, 0, len(items))
+	skipped := 0
 	for _, u := range items {
 		var item T
 		if err := fromUnstructured(u.Object, &item); err == nil {
 			result = append(result, item)
+		} else {
+			skipped++
 		}
+	}
+	if skipped > 0 {
+		log.Printf("cacheItemsAs[%T]: skipped %d/%d cached items due to conversion errors", *new(T), skipped, len(items))
 	}
 	return result
 }

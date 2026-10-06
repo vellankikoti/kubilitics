@@ -169,12 +169,14 @@ func (im *InformerManager) waitForSync(timeout time.Duration) bool {
 	}()
 
 	syncMap := im.factory.WaitForCacheSync(giveUp)
-	for _, ok := range syncMap {
+	allSynced := true
+	for informerType, ok := range syncMap {
 		if !ok {
-			return false
+			allSynced = false
+			log.Printf("informer cache sync: %s did not sync within the timeout (commonly RBAC — this service account may lack list/watch on that resource; the cache-first perf path stays permanently disabled for this cluster until it does)", informerType)
 		}
 	}
-	return true
+	return allSynced
 }
 
 // retrySyncInBackground polls (non-blocking) for sync completion every
@@ -188,19 +190,28 @@ func (im *InformerManager) retrySyncInBackground() {
 	alreadyClosed := make(chan struct{})
 	close(alreadyClosed)
 
+	// Diagnostic logging of which informer(s) are stuck (e.g. permanently
+	// RBAC-blocked) fires every 10th tick (~5min) instead of every tick, so a
+	// cluster that never finishes syncing doesn't spam the log forever.
+	tick := 0
+	const diagnosticEvery = 10
+
 	for {
 		select {
 		case <-im.stopCh:
 			return
 		case <-ticker.C:
+			tick++
 			// Non-blocking poll: an already-closed stop channel makes
 			// WaitForCacheSync return immediately with current state.
 			syncMap := im.factory.WaitForCacheSync(alreadyClosed)
 			allSynced := true
-			for _, ok := range syncMap {
+			for informerType, ok := range syncMap {
 				if !ok {
 					allSynced = false
-					break
+					if tick%diagnosticEvery == 0 {
+						log.Printf("informer cache sync: %s still not synced after retrying in the background — commonly RBAC; the cache-first perf path stays disabled for this cluster until it does", informerType)
+					}
 				}
 			}
 			if allSynced {

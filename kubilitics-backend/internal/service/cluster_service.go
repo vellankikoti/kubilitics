@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,11 +44,17 @@ func cachedTypedItems[T any](im *k8s.InformerManager, resourceType string) ([]T,
 		return nil, false
 	}
 	items := make([]T, 0, len(cached.Items))
+	skipped := 0
 	for _, u := range cached.Items {
 		var item T
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, &item); err == nil {
 			items = append(items, item)
+		} else {
+			skipped++
 		}
+	}
+	if skipped > 0 {
+		log.Printf("cachedTypedItems[%T]: skipped %d/%d cached %s items due to conversion errors", *new(T), skipped, len(cached.Items), resourceType)
 	}
 	return items, true
 }

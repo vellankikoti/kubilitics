@@ -1057,13 +1057,7 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 	var nodes *corev1.NodeList
 	if im != nil && im.HasSynced() {
 		if cached, ok := im.ListFromCache("nodes", "", metav1.ListOptions{}); ok && cached != nil {
-			nodes = &corev1.NodeList{}
-			for _, u := range cached.Items {
-				var n corev1.Node
-				if err2 := fromUnstructured(u.Object, &n); err2 == nil {
-					nodes.Items = append(nodes.Items, n)
-				}
-			}
+			nodes = &corev1.NodeList{Items: cacheItemsAs[corev1.Node](cached.Items)}
 		}
 	}
 	if nodes == nil {
@@ -1199,14 +1193,7 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 
 	g.Go(func() error {
 		if cached, ok := cachedList("pods"); ok {
-			p := &corev1.PodList{}
-			for _, u := range cached.Items {
-				var item corev1.Pod
-				if err2 := fromUnstructured(u.Object, &item); err2 == nil {
-					p.Items = append(p.Items, item)
-				}
-			}
-			pods = p
+			pods = &corev1.PodList{Items: cacheItemsAs[corev1.Pod](cached.Items)}
 			return nil
 		}
 		var err error
@@ -1216,14 +1203,7 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 	})
 	g.Go(func() error {
 		if cached, ok := cachedList("deployments"); ok {
-			d := &appsv1.DeploymentList{}
-			for _, u := range cached.Items {
-				var item appsv1.Deployment
-				if err2 := fromUnstructured(u.Object, &item); err2 == nil {
-					d.Items = append(d.Items, item)
-				}
-			}
-			deployments = d
+			deployments = &appsv1.DeploymentList{Items: cacheItemsAs[appsv1.Deployment](cached.Items)}
 			return nil
 		}
 		var err error

@@ -222,5 +222,8 @@ export function useDashboardResourceHealth() {
     daemonsets.data, namespaces.data, configmaps.data, secrets.data, cronjobs.data,
   ]);
 
-  return { health, isLoading: nodes.isLoading || pods.isLoading };
+  const isError = [overview, nodes, pods, deployments, services, daemonsets, namespaces, configmaps, secrets, cronjobs]
+    .some((q) => q.isError);
+
+  return { health, isLoading: nodes.isLoading || pods.isLoading, isError };
 }

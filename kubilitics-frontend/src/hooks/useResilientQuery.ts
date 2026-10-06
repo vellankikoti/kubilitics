@@ -18,6 +18,19 @@ import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
 import { useRef } from 'react';
 import type { ResilientResponse } from '@/types/resilient';
 
+// Plain `(prev) => prev` placeholderData hands back ANY previous queryKey's
+// data while a new one loads — including a different cluster's — the same
+// cluster-switch stale-data bug useKubernetes.ts's keepPreviousDataSameCluster
+// was built to fix. Scope it the same way: only reuse data when the
+// queryKey's clusterId slot (index 2 — ['resilient', endpoint, clusterId])
+// matches the current clusterId.
+function placeholderDataSameCluster(currentClusterId: unknown) {
+  return (previousData: unknown, previousQuery: { queryKey: readonly unknown[] } | undefined) => {
+    if (!previousQuery) return undefined;
+    return previousQuery.queryKey[2] === currentClusterId ? previousData : undefined;
+  };
+}
+
 export interface ResilientQueryResult<T> {
   data: T | undefined;
   isLoading: boolean;
@@ -57,9 +70,9 @@ export function useResilientQuery<T>(
       return (await r.json()) as ResilientResponse<T>;
     },
     // Hold the previous key's final response across key changes so the UI
-    // doesn't flash to "no data" between queries — consistent with the
-    // useResourceCounts pattern where the sidebar never flashes zeros.
-    placeholderData: (prev) => prev,
+    // doesn't flash to "no data" between queries — but only within the same
+    // cluster; a real cluster switch must fall through to a loading state.
+    placeholderData: placeholderDataSameCluster(options.clusterId ?? ''),
     staleTime: 30_000,
     retry: 1,
     refetchInterval: options.refetchInterval,
