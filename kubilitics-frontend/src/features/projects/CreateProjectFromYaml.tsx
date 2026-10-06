@@ -107,6 +107,9 @@ export function CreateProjectFromYaml({ onSuccess, onBack, onCancel }: CreatePro
             ))}
           </SelectContent>
         </Select>
+        {clustersQuery.isError && (
+          <p className="text-xs text-destructive">Couldn't load your clusters. Check your connection and try again.</p>
+        )}
         <p className="text-xs text-muted-foreground">Select cluster for this project</p>
       </div>
 

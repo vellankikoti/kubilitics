@@ -74,7 +74,11 @@ export function AddClusterDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-          {options.length === 0 ? (
+          {clustersQuery.isError ? (
+            <p className="text-sm text-destructive py-2">
+              Couldn't load your clusters. Check your connection and try again.
+            </p>
+          ) : options.length === 0 ? (
             <p className="text-sm text-muted-foreground py-2">
               All clusters are already in this project. Connect more clusters from Home to add them.
             </p>

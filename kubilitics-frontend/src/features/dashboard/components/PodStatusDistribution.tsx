@@ -33,7 +33,7 @@ const STATUS_CONFIG = [
 export const PodStatusDistribution = () => {
     const activeCluster = useActiveCluster();
     const { counts, isConnected } = useResourceCounts();
-    const { data: podsList, isLoading: podsLoading } = useK8sResourceList(
+    const { data: podsList, isLoading: podsLoading, isError: podsError } = useK8sResourceList(
         "pods",
         undefined,
         { enabled: !!activeCluster, limit: 5000 }
@@ -69,6 +69,9 @@ export const PodStatusDistribution = () => {
             .map(([name, count]) => ({ name, count }));
         let insight = "All pods healthy";
         if (stats.failed > 0) insight = `${stats.failed} pod(s) failed — investigate`;
+        // Overridden below (outside this memo) when the fetch itself failed —
+        // total:0/healthScore:100 here is indistinguishable from "cluster
+        // genuinely has no pods" otherwise.
         else if (stats.pending > 2) insight = `${stats.pending} pods pending — check scheduling`;
         else if (stats.totalRestarts > 10) insight = `${stats.totalRestarts} restarts — check stability`;
         else if (stats.succeeded > 0 && stats.running > 0) insight = "Workloads running normally";
@@ -87,6 +90,7 @@ export const PodStatusDistribution = () => {
     );
 
     const hasAnyPods = running + pending + failed + succeeded > 0;
+    const displayInsight = podsError ? "Couldn't load pod data — health unknown" : insight;
 
     // Presence only carries logical identity — version is no longer sourced
     // from the store; display as "—" until a metadata endpoint is wired up.
@@ -198,12 +202,12 @@ export const PodStatusDistribution = () => {
                                 )}
                                 <div className={cn(
                                     "flex items-start gap-2 p-2 rounded-lg text-xs",
-                                    failed > 0 ? "bg-rose-500/10 text-rose-700 dark:text-rose-400" :
+                                    podsError || failed > 0 ? "bg-rose-500/10 text-rose-700 dark:text-rose-400" :
                                     pending > 2 ? "bg-amber-500/10 text-amber-700 dark:text-amber-400" :
                                     "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
                                 )}>
-                                    {failed > 0 ? <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> : <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
-                                    <span>{insight}</span>
+                                    {podsError || failed > 0 ? <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> : <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
+                                    <span>{displayInsight}</span>
                                 </div>
                             </div>
                         </div>
