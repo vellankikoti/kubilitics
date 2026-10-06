@@ -126,7 +126,10 @@ func (h *Handler) buildWorkloads(ctx context.Context, r *http.Request) (models.W
 		}
 	}
 	if pods == nil {
-		if podsList, podErr := client.Clientset.CoreV1().Pods("").List(r.Context(), metav1.ListOptions{}); podErr == nil {
+		// Reuse the function-level bounded `opts` (Limit: 5000) like every
+		// other resource type in this function — a bare ListOptions{} here
+		// was a copy-paste inconsistency with its siblings above.
+		if podsList, podErr := client.Clientset.CoreV1().Pods("").List(r.Context(), opts); podErr == nil {
 			pods = podsList
 		} else {
 			dataPartial = true
