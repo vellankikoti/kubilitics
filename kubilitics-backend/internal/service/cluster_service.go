@@ -24,10 +24,33 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
 const defaultMaxClusters = 100
+
+// cachedTypedItems reads resourceType from the informer cache and converts
+// each item to T, skipping any item that fails to convert. Returns
+// (nil, false) when the cache is unavailable, not yet synced, or genuinely
+// has no cached items — callers fall back to a live API call in that case.
+func cachedTypedItems[T any](im *k8s.InformerManager, resourceType string) ([]T, bool) {
+	if im == nil || !im.HasSynced() {
+		return nil, false
+	}
+	cached, ok := im.ListFromCache(resourceType, "", metav1.ListOptions{})
+	if !ok || cached == nil {
+		return nil, false
+	}
+	items := make([]T, 0, len(cached.Items))
+	for _, u := range cached.Items {
+		var item T
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, &item); err == nil {
+			items = append(items, item)
+		}
+	}
+	return items, true
+}
 
 // ErrClusterLimitReached is returned when a cluster registration would exceed the configured maxClusters limit.
 // Carries the current count and limit for structured error responses.
@@ -749,10 +772,36 @@ func (s *clusterService) GetClusterSummary(ctx context.Context, id string) (*mod
 	listCtx, listCancel := client.WithTimeout(ctx)
 	defer listCancel()
 
-	nodes, _ := client.Clientset.CoreV1().Nodes().List(listCtx, metav1.ListOptions{})
-	pods, _ := client.Clientset.CoreV1().Pods("").List(listCtx, metav1.ListOptions{})
-	deployments, _ := client.Clientset.AppsV1().Deployments("").List(listCtx, metav1.ListOptions{})
-	services, _ := client.Clientset.CoreV1().Services("").List(listCtx, metav1.ListOptions{})
+	// Perf: informer cache first (Headlamp/Lens model) for all 4 counts —
+	// this method is GetFleetOverview's per-cluster fan-out (fleet.go), so at
+	// N clusters these were N×4 live API calls with no caching; a warm cache
+	// now answers in <1ms instead. Falls back to the original live Clientset
+	// calls on a cache miss (informer not synced yet), unchanged from before.
+	im := s.GetInformerManager(id)
+	nodes := &corev1.NodeList{}
+	if items, ok := cachedTypedItems[corev1.Node](im, "nodes"); ok {
+		nodes.Items = items
+	} else {
+		nodes, _ = client.Clientset.CoreV1().Nodes().List(listCtx, metav1.ListOptions{})
+	}
+	pods := &corev1.PodList{}
+	if items, ok := cachedTypedItems[corev1.Pod](im, "pods"); ok {
+		pods.Items = items
+	} else {
+		pods, _ = client.Clientset.CoreV1().Pods("").List(listCtx, metav1.ListOptions{})
+	}
+	deployments := &appsv1.DeploymentList{}
+	if items, ok := cachedTypedItems[appsv1.Deployment](im, "deployments"); ok {
+		deployments.Items = items
+	} else {
+		deployments, _ = client.Clientset.AppsV1().Deployments("").List(listCtx, metav1.ListOptions{})
+	}
+	services := &corev1.ServiceList{}
+	if items, ok := cachedTypedItems[corev1.Service](im, "services"); ok {
+		services.Items = items
+	} else {
+		services, _ = client.Clientset.CoreV1().Services("").List(listCtx, metav1.ListOptions{})
+	}
 
 	// Compute health from actual resource state
 	healthStatus := computeClusterHealthStatus(nodes, pods, deployments)
