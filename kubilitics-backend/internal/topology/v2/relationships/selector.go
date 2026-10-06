@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/kubilitics/kubilitics-backend/internal/topology/v2"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 )
@@ -23,6 +24,19 @@ func (m *SelectorMatcher) Match(ctx context.Context, bundle *v2.ResourceBundle) 
 	}
 	var edges []v2.TopologyEdge
 
+	// Every selector below is namespace-scoped (Service/PDB/NetworkPolicy
+	// only ever select pods in their own namespace), but previously each
+	// selector object still scanned every pod in the ENTIRE bundle and
+	// discarded the ones in other namespaces — O(selectors × total pods)
+	// instead of O(selectors × pods-in-that-namespace). Building this index
+	// once turns the namespace filter from a per-pod comparison into free
+	// (by construction) exclusion.
+	podsByNamespace := make(map[string][]*corev1.Pod, 8)
+	for j := range bundle.Pods {
+		pod := &bundle.Pods[j]
+		podsByNamespace[pod.Namespace] = append(podsByNamespace[pod.Namespace], pod)
+	}
+
 	// Service → Pod (spec.selector)
 	for i := range bundle.Services {
 		svc := &bundle.Services[i]
@@ -30,11 +44,7 @@ func (m *SelectorMatcher) Match(ctx context.Context, bundle *v2.ResourceBundle) 
 			continue
 		}
 		sel := labels.SelectorFromSet(svc.Spec.Selector)
-		for j := range bundle.Pods {
-			pod := &bundle.Pods[j]
-			if pod.Namespace != svc.Namespace {
-				continue
-			}
+		for _, pod := range podsByNamespace[svc.Namespace] {
 			if sel.Matches(labels.Set(pod.Labels)) {
 				src := v2.NodeID("Service", svc.Namespace, svc.Name)
 				tgt := v2.NodeID("Pod", pod.Namespace, pod.Name)
@@ -77,11 +87,7 @@ func (m *SelectorMatcher) Match(ctx context.Context, bundle *v2.ResourceBundle) 
 			slog.Warn("topology: invalid PDB label selector", "pdb", pdb.Name, "namespace", pdb.Namespace, "error", err)
 			continue
 		}
-		for j := range bundle.Pods {
-			pod := &bundle.Pods[j]
-			if pod.Namespace != pdb.Namespace {
-				continue
-			}
+		for _, pod := range podsByNamespace[pdb.Namespace] {
 			if sel.Matches(labels.Set(pod.Labels)) {
 				src := v2.NodeID("PodDisruptionBudget", pdb.Namespace, pdb.Name)
 				tgt := v2.NodeID("Pod", pod.Namespace, pod.Name)
@@ -108,11 +114,7 @@ func (m *SelectorMatcher) Match(ctx context.Context, bundle *v2.ResourceBundle) 
 			slog.Warn("topology: invalid NetworkPolicy label selector", "networkpolicy", np.Name, "namespace", np.Namespace, "error", err)
 			continue
 		}
-		for j := range bundle.Pods {
-			pod := &bundle.Pods[j]
-			if pod.Namespace != np.Namespace {
-				continue
-			}
+		for _, pod := range podsByNamespace[np.Namespace] {
 			if sel.Matches(labels.Set(pod.Labels)) {
 				src := v2.NodeID("NetworkPolicy", np.Namespace, np.Name)
 				tgt := v2.NodeID("Pod", pod.Namespace, pod.Name)
