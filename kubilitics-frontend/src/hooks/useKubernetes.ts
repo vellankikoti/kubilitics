@@ -12,6 +12,26 @@ import { useProjectStore } from '@/stores/projectStore';
 import { toast } from '@/components/ui/sonner';
 
 import { useActiveClusterId } from '@/hooks/useActiveClusterId';
+
+/**
+ * React Query's `keepPreviousData` shows the last successful data for ANY
+ * previous queryKey while a new one loads, regardless of what changed
+ * between them. For a cluster-scoped list query, that means switching
+ * clusters silently paints the page with the OLD cluster's resource list
+ * — unlabeled as stale, with isLoading:false — for the duration of the new
+ * fetch. This is the likely root cause of the known cluster-switch race
+ * condition. Scope it to only keep previous data when the queryKey's
+ * clusterId slot matches the CURRENT clusterId (pagination/filter changes
+ * within the same cluster still get the no-flicker behavior); a real
+ * cluster switch falls through to a normal loading state instead.
+ */
+function keepPreviousDataSameCluster(currentClusterId: unknown, clusterIdIndex: number) {
+  return (previousData: unknown, previousQuery: { queryKey: readonly unknown[] } | undefined) => {
+    if (!previousQuery) return undefined;
+    return previousQuery.queryKey[clusterIdIndex] === currentClusterId ? previousData : undefined;
+  };
+}
+
 // Types for Kubernetes resources
 export interface KubernetesMetadata {
   name: string;
@@ -289,7 +309,10 @@ export function useK8sResourceList<T extends KubernetesResource>(
     refetchOnMount: true,
     // Keep previous data while refetching to avoid flash of empty state.
     // In React Query v5, keepPreviousData is a placeholderData function.
-    placeholderData: options?.placeholderData ?? keepPreviousData,
+    // clusterId sits at queryKey index 2 in the backend branch above; the
+    // direct-K8s branch's key has no clusterId (single-connection mode,
+    // not subject to the same multi-cluster-switch race).
+    placeholderData: options?.placeholderData ?? (useBackend ? keepPreviousDataSameCluster(clusterId, 2) : keepPreviousData),
     // Retry failed requests with exponential backoff (1s, 2s, 4s).
     // Don't retry 404s — the resource type doesn't exist in the cluster.
     retry: (failureCount: number, error: Error) => {
@@ -566,7 +589,9 @@ export function useServerPaginatedResourceList<T extends KubernetesResource>(
     enabled: useBackend && (options?.enabled !== false),
     staleTime: 15_000,
     refetchOnMount: true,
-    placeholderData: keepPreviousData,
+    // See keepPreviousDataSameCluster's doc comment — clusterId is at
+    // queryKey index 2 above.
+    placeholderData: keepPreviousDataSameCluster(clusterId, 2),
     retry: (failureCount, error) => {
       if (error instanceof BackendApiError && error.status === 404) return false;
       return failureCount < 3;
