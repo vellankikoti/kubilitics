@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -149,6 +150,15 @@ func (im *InformerManager) waitForSync(timeout time.Duration) bool {
 	done := make(chan struct{})
 	defer close(done)
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in informer cache-sync timeout goroutine", "error", r)
+				// giveUp gates WaitForCacheSync below — if this goroutine
+				// panics before the normal close(giveUp) below, that call
+				// blocks forever with nothing else able to unblock it.
+				close(giveUp)
+			}
+		}()
 		select {
 		case <-im.stopCh:
 		case <-timer.C:

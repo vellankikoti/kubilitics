@@ -199,6 +199,11 @@ func (s *UnifiedMetricsService) GetHistory(ctx context.Context, id models.Resour
 // metrics for watched resources to accumulate history.
 func (s *UnifiedMetricsService) StartCollector(ctx context.Context, interval time.Duration) {
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in unified metrics collector loop goroutine", "error", r)
+			}
+		}()
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 		pruneTicker := time.NewTicker(5 * time.Minute)

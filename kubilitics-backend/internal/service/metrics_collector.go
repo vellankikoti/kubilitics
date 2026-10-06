@@ -45,6 +45,11 @@ func NewMetricsCollector(
 // Start begins the collection loop. Call this at server startup.
 func (mc *MetricsCollector) Start(ctx context.Context) {
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in metrics collector loop goroutine", "error", r)
+			}
+		}()
 		// Initial collection after a short delay (let clusters connect first)
 		time.Sleep(5 * time.Second)
 		mc.collectAll(ctx)

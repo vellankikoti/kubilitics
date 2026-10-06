@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"log/slog"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -135,6 +136,11 @@ func WatchSecretChanges(ctx context.Context, namespace string, labelSelector str
 
 	// Start a goroutine to forward watch events
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in secret watch event-forwarding goroutine", "namespace", namespace, "error", r)
+			}
+		}()
 		defer close(eventChan)
 		defer watcher.Stop()
 
