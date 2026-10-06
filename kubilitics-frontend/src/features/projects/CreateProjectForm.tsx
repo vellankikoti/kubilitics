@@ -180,6 +180,9 @@ export function CreateProjectForm({ onSuccess, onBack, onCancel, onStepChange }:
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
             <div className="space-y-4">
               <Label className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Select Infrastructure</Label>
+              {clustersQuery.isError && (
+                <p className="text-sm text-destructive">Couldn't load your clusters. Check your connection and try again.</p>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {availableClusters.map((c) => (
                   <button

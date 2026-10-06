@@ -136,7 +136,7 @@ function InsightCard({ insight }: { insight: Insight }) {
 }
 
 export function IntelligencePanel() {
-  const { insights, isLoading } = useInsights();
+  const { insights, isLoading, isError } = useInsights();
 
   const criticalCount = insights.filter((i) => i.severity === 'critical').length;
   const warningCount = insights.filter((i) => i.severity === 'warning').length;
@@ -179,6 +179,16 @@ export function IntelligencePanel() {
           <div className="flex flex-col items-center justify-center py-12 gap-2">
             <Loader2 className="h-6 w-6 animate-spin text-[hsl(var(--ring))]" aria-hidden />
             <span className="text-xs text-muted-foreground">Analyzing cluster...</span>
+          </div>
+        ) : isError ? (
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <div className="w-12 h-12 rounded-full bg-[hsl(var(--warning)/0.1)] flex items-center justify-center">
+              <AlertTriangle className="h-6 w-6 text-[hsl(var(--warning))]" aria-hidden />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-foreground">Couldn't analyze cluster</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Some data failed to load — this isn't a clean bill of health.</p>
+            </div>
           </div>
         ) : insights.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 gap-3">

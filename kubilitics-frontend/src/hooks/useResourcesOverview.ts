@@ -72,5 +72,11 @@ export function useResourcesOverview() {
         };
     }, [quotas.data, limits.data, slices.data, classes.data]);
 
-    return { data, isLoading: quotas.isLoading || limits.isLoading || slices.isLoading || classes.isLoading };
+    return {
+        data,
+        isLoading: quotas.isLoading || limits.isLoading || slices.isLoading || classes.isLoading,
+        // Any failed list means `data` above is an undercount, not a genuinely
+        // empty cluster — callers should warn rather than render a silent 0.
+        isError: quotas.isError || limits.isError || slices.isError || classes.isError,
+    };
 }

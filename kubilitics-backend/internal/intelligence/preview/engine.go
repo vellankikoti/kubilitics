@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"strings"
 
@@ -101,6 +102,11 @@ func (e *Engine) AnalyzeManifest(manifest string, snap *graph.GraphSnapshot) (*P
 				})
 				if err == nil {
 					blastScore = br.CriticalityScore
+				} else {
+					// blastScore stays at its zero value below — log so a
+					// failed computation isn't indistinguishable from a
+					// genuinely zero-criticality resource in the preview UI.
+					slog.Default().Warn("simulation preview: blast radius computation failed", "kind", kind, "name", name, "namespace", namespace, "error", err)
 				}
 			}
 		}

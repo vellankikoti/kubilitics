@@ -394,6 +394,11 @@ func (c *ArtifactHubClient) mapToAddOnEntry(chart ArtifactHubChart) models.AddOn
 func decodeArtifactHubError(resp *http.Response, requestURL string) error {
 	const maxErrBody = 2048
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrBody))
+	// Its one caller (doWithRetry) either retries with a fresh request or
+	// returns the error — this resp.Body is never read again, and nothing
+	// else closes it on this path (the retryable-error/final-error paths
+	// return a nil *http.Response, so the caller's own defer never fires).
+	_ = resp.Body.Close()
 	return &ArtifactHubHTTPError{
 		StatusCode: resp.StatusCode,
 		URL:        requestURL,

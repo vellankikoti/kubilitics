@@ -76,10 +76,14 @@ export const useClusterPresenceStore = create<ClusterPresenceState>((set, get) =
     // type helpers, blanking cluster cards, and in the worst case
     // tripping the GlobalErrorBoundary. Translate once here so every
     // downstream consumer gets the camelCase shape it expects.
+    // `?? []` only guards falsy values — if the backend ever sends a
+    // truthy non-array (e.g. `{}`) for one of these fields, `.map()` would
+    // throw exactly the "blanking cluster cards... GlobalErrorBoundary"
+    // failure mode described above instead of being caught by it.
     const normalized = {
-      discovered: (snap.discovered ?? []).map(normalizeClusterShape) as DiscoveredCluster[],
-      registered: (snap.registered ?? []).map(normalizeClusterShape) as RegisteredCluster[],
-      connected: (snap.connected ?? []).map(normalizeClusterShape) as ConnectedCluster[],
+      discovered: (Array.isArray(snap.discovered) ? snap.discovered : []).map(normalizeClusterShape) as DiscoveredCluster[],
+      registered: (Array.isArray(snap.registered) ? snap.registered : []).map(normalizeClusterShape) as RegisteredCluster[],
+      connected: (Array.isArray(snap.connected) ? snap.connected : []).map(normalizeClusterShape) as ConnectedCluster[],
       last_used: snap.last_used ? normalizeIdentity(snap.last_used) : null,
     };
     set((state) => ({

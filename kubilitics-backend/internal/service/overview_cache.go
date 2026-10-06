@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -111,6 +112,11 @@ func (c *OverviewCache) StartClusterCache(ctx context.Context, clusterID string,
 
 	// Start Informers in background
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in informer startup goroutine", "cluster", clusterID, "error", r)
+			}
+		}()
 		if err := im.Start(ctx); err != nil {
 			fmt.Printf("Error starting informers for cluster %s: %v\n", clusterID, err)
 		}

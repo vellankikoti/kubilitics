@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -242,6 +243,25 @@ export default function WorkloadsOverview() {
           onSync={handleSync}
           isSyncing={isSyncing}
         />
+
+        {data?.data_partial && (
+          <Alert
+            variant="default"
+            className="border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-100 [&>svg]:text-amber-600 dark:[&>svg]:text-amber-400"
+            role="alert"
+          >
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle className="mb-0">Some workload data couldn't load</AlertTitle>
+            <AlertDescription>
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                <span>One or more resource types failed to load — the counts below may be lower than the cluster's actual state.</span>
+                <Button size="sm" variant="outline" className="shrink-0 border-amber-600/50 hover:bg-amber-500/20" onClick={() => refetch()}>
+                  Retry
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Hero Section: Workload Health Pulse */}
         <Card className="overflow-hidden border-none soft-shadow glass-panel" aria-live="polite">

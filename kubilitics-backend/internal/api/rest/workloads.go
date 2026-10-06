@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -65,30 +66,49 @@ func (h *Handler) buildWorkloads(ctx context.Context, r *http.Request) (models.W
 		jobs, _ = im.ListFromCache("jobs", "", opts)
 		cronjobs, _ = im.ListFromCache("cronjobs", "", opts)
 	}
-	// Fall back to live API for any kind the informer didn't cover.
+	// Fall back to live API for any kind the informer didn't cover. A failed
+	// list here previously vanished silently, producing a "0 workloads, all
+	// healthy" response indistinguishable from a genuinely empty cluster.
+	// Track failures so callers can tell "really empty" from "list failed".
+	dataPartial := false
 	if deployments == nil {
 		if d, err := client.ListResources(r.Context(), "deployments", "", opts); err == nil {
 			deployments = d
+		} else {
+			dataPartial = true
+			slog.Default().Warn("workloads overview: deployments list failed", "cluster", clusterID, "error", err)
 		}
 	}
 	if statefulsets == nil {
 		if s, err := client.ListResources(r.Context(), "statefulsets", "", opts); err == nil {
 			statefulsets = s
+		} else {
+			dataPartial = true
+			slog.Default().Warn("workloads overview: statefulsets list failed", "cluster", clusterID, "error", err)
 		}
 	}
 	if daemonsets == nil {
 		if d, err := client.ListResources(r.Context(), "daemonsets", "", opts); err == nil {
 			daemonsets = d
+		} else {
+			dataPartial = true
+			slog.Default().Warn("workloads overview: daemonsets list failed", "cluster", clusterID, "error", err)
 		}
 	}
 	if jobs == nil {
 		if j, err := client.ListResources(r.Context(), "jobs", "", opts); err == nil {
 			jobs = j
+		} else {
+			dataPartial = true
+			slog.Default().Warn("workloads overview: jobs list failed", "cluster", clusterID, "error", err)
 		}
 	}
 	if cronjobs == nil {
 		if c, err := client.ListResources(r.Context(), "cronjobs", "", opts); err == nil {
 			cronjobs = c
+		} else {
+			dataPartial = true
+			slog.Default().Warn("workloads overview: cronjobs list failed", "cluster", clusterID, "error", err)
 		}
 	}
 
@@ -106,14 +126,19 @@ func (h *Handler) buildWorkloads(ctx context.Context, r *http.Request) (models.W
 		}
 	}
 	if pods == nil {
-		if podsList, podErr := client.Clientset.CoreV1().Pods("").List(r.Context(), metav1.ListOptions{}); podErr == nil {
+		// Reuse the function-level bounded `opts` (Limit: 5000) like every
+		// other resource type in this function — a bare ListOptions{} here
+		// was a copy-paste inconsistency with its siblings above.
+		if podsList, podErr := client.Clientset.CoreV1().Pods("").List(r.Context(), opts); podErr == nil {
 			pods = podsList
+		} else {
+			dataPartial = true
+			slog.Default().Warn("workloads overview: pods list failed", "cluster", clusterID, "error", podErr)
 		}
 	}
 
 	// Events for alerts — informer cache first (avoids 6 live API calls per request),
 	// fall back to live service only when cache unavailable.
-	dataPartial := false
 	var events []*models.Event
 	usedCache := false
 	if im := h.clusterService.GetInformerManager(clusterID); im != nil && im.HasSynced() {

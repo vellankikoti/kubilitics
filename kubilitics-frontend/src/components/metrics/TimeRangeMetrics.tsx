@@ -270,7 +270,7 @@ export function TimeRangeMetrics({
   const rangeConfig = TIME_RANGES.find((r) => r.value === timeRange)!;
 
   // Fetch metrics from backend
-  const { data: apiData, isLoading, refetch } = useQuery({
+  const { data: apiData, isLoading, isError, refetch } = useQuery({
     queryKey: ['time-range-metrics', baseUrl, clusterId, resourceKind, namespace, resourceName, timeRange],
     queryFn: async () => {
       const end = Math.floor(Date.now() / 1000);
@@ -297,7 +297,10 @@ export function TimeRangeMetrics({
 
   // Buffer incoming data for metrics-server fallback
   useEffect(() => {
-    if (!apiData) return;
+    // `apiData` is `res.json()` cast via a TS type with zero runtime
+    // validation — an error-shaped 200 response (e.g. `{error: "..."}`
+    // instead of an array) would crash here on bare iteration.
+    if (!Array.isArray(apiData)) return;
     for (const resource of apiData) {
       const key = `${resource.kind}/${resource.namespace ?? '_'}/${resource.name}`;
       if (resource.history.length > 0) {
@@ -376,6 +379,14 @@ export function TimeRangeMetrics({
             <ResourceMetricCard key={`${r.kind}/${r.namespace}/${r.name}`} resource={r} />
           ))}
         </div>
+      ) : isError ? (
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <p className="text-sm text-destructive">
+              Couldn't load metrics for the selected time range.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
         <Card>
           <CardContent className="flex items-center justify-center py-12">

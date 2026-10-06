@@ -236,6 +236,11 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			func(ctx context.Context, opts metav1.ListOptions) (*corev1.EndpointsList, error) {
 				return cs.CoreV1().Endpoints(nsOpts).List(ctx, opts)
 			},
+			//nolint:staticcheck // corev1.Endpoints is deprecated in favor of
+			// discoveryv1.EndpointSlice (collected separately below as
+			// bundle.EndpointSlices), but still collected here for clusters
+			// where relationship inference needs the legacy object (and for
+			// older clusters that may not fully populate EndpointSlice).
 			func(l *corev1.EndpointsList) []corev1.Endpoints { return l.Items },
 		)
 		return nil

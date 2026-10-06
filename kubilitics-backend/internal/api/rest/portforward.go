@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -93,6 +94,11 @@ func startPortForwardCleaner() {
 	ctx, cancel := context.WithCancel(context.Background())
 	pfCleanerCancel = cancel
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in port-forward cleaner goroutine", "error", r)
+			}
+		}()
 		ticker := time.NewTicker(5 * time.Minute)
 		defer ticker.Stop()
 		for {
@@ -227,6 +233,11 @@ func (h *Handler) PostPortForward(w http.ResponseWriter, r *http.Request) {
 	// Monitor for early process exit while we probe the port.
 	procExited := make(chan error, 1)
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in port-forward process-wait goroutine", "error", r)
+			}
+		}()
 		procExited <- cmd.Wait()
 	}()
 
@@ -285,6 +296,11 @@ func (h *Handler) PostPortForward(w http.ResponseWriter, r *http.Request) {
 
 	// Reap subprocess in background; remove session when the process exits naturally.
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in port-forward session-reap goroutine", "error", r)
+			}
+		}()
 		<-procExited
 		pfDelete(clusterID, sessionID)
 	}()

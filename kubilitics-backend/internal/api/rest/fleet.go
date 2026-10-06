@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
 	"sync"
@@ -274,6 +275,11 @@ func (h *Handler) GetFleetSearch(w http.ResponseWriter, r *http.Request) {
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
+					defer func() {
+						if r := recover(); r != nil {
+							slog.Default().Error("panic in fleet per-kind search goroutine", "error", r)
+						}
+					}()
 
 					mu.Lock()
 					if done {

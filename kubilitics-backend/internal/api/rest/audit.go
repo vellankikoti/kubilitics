@@ -31,14 +31,20 @@ func (h *Handler) ListAuditLog(w http.ResponseWriter, r *http.Request) {
 	}
 	var since, until *time.Time
 	if v := q.Get("since"); v != "" {
-		if t, err := time.Parse(time.RFC3339, v); err == nil {
-			since = &t
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "Invalid since parameter: must be RFC3339, e.g. 2026-01-02T15:04:05Z")
+			return
 		}
+		since = &t
 	}
 	if v := q.Get("until"); v != "" {
-		if t, err := time.Parse(time.RFC3339, v); err == nil {
-			until = &t
+		t, err := time.Parse(time.RFC3339, v)
+		if err != nil {
+			respondError(w, http.StatusBadRequest, "Invalid until parameter: must be RFC3339, e.g. 2026-01-02T15:04:05Z")
+			return
 		}
+		until = &t
 	}
 	limit := 100
 	if v := q.Get("limit"); v != "" {

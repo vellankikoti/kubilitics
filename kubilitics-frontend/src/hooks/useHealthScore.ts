@@ -87,11 +87,18 @@ export function useHealthScore(): HealthScore {
     && (podsList.isLoading && !podsList.data)
     && (nodesList.isLoading && !nodesList.data);
 
+  // `core` below falls back to direct pods/nodes/events computation whenever
+  // the backend overview path isn't actually usable (not configured, or
+  // configured but failed) — so isError must reflect whichever path is
+  // actually in effect, not require every source to fail simultaneously.
+  // The previous `&&`-of-three-sources formula, additionally gated behind
+  // `isBackendConfigured`, meant isError could never be true in direct-K8s
+  // mode no matter how badly podsList/nodesList failed — silently
+  // rendering a perfect "Grade A" health score on a fully-failed fetch.
+  const usingBackendHealthPath = isBackendConfigured && !!overviewQuery.data;
   const isError = !!activeCluster
-    && isBackendConfigured
-    && overviewQuery.isError
-    && podsList.isError
-    && nodesList.isError;
+    && !usingBackendHealthPath
+    && (podsList.isError || nodesList.isError);
 
   const core = useMemo(() => {
     if (!activeCluster) {

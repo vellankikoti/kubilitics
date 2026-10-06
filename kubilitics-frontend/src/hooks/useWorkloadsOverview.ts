@@ -18,7 +18,8 @@ function aggregateFromK8s(
   jobs: Record<string, unknown>[],
   cronjobs: Record<string, unknown>[],
   podStatus: { running: number; pending: number; failed: number; succeeded: number },
-  alerts: { warnings: number; critical: number }
+  alerts: { warnings: number; critical: number },
+  dataPartial: boolean
 ): WorkloadsOverview {
   const workloads: WorkloadsOverview['workloads'] = [];
 
@@ -167,6 +168,7 @@ function aggregateFromK8s(
       critical: _alerts.critical,
       top_3: [],
     },
+    data_partial: dataPartial,
   };
 }
 
@@ -247,6 +249,13 @@ export function useWorkloadsOverview() {
       ? { warnings: overview.data.alerts.warnings, critical: overview.data.alerts.critical }
       : { warnings: 0, critical: 0 };
 
+    // If fallback is enabled but any list errored, the counts above are an
+    // undercount, not a genuinely empty cluster — surface that distinction.
+    const dataPartial = fallbackEnabled && (
+      deployments.isError || statefulsets.isError || daemonsets.isError ||
+      jobs.isError || cronjobs.isError || pods.isError
+    );
+
     return aggregateFromK8s(
       depItems,
       ssItems,
@@ -254,7 +263,8 @@ export function useWorkloadsOverview() {
       jobItems,
       cjItems,
       podStatus,
-      alerts
+      alerts,
+      dataPartial
     );
   }, [
     deployments.data?.items,
@@ -264,6 +274,13 @@ export function useWorkloadsOverview() {
     cronjobs.data?.items,
     pods.data?.items,
     overview.data,
+    fallbackEnabled,
+    deployments.isError,
+    statefulsets.isError,
+    daemonsets.isError,
+    jobs.isError,
+    cronjobs.isError,
+    pods.isError,
   ]);
 
   const isLoading =

@@ -155,6 +155,10 @@ export interface WorkloadsOverview {
     critical: number;
     top_3: Array<{ reason: string; resource: string; namespace: string }>;
   };
+  /** True when one or more resource lists (deployments, pods, etc.) failed to
+   *  load and were omitted from this response — the pulse/workload counts
+   *  below are an undercount, not a genuinely empty cluster. */
+  data_partial?: boolean;
 }
 
 /** GET /api/v1/capabilities */

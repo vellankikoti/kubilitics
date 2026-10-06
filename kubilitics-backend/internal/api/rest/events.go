@@ -77,6 +77,17 @@ func (h *Handler) GetEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate `since` here (not inside buildEvents): buildEvents' errors are
+	// treated by the wrapper below as "cluster unreachable" and downgraded to
+	// 200 + reachable:false — a malformed client param needs a real 400, not
+	// to be mistaken for a transient apiserver issue.
+	if sinceParam := r.URL.Query().Get("since"); sinceParam != "" {
+		if _, err := time.ParseDuration(sinceParam); err != nil {
+			respondError(w, http.StatusBadRequest, "Invalid since parameter: must be a Go duration, e.g. 1h, 30m, 24h")
+			return
+		}
+	}
+
 	wrapper := resilient.WrapClusterHandler[eventsResponse](
 		h.eventsLRU,
 		func(req *http.Request) string {

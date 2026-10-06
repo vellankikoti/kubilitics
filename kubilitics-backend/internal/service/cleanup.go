@@ -38,6 +38,11 @@ func (s *CleanupService) Start(ctx context.Context) {
 	s.log.Info("Starting cleanup service", "interval", interval)
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in cleanup service loop goroutine", "error", r)
+			}
+		}()
 		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 

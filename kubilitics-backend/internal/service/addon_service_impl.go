@@ -455,7 +455,7 @@ func (s *AddOnServiceImpl) ExecuteInstall(ctx context.Context, clusterID string,
 		}
 
 		auditID := uuid.New().String()
-		_ = s.repo.CreateAuditEvent(ctx, &models.AddOnAuditEvent{
+		if auditErr := s.repo.CreateAuditEvent(ctx, &models.AddOnAuditEvent{
 			ID:             auditID,
 			ClusterID:      clusterID,
 			AddonInstallID: installID,
@@ -467,7 +467,9 @@ func (s *AddOnServiceImpl) ExecuteInstall(ctx context.Context, clusterID string,
 			ValuesHash:     valuesHash,
 			Result:         string(models.ResultInProgress),
 			CreatedAt:      time.Now().UTC(),
-		})
+		}); auditErr != nil {
+			slog.Default().Error("failed to create audit event for addon install", "cluster", clusterID, "addon", step.AddonID, "error", auditErr)
+		}
 
 		chartRef := step.HelmRepoURL + "|" + step.HelmChart
 		// Use HelmChartVersion (e.g. "3.12.2") not ToVersion (app version "v0.7.2")
@@ -659,7 +661,7 @@ func (s *AddOnServiceImpl) ExecuteUpgrade(ctx context.Context, clusterID, instal
 		addonmetrics.AddonUpgradesTotal.WithLabelValues(addonID, "failed").Inc()
 		addonmetrics.AddonOperationDurationSeconds.WithLabelValues("upgrade", addonID).Observe(time.Since(upgradeStart).Seconds())
 		emit("helm-upgrade", fmt.Sprintf("Upgrade failed: %v", err), "error")
-		_ = s.repo.CreateAuditEvent(ctx, &models.AddOnAuditEvent{
+		if auditErr := s.repo.CreateAuditEvent(ctx, &models.AddOnAuditEvent{
 			ID:             uuid.New().String(),
 			ClusterID:      clusterID,
 			AddonInstallID: installID,
@@ -674,7 +676,9 @@ func (s *AddOnServiceImpl) ExecuteUpgrade(ctx context.Context, clusterID, instal
 			ErrorMessage:   err.Error(),
 			DurationMs:     time.Since(upgradeStart).Milliseconds(),
 			CreatedAt:      time.Now().UTC(),
-		})
+		}); auditErr != nil {
+			slog.Default().Error("failed to create audit event for addon upgrade failure", "cluster", clusterID, "addon", addonID, "error", auditErr)
+		}
 		return fmt.Errorf("helm upgrade: %w", err)
 	}
 
@@ -687,7 +691,7 @@ func (s *AddOnServiceImpl) ExecuteUpgrade(ctx context.Context, clusterID, instal
 
 	// Audit event for the completed upgrade — backup name stored in ValuesHash
 	// for traceability (allows linking audit row to the Velero backup in the UI).
-	_ = s.repo.CreateAuditEvent(ctx, &models.AddOnAuditEvent{
+	if auditErr := s.repo.CreateAuditEvent(ctx, &models.AddOnAuditEvent{
 		ID:             uuid.New().String(),
 		ClusterID:      clusterID,
 		AddonInstallID: installID,
@@ -701,7 +705,9 @@ func (s *AddOnServiceImpl) ExecuteUpgrade(ctx context.Context, clusterID, instal
 		Result:         string(models.ResultSuccess),
 		DurationMs:     time.Since(upgradeStart).Milliseconds(),
 		CreatedAt:      time.Now().UTC(),
-	})
+	}); auditErr != nil {
+		slog.Default().Error("failed to create audit event for addon upgrade success", "cluster", clusterID, "addon", addonID, "error", auditErr)
+	}
 
 	return nil
 }
@@ -1177,7 +1183,7 @@ func (s *AddOnServiceImpl) RunAddonTests(ctx context.Context, clusterID, install
 		errMsg = detail
 	}
 
-	_ = s.repo.CreateAuditEvent(ctx, &models.AddOnAuditEvent{
+	if auditErr := s.repo.CreateAuditEvent(ctx, &models.AddOnAuditEvent{
 		ID:             uuid.New().String(),
 		ClusterID:      clusterID,
 		AddonInstallID: installID,
@@ -1190,7 +1196,9 @@ func (s *AddOnServiceImpl) RunAddonTests(ctx context.Context, clusterID, install
 		ErrorMessage:   errMsg,
 		ValuesHash:     detail, // repurpose ValuesHash to surface test summary in audit log
 		CreatedAt:      time.Now().UTC(),
-	})
+	}); auditErr != nil {
+		slog.Default().Error("failed to create audit event for addon health change", "cluster", clusterID, "addon", install.AddonID, "error", auditErr)
+	}
 
 	return result, nil
 }

@@ -2,6 +2,7 @@ package rest
 
 import (
 	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -59,6 +60,11 @@ func (h *Handler) GetClusterOverviewStream(w http.ResponseWriter, r *http.Reques
 	// Read goroutine: processes pong control frames; exits on connection close
 	readDone := make(chan struct{})
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in overview stream read goroutine", "cluster", clusterID, "error", r)
+			}
+		}()
 		defer close(readDone)
 		for {
 			if _, _, err := conn.ReadMessage(); err != nil {

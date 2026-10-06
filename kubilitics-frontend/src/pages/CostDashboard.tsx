@@ -180,7 +180,7 @@ export default function CostDashboard() {
 
   // Sorted + filtered namespace data
   const sortedNamespaces = useMemo(() => {
-    if (!data?.namespaces) return [];
+    if (!Array.isArray(data?.namespaces)) return [];
     let ns = [...data.namespaces];
     if (search) {
       const q = search.toLowerCase();

@@ -441,7 +441,7 @@ export function PVCFileBrowser({
         {/* Expanded children */}
         {isExpanded && children && (
           <div>
-            {[...children]
+            {[...(Array.isArray(children) ? children : [])]
               .sort((a, b) => {
                 if (a.type === 'dir' && b.type !== 'dir') return -1;
                 if (a.type !== 'dir' && b.type === 'dir') return 1;

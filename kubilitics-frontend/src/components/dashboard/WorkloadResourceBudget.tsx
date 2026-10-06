@@ -184,7 +184,12 @@ export function WorkloadResourceBudget() {
       <CardContent className="flex-1 px-6 pb-5 pt-3 flex flex-col">
         {/* ── Workload Type Rows ── */}
         <div className="flex-1 space-y-3">
-          {workloadTypes.length === 0 && (
+          {workloadTypes.length === 0 && podsList.isError && (
+            <div className="flex-1 flex items-center justify-center text-sm text-destructive py-8">
+              Couldn't load pod data — resource budget may be incomplete
+            </div>
+          )}
+          {workloadTypes.length === 0 && !podsList.isError && (
             <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground italic py-8">
               No active workloads
             </div>

@@ -103,6 +103,11 @@ func (e *ClusterGraphEngine) Start(ctx context.Context) {
 	e.factory.Start(ctx.Done())
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in topology graph engine sync/rebuild goroutine", "error", r)
+			}
+		}()
 		e.log.Info("waiting for informer cache sync")
 		e.factory.WaitForCacheSync(ctx.Done())
 

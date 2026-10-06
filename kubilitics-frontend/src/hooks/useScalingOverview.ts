@@ -62,5 +62,9 @@ export function useScalingOverview() {
         };
     }, [hpas.data, vpas.data, pdbs.data]);
 
-    return { data, isLoading: hpas.isLoading || vpas.isLoading || pdbs.isLoading };
+    return {
+        data,
+        isLoading: hpas.isLoading || vpas.isLoading || pdbs.isLoading,
+        isError: hpas.isError || vpas.isError || pdbs.isError,
+    };
 }

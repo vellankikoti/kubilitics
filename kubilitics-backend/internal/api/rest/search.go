@@ -1,6 +1,7 @@
 package rest
 
 import (
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -83,6 +84,11 @@ func (h *Handler) GetSearch(w http.ResponseWriter, r *http.Request) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Default().Error("panic in global search per-kind goroutine", "kind", kind, "error", r)
+				}
+			}()
 			opts := metav1.ListOptions{Limit: int64(searchPerKindLimit)}
 			list, listErr := client.ListResources(ctx, kind, "", opts)
 			if listErr != nil {

@@ -201,7 +201,7 @@ export function NetworkMetrics({ className }: { className?: string }) {
   });
 
   const filteredPods = useMemo(() => {
-    if (!data?.pods) return [];
+    if (!Array.isArray(data?.pods)) return [];
     let pods = [...data.pods];
     if (search) {
       const q = search.toLowerCase();

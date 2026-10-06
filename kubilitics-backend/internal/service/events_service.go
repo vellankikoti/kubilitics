@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
 	"sync"
 
@@ -188,6 +189,11 @@ func (s *eventsService) GetResourceEvents(ctx context.Context, clusterID, namesp
 	// Persist live events to SQLite for future reference (non-blocking)
 	if s.repo != nil && len(events) > 0 {
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Default().Error("panic in event persistence goroutine", "cluster", clusterID, "error", r)
+				}
+			}()
 			_ = s.repo.UpsertEvents(clusterID, events)
 		}()
 	}

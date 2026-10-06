@@ -40,16 +40,19 @@ function buildSimulationDiff(result: SimulationResult | null): {
   const modified = new Set<string>();
   const newSpofs = new Set<string>();
 
-  for (const n of result.removed_nodes) {
+  // `result` is a raw backend JSON response cast via a TS interface with no
+  // runtime validation — a partial/degraded simulation response missing
+  // one of these fields would crash the whole page on bare iteration.
+  for (const n of result.removed_nodes ?? []) {
     removed.add(n.key);
   }
-  for (const n of result.added_nodes) {
+  for (const n of result.added_nodes ?? []) {
     added.add(n.key);
   }
-  for (const n of result.modified_nodes) {
+  for (const n of result.modified_nodes ?? []) {
     modified.add(n.key);
   }
-  for (const spof of result.new_spofs) {
+  for (const spof of result.new_spofs ?? []) {
     newSpofs.add(spof.key);
   }
 
@@ -61,10 +64,10 @@ function buildAffectedNodes(result: SimulationResult | null): Set<string> | null
   if (!result) return null;
   const affected = new Set<string>();
 
-  for (const n of result.removed_nodes) affected.add(n.key);
-  for (const n of result.modified_nodes) affected.add(n.key);
-  for (const n of result.added_nodes) affected.add(n.key);
-  for (const spof of result.new_spofs) affected.add(spof.key);
+  for (const n of result.removed_nodes ?? []) affected.add(n.key);
+  for (const n of result.modified_nodes ?? []) affected.add(n.key);
+  for (const n of result.added_nodes ?? []) affected.add(n.key);
+  for (const spof of result.new_spofs ?? []) affected.add(spof.key);
 
   return affected.size > 0 ? affected : null;
 }
