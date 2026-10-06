@@ -23,22 +23,27 @@ import (
 // leaked or malicious connections.
 const maxListenersPerCluster = 500
 
-// OverviewCache manages real-time dashboard data for clusters using Informers.
-type OverviewCache struct {
-	mu        sync.RWMutex
-	overviews map[string]*models.ClusterOverview
-	informers map[string]*k8s.InformerManager
-	stopChs   map[string]chan struct{}
-	listeners map[string]map[chan *models.ClusterOverview]struct{}
+// clusterEntry holds all per-cluster state behind its own lock. Splitting
+// this out of one cluster-wide sync.RWMutex (Theme 2 #9) means an event on
+// cluster A's Pod informer no longer blocks a concurrent event on cluster
+// B's — lock contention no longer grows with the number of connected
+// clusters. OverviewCache's own mu guards only membership in the clusters
+// map (insert/lookup/delete), never the per-cluster fields below.
+type clusterEntry struct {
+	mu       sync.RWMutex
+	overview *models.ClusterOverview
+	informer *k8s.InformerManager
+	stopCh   chan struct{}
+	listeners map[chan *models.ClusterOverview]struct{}
 	// podPhases tracks per-pod phase for O(1) incremental status updates.
-	// Key: clusterID, Value: map[podUID]corev1.PodPhase
-	podPhases map[string]map[string]corev1.PodPhase
+	// Key: podUID
+	podPhases map[string]corev1.PodPhase
 	// podMetrics tracks the last-known restart/crash-loop/OOM snapshot per
 	// pod so MODIFIED/DELETED events can adjust the aggregate counters by
 	// the delta instead of rescanning every pod in the cluster (see
 	// updatePodStatus — this is what makes that O(1) instead of O(n)).
-	// Key: clusterID, Value: map[podUID]podMetricsSnapshot
-	podMetrics map[string]map[string]podMetricsSnapshot
+	// Key: podUID
+	podMetrics map[string]podMetricsSnapshot
 }
 
 // podMetricsSnapshot is the subset of a pod's restart/crash-loop/OOM state
@@ -49,15 +54,41 @@ type podMetricsSnapshot struct {
 	oomKilled bool
 }
 
+// OverviewCache manages real-time dashboard data for clusters using Informers.
+type OverviewCache struct {
+	mu       sync.RWMutex
+	clusters map[string]*clusterEntry
+}
+
 func NewOverviewCache() *OverviewCache {
 	return &OverviewCache{
-		overviews:  make(map[string]*models.ClusterOverview),
-		informers:  make(map[string]*k8s.InformerManager),
-		stopChs:    make(map[string]chan struct{}),
-		listeners:  make(map[string]map[chan *models.ClusterOverview]struct{}),
-		podPhases:  make(map[string]map[string]corev1.PodPhase),
-		podMetrics: make(map[string]map[string]podMetricsSnapshot),
+		clusters: make(map[string]*clusterEntry),
 	}
+}
+
+// getEntry looks up a cluster's entry under the top-level lock. The lock is
+// held only for the map read itself — all subsequent work happens under the
+// returned entry's own lock, so this never serializes work across clusters.
+func (c *OverviewCache) getEntry(clusterID string) (*clusterEntry, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	e, ok := c.clusters[clusterID]
+	return e, ok
+}
+
+// getOrCreateEntry returns the cluster's entry, creating a bare one (with
+// only its listeners map initialized) if none exists yet. This is what lets
+// Subscribe register a listener before StartClusterCache has run for that
+// cluster — the same ordering the previous separate c.listeners map allowed.
+func (c *OverviewCache) getOrCreateEntry(clusterID string) *clusterEntry {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	e, ok := c.clusters[clusterID]
+	if !ok {
+		e = &clusterEntry{listeners: make(map[chan *models.ClusterOverview]struct{})}
+		c.clusters[clusterID] = e
+	}
+	return e
 }
 
 // podCrashOOMFlags mirrors the exact per-pod classification previously done
@@ -89,24 +120,41 @@ func podRestartCount(pod *corev1.Pod) int {
 
 // GetOverview returns the cached overview for a cluster.
 func (c *OverviewCache) GetOverview(clusterID string) (*models.ClusterOverview, bool) {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	ov, ok := c.overviews[clusterID]
-	return ov, ok
+	entry, ok := c.getEntry(clusterID)
+	if !ok {
+		return nil, false
+	}
+	entry.mu.RLock()
+	defer entry.mu.RUnlock()
+	if entry.overview == nil {
+		return nil, false
+	}
+	return entry.overview, true
 }
 
 // StartClusterCache initializes and starts informers for a cluster.
 func (c *OverviewCache) StartClusterCache(ctx context.Context, clusterID string, client *k8s.Client) error {
 	c.mu.Lock()
-	if _, exists := c.informers[clusterID]; exists {
-		c.mu.Unlock()
-		return nil // Already running
+	entry, exists := c.clusters[clusterID]
+	if exists {
+		entry.mu.RLock()
+		alreadyRunning := entry.informer != nil
+		entry.mu.RUnlock()
+		if alreadyRunning {
+			c.mu.Unlock()
+			return nil
+		}
+	} else {
+		entry = &clusterEntry{listeners: make(map[chan *models.ClusterOverview]struct{})}
+		c.clusters[clusterID] = entry
 	}
+	c.mu.Unlock()
 
 	im := k8s.NewInformerManager(client)
-	c.informers[clusterID] = im
 
-	overview := &models.ClusterOverview{
+	entry.mu.Lock()
+	entry.informer = im
+	entry.overview = &models.ClusterOverview{
 		Health: models.OverviewHealth{
 			Score:     100,
 			Grade:     "A",
@@ -118,10 +166,9 @@ func (c *OverviewCache) StartClusterCache(ctx context.Context, clusterID string,
 		PodStatus: models.OverviewPodStatus{},
 		Alerts:    models.OverviewAlerts{Top3: []models.OverviewAlert{}},
 	}
-	c.overviews[clusterID] = overview
-	c.podPhases[clusterID] = make(map[string]corev1.PodPhase)
-	c.podMetrics[clusterID] = make(map[string]podMetricsSnapshot)
-	c.mu.Unlock()
+	entry.podPhases = make(map[string]corev1.PodPhase)
+	entry.podMetrics = make(map[string]podMetricsSnapshot)
+	entry.mu.Unlock()
 
 	// Register handlers for real-time updates
 	im.RegisterHandler("Pod", func(eventType string, obj interface{}) {
@@ -176,9 +223,9 @@ func (c *OverviewCache) StartClusterCache(ctx context.Context, clusterID string,
 	// (podReconcileInterval, matching NewInformerManager's 5*time.Minute) —
 	// bounds any such drift without paying a per-event cost.
 	stopCh := make(chan struct{})
-	c.mu.Lock()
-	c.stopChs[clusterID] = stopCh
-	c.mu.Unlock()
+	entry.mu.Lock()
+	entry.stopCh = stopCh
+	entry.mu.Unlock()
 	go c.runPodCountReconciliation(clusterID, stopCh)
 
 	return nil
@@ -207,23 +254,22 @@ func (c *OverviewCache) runPodCountReconciliation(clusterID string, stopCh <-cha
 }
 
 // reconcilePodCountsFromStore rebuilds Counts.Pods, the Running/Pending/
-// Succeeded/Failed breakdown, and the podPhases tracking map directly from
-// the informer's Pod store — the canonical source of truth — overwriting
-// whatever the incremental counters currently say. A no-op if the cluster's
-// cache has since been stopped.
+// Succeeded/Failed breakdown, and the podPhases/podMetrics tracking maps
+// directly from the informer's Pod store — the canonical source of truth —
+// overwriting whatever the incremental counters currently say. A no-op if
+// the cluster's cache has since been stopped.
 func (c *OverviewCache) reconcilePodCountsFromStore(clusterID string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	entry, ok := c.getEntry(clusterID)
+	if !ok {
+		return
+	}
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
 
-	ov, ok := c.overviews[clusterID]
-	if !ok {
+	if entry.overview == nil || entry.informer == nil {
 		return
 	}
-	im, ok := c.informers[clusterID]
-	if !ok {
-		return
-	}
-	store := im.GetStore("Pod")
+	store := entry.informer.GetStore("Pod")
 	if store == nil {
 		return
 	}
@@ -256,6 +302,7 @@ func (c *OverviewCache) reconcilePodCountsFromStore(clusterID string) {
 	}
 	ps.TotalRestarts = totalRestarts
 
+	ov := entry.overview
 	ov.Counts.Pods = count
 	ov.PodStatus.Running = ps.Running
 	ov.PodStatus.Pending = ps.Pending
@@ -264,42 +311,61 @@ func (c *OverviewCache) reconcilePodCountsFromStore(clusterID string) {
 	ov.PodStatus.TotalRestarts = ps.TotalRestarts
 	ov.PodStatus.CrashLoopBackOff = ps.CrashLoopBackOff
 	ov.PodStatus.OOMKilled = ps.OOMKilled
-	c.podPhases[clusterID] = phases
-	c.podMetrics[clusterID] = metrics
+	entry.podPhases = phases
+	entry.podMetrics = metrics
 }
 
 // GetInformerManager returns the InformerManager for a cluster, or nil if not
 // started. Used by the REST handler to serve resource lists from the informer
 // cache (sub-millisecond) instead of hitting the K8s API every time.
 func (c *OverviewCache) GetInformerManager(clusterID string) *k8s.InformerManager {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-	return c.informers[clusterID]
+	entry, ok := c.getEntry(clusterID)
+	if !ok {
+		return nil
+	}
+	entry.mu.RLock()
+	defer entry.mu.RUnlock()
+	return entry.informer
 }
 
-// StopClusterCache stops informers for a cluster.
+// StopClusterCache stops informers for a cluster. Deliberately does not
+// remove the cluster's entry (or its listeners) from the top-level map —
+// a subscriber's channel from Subscribe survives a stop/restart cycle,
+// matching the previous behavior where listeners lived in a separate map
+// from overviews/informers.
 func (c *OverviewCache) StopClusterCache(clusterID string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	if im, exists := c.informers[clusterID]; exists {
-		im.Stop()
-		delete(c.informers, clusterID)
-		delete(c.overviews, clusterID)
-		delete(c.podPhases, clusterID)
-		delete(c.podMetrics, clusterID)
+	entry, ok := c.getEntry(clusterID)
+	if !ok {
+		return
 	}
-	if stopCh, exists := c.stopChs[clusterID]; exists {
+
+	entry.mu.Lock()
+	if entry.informer != nil {
+		entry.informer.Stop()
+		entry.informer = nil
+	}
+	entry.overview = nil
+	entry.podPhases = nil
+	entry.podMetrics = nil
+	stopCh := entry.stopCh
+	entry.stopCh = nil
+	entry.mu.Unlock()
+
+	if stopCh != nil {
 		close(stopCh)
-		delete(c.stopChs, clusterID)
 	}
 }
 
 func (c *OverviewCache) notifyStream(clusterID string) {
-	c.mu.RLock()
-	ov := c.overviews[clusterID]
-	listeners := c.listeners[clusterID]
+	entry, ok := c.getEntry(clusterID)
+	if !ok {
+		return
+	}
+	entry.mu.RLock()
+	ov := entry.overview
+	listeners := entry.listeners
 	if ov == nil || len(listeners) == 0 {
-		c.mu.RUnlock()
+		entry.mu.RUnlock()
 		return
 	}
 	// Deep-copy the overview under the lock to avoid sending a shared pointer
@@ -332,7 +398,7 @@ func (c *OverviewCache) notifyStream(clusterID string) {
 		u := *ov.Utilization
 		snapshot.Utilization = &u
 	}
-	c.mu.RUnlock()
+	entry.mu.RUnlock()
 
 	for ch := range listeners {
 		select {
@@ -348,20 +414,25 @@ var ErrTooManyListeners = errors.New("too many overview stream listeners for thi
 
 // Subscribe returns a channel that receives overview updates for a cluster.
 // Returns ErrTooManyListeners if the per-cluster listener limit is reached.
+// May be called before StartClusterCache for the same clusterID — the entry
+// is created lazily and StartClusterCache reuses it rather than replacing it,
+// so a listener registered early is never lost.
 func (c *OverviewCache) Subscribe(clusterID string) (chan *models.ClusterOverview, func(), error) {
 	ch := make(chan *models.ClusterOverview, 10)
 
-	c.mu.Lock()
-	if c.listeners[clusterID] == nil {
-		c.listeners[clusterID] = make(map[chan *models.ClusterOverview]struct{})
+	entry := c.getOrCreateEntry(clusterID)
+
+	entry.mu.Lock()
+	if entry.listeners == nil {
+		entry.listeners = make(map[chan *models.ClusterOverview]struct{})
 	}
-	if len(c.listeners[clusterID]) >= maxListenersPerCluster {
-		c.mu.Unlock()
+	if len(entry.listeners) >= maxListenersPerCluster {
+		entry.mu.Unlock()
 		log.Printf("overview cache: listener limit reached for cluster %s (%d)", clusterID, maxListenersPerCluster)
 		return nil, nil, ErrTooManyListeners
 	}
-	c.listeners[clusterID][ch] = struct{}{}
-	c.mu.Unlock()
+	entry.listeners[ch] = struct{}{}
+	entry.mu.Unlock()
 
 	// Initial push — deep-copy to avoid sending a shared pointer (same as notifyStream).
 	if ov, ok := c.GetOverview(clusterID); ok {
@@ -395,10 +466,10 @@ func (c *OverviewCache) Subscribe(clusterID string) (chan *models.ClusterOvervie
 	}
 
 	unsubscribe := func() {
-		c.mu.Lock()
-		defer c.mu.Unlock()
-		if _, exists := c.listeners[clusterID][ch]; exists {
-			delete(c.listeners[clusterID], ch)
+		entry.mu.Lock()
+		defer entry.mu.Unlock()
+		if _, exists := entry.listeners[ch]; exists {
+			delete(entry.listeners, ch)
 			close(ch)
 		}
 	}
@@ -452,13 +523,17 @@ func incrementPhaseCounter(ps *models.OverviewPodStatus, phase corev1.PodPhase) 
 // directly on the watch. Previously the type assertion below failed silently
 // for that case and returned before decrementing — the counter only ever grew.
 func (c *OverviewCache) updatePodStatus(clusterID string, eventType string, obj interface{}) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	ov, ok := c.overviews[clusterID]
+	entry, ok := c.getEntry(clusterID)
 	if !ok {
 		return
 	}
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+
+	if entry.overview == nil {
+		return
+	}
+	ov := entry.overview
 
 	if tombstone, isTombstone := obj.(cache.DeletedFinalStateUnknown); isTombstone {
 		obj = tombstone.Obj
@@ -469,15 +544,15 @@ func (c *OverviewCache) updatePodStatus(clusterID string, eventType string, obj 
 		return
 	}
 
-	phases := c.podPhases[clusterID]
+	phases := entry.podPhases
 	if phases == nil {
 		phases = make(map[string]corev1.PodPhase)
-		c.podPhases[clusterID] = phases
+		entry.podPhases = phases
 	}
-	metrics := c.podMetrics[clusterID]
+	metrics := entry.podMetrics
 	if metrics == nil {
 		metrics = make(map[string]podMetricsSnapshot)
-		c.podMetrics[clusterID] = metrics
+		entry.podMetrics = metrics
 	}
 
 	uid := string(pod.UID)
@@ -567,13 +642,17 @@ func (c *OverviewCache) updatePodStatus(clusterID string, eventType string, obj 
 }
 
 func (c *OverviewCache) updateNodeCount(clusterID string, _ string, _ interface{}) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	ov, ok := c.overviews[clusterID]
+	entry, ok := c.getEntry(clusterID)
 	if !ok {
 		return
 	}
-	nodeItems := c.informers[clusterID].GetStore("Node").List()
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	if entry.overview == nil || entry.informer == nil {
+		return
+	}
+	ov := entry.overview
+	nodeItems := entry.informer.GetStore("Node").List()
 	ov.Counts.Nodes = len(nodeItems)
 	readyNodes := 0
 	diskPressure := 0
@@ -611,23 +690,30 @@ func (c *OverviewCache) updateNodeCount(clusterID string, _ string, _ interface{
 }
 
 func (c *OverviewCache) updateNamespaceCount(clusterID string, _ string, _ interface{}) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	ov, ok := c.overviews[clusterID]
+	entry, ok := c.getEntry(clusterID)
 	if !ok {
 		return
 	}
-	ov.Counts.Namespaces = len(c.informers[clusterID].GetStore("Namespace").List())
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	if entry.overview == nil || entry.informer == nil {
+		return
+	}
+	entry.overview.Counts.Namespaces = len(entry.informer.GetStore("Namespace").List())
 }
 
 func (c *OverviewCache) updateDeploymentCount(clusterID string, _ string, _ interface{}) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	ov, ok := c.overviews[clusterID]
+	entry, ok := c.getEntry(clusterID)
 	if !ok {
 		return
 	}
-	items := c.informers[clusterID].GetStore("Deployment").List()
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	if entry.overview == nil || entry.informer == nil {
+		return
+	}
+	ov := entry.overview
+	items := entry.informer.GetStore("Deployment").List()
 	ov.Counts.Deployments = len(items)
 	available, unavailable := 0, 0
 	for _, obj := range items {
@@ -647,13 +733,17 @@ func (c *OverviewCache) updateDeploymentCount(clusterID string, _ string, _ inte
 }
 
 func (c *OverviewCache) updateDaemonSetCount(clusterID string, _ string, _ interface{}) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	ov, ok := c.overviews[clusterID]
+	entry, ok := c.getEntry(clusterID)
 	if !ok {
 		return
 	}
-	items := c.informers[clusterID].GetStore("DaemonSet").List()
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	if entry.overview == nil || entry.informer == nil {
+		return
+	}
+	ov := entry.overview
+	items := entry.informer.GetStore("DaemonSet").List()
 	ov.Counts.DaemonSetsTotal = len(items)
 	ready := 0
 	for _, obj := range items {
@@ -668,13 +758,17 @@ func (c *OverviewCache) updateDaemonSetCount(clusterID string, _ string, _ inter
 }
 
 func (c *OverviewCache) updateStatefulSetCount(clusterID string, _ string, _ interface{}) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	ov, ok := c.overviews[clusterID]
+	entry, ok := c.getEntry(clusterID)
 	if !ok {
 		return
 	}
-	items := c.informers[clusterID].GetStore("StatefulSet").List()
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	if entry.overview == nil || entry.informer == nil {
+		return
+	}
+	ov := entry.overview
+	items := entry.informer.GetStore("StatefulSet").List()
 	ov.Counts.StatefulSetsTotal = len(items)
 	ready := 0
 	for _, obj := range items {
@@ -689,14 +783,18 @@ func (c *OverviewCache) updateStatefulSetCount(clusterID string, _ string, _ int
 }
 
 func (c *OverviewCache) updateAlerts(clusterID string, _ string, _ interface{}) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	ov, ok := c.overviews[clusterID]
+	entry, ok := c.getEntry(clusterID)
 	if !ok {
 		return
 	}
+	entry.mu.Lock()
+	defer entry.mu.Unlock()
+	if entry.overview == nil || entry.informer == nil {
+		return
+	}
+	ov := entry.overview
 
-	events := c.informers[clusterID].GetStore("Event").List()
+	events := entry.informer.GetStore("Event").List()
 	warnings := 0
 	critical := 0
 	var top3 []models.OverviewAlert
@@ -724,7 +822,8 @@ func (c *OverviewCache) updateAlerts(clusterID string, _ string, _ interface{}) 
 }
 
 // recalculateHealthRLocked builds a ClusterState from cached data and delegates
-// to the enterprise healthscore.Score() engine. Must be called under write lock.
+// to the enterprise healthscore.Score() engine. Must be called under the
+// owning entry's write lock.
 func (c *OverviewCache) recalculateHealthRLocked(ov *models.ClusterOverview) {
 	state := healthscore.ClusterState{
 		TotalNodes:    ov.Counts.Nodes,

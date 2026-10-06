@@ -29,12 +29,13 @@ import (
 
 func newTestOverviewCacheWithCluster(clusterID string) *OverviewCache {
 	c := NewOverviewCache()
-	c.overviews[clusterID] = &models.ClusterOverview{
+	entry := c.getOrCreateEntry(clusterID)
+	entry.overview = &models.ClusterOverview{
 		Counts:    models.OverviewCounts{},
 		PodStatus: models.OverviewPodStatus{},
 		Alerts:    models.OverviewAlerts{Top3: []models.OverviewAlert{}},
 	}
-	c.podPhases[clusterID] = make(map[string]corev1.PodPhase)
+	entry.podPhases = make(map[string]corev1.PodPhase)
 	return c
 }
 
@@ -201,10 +202,11 @@ func TestReconcilePodCountsFromStore_ConvergesToInformerTruth(t *testing.T) {
 	// for whatever missed-event class caused Counts.Pods to diverge from the
 	// store (e.g. an event delivered while the handler briefly wasn't
 	// registered, or any future edge case beyond the tombstone fix above).
-	c.mu.Lock()
-	c.overviews[clusterID].Counts.Pods = 999
-	c.overviews[clusterID].PodStatus.Running = 999
-	c.mu.Unlock()
+	entry, _ := c.getEntry(clusterID)
+	entry.mu.Lock()
+	entry.overview.Counts.Pods = 999
+	entry.overview.PodStatus.Running = 999
+	entry.mu.Unlock()
 
 	c.reconcilePodCountsFromStore(clusterID)
 
@@ -229,10 +231,14 @@ func TestRunPodCountReconciliation_StopsPromptlyOnStopClusterCache(t *testing.T)
 		t.Fatalf("StartClusterCache: %v", err)
 	}
 
-	c.mu.RLock()
-	stopCh, ok := c.stopChs[clusterID]
-	c.mu.RUnlock()
+	entry, ok := c.getEntry(clusterID)
 	if !ok {
+		t.Fatal("expected a cluster entry to be registered")
+	}
+	entry.mu.RLock()
+	stopCh := entry.stopCh
+	entry.mu.RUnlock()
+	if stopCh == nil {
 		t.Fatal("expected a reconciliation stop channel to be registered")
 	}
 
