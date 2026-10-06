@@ -221,12 +221,17 @@ func (h *Handler) GetShellStream(w http.ResponseWriter, r *http.Request) {
 			b, _ := json.Marshal(m)
 			_ = conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
 			if err := conn.WriteMessage(websocket.TextMessage, b); err != nil {
+				// Cancel ctx so chanWriter.Write (PTY reader goroutine,
+				// potentially blocked mid-send on outChan) unblocks via its
+				// ctx.Done() case instead of leaking forever — this writer
+				// stops draining outChan right here.
+				cancel()
 				return
 			}
 		}
 	}()
 
-	stdoutW := &chanWriter{ch: outChan, typ: wsMsgStdout}
+	stdoutW := &chanWriter{ch: outChan, typ: wsMsgStdout, ctx: ctx}
 	// PTY combines stdout+stderr into one stream; send as stdout
 	go func() {
 		defer func() {

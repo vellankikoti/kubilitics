@@ -187,7 +187,7 @@ func (h *Handler) GetKCLIStream(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	stdoutW := &chanWriter{ch: outChan, typ: wsMsgStdout}
+	stdoutW := &chanWriter{ch: outChan, typ: wsMsgStdout, ctx: ctx}
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {

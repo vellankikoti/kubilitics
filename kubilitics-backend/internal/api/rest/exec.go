@@ -83,6 +83,7 @@ func (q *sizeQueue) push(cols, rows uint16) {
 type chanWriter struct {
 	ch  chan<- wsOutMessage
 	typ string
+	ctx context.Context
 }
 
 func (w *chanWriter) Write(p []byte) (n int, err error) {
@@ -90,9 +91,17 @@ func (w *chanWriter) Write(p []byte) (n int, err error) {
 		return 0, nil
 	}
 	d := base64.StdEncoding.EncodeToString(p)
-	// Block so we never drop stdout/stderr; back-pressure propagates to the exec stream.
-	w.ch <- wsOutMessage{T: w.typ, D: d}
-	return len(p), nil
+	// Block so we never drop stdout/stderr; back-pressure propagates to the
+	// exec stream. But also select on ctx — if the write-pump goroutine
+	// already exited (e.g. the client disconnected) without draining
+	// outChan further, a bare channel send here would block forever,
+	// leaking this goroutine and the underlying K8s exec connection.
+	select {
+	case w.ch <- wsOutMessage{T: w.typ, D: d}:
+		return len(p), nil
+	case <-w.ctx.Done():
+		return 0, w.ctx.Err()
+	}
 }
 
 // GetPodExec handles GET /clusters/{clusterId}/pods/{namespace}/{name}/exec
@@ -242,8 +251,8 @@ func (h *Handler) GetPodExec(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	stdoutW := &chanWriter{ch: outChan, typ: wsMsgStdout}
-	stderrW := &chanWriter{ch: outChan, typ: wsMsgStderr}
+	stdoutW := &chanWriter{ch: outChan, typ: wsMsgStdout, ctx: ctx}
+	stderrW := &chanWriter{ch: outChan, typ: wsMsgStderr, ctx: ctx}
 
 	// Build command: try multiple shells for distroless/minimal containers.
 	// The wrapper script tries bash → sh → ash in order within a single exec.
