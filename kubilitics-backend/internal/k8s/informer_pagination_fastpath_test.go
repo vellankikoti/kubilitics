@@ -20,7 +20,7 @@ import (
 // small page out of a large collection.
 
 func newTestInformerManagerWithPods(n int) *InformerManager {
-	store := cache.NewStore(cache.MetaNamespaceKeyFunc)
+	store := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
 	base := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	for i := 0; i < n; i++ {
 		ns := fmt.Sprintf("ns-%02d", i%5)
@@ -35,7 +35,7 @@ func newTestInformerManagerWithPods(n int) *InformerManager {
 		_ = store.Add(pod)
 	}
 	im := &InformerManager{
-		stores: map[string]cache.Store{"Pod": store},
+		stores: map[string]cache.Indexer{"Pod": store},
 	}
 	im.synced.Store(true)
 	return im

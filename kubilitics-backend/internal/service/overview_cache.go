@@ -33,16 +33,58 @@ type OverviewCache struct {
 	// podPhases tracks per-pod phase for O(1) incremental status updates.
 	// Key: clusterID, Value: map[podUID]corev1.PodPhase
 	podPhases map[string]map[string]corev1.PodPhase
+	// podMetrics tracks the last-known restart/crash-loop/OOM snapshot per
+	// pod so MODIFIED/DELETED events can adjust the aggregate counters by
+	// the delta instead of rescanning every pod in the cluster (see
+	// updatePodStatus — this is what makes that O(1) instead of O(n)).
+	// Key: clusterID, Value: map[podUID]podMetricsSnapshot
+	podMetrics map[string]map[string]podMetricsSnapshot
+}
+
+// podMetricsSnapshot is the subset of a pod's restart/crash-loop/OOM state
+// that feeds OverviewCache's aggregate PodStatus counters.
+type podMetricsSnapshot struct {
+	restarts  int
+	crashLoop bool
+	oomKilled bool
 }
 
 func NewOverviewCache() *OverviewCache {
 	return &OverviewCache{
-		overviews: make(map[string]*models.ClusterOverview),
-		informers: make(map[string]*k8s.InformerManager),
-		stopChs:   make(map[string]chan struct{}),
-		listeners: make(map[string]map[chan *models.ClusterOverview]struct{}),
-		podPhases: make(map[string]map[string]corev1.PodPhase),
+		overviews:  make(map[string]*models.ClusterOverview),
+		informers:  make(map[string]*k8s.InformerManager),
+		stopChs:    make(map[string]chan struct{}),
+		listeners:  make(map[string]map[chan *models.ClusterOverview]struct{}),
+		podPhases:  make(map[string]map[string]corev1.PodPhase),
+		podMetrics: make(map[string]map[string]podMetricsSnapshot),
 	}
+}
+
+// podCrashOOMFlags mirrors the exact per-pod classification previously done
+// by the full-rescan recalculatePodConditions: iterate containers in order,
+// and the FIRST container matching either condition decides the pod's
+// classification (a pod contributes to at most one of crashLoop/oomKilled).
+func podCrashOOMFlags(pod *corev1.Pod) (crashLoop bool, oomKilled bool) {
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "CrashLoopBackOff" {
+			return true, false
+		}
+		if cs.LastTerminationState.Terminated != nil && cs.LastTerminationState.Terminated.Reason == "OOMKilled" {
+			return false, true
+		}
+	}
+	return false, false
+}
+
+func podRestartCount(pod *corev1.Pod) int {
+	total := 0
+	for _, cs := range pod.Status.ContainerStatuses {
+		total += int(cs.RestartCount)
+	}
+	for _, cs := range pod.Status.InitContainerStatuses {
+		total += int(cs.RestartCount)
+	}
+	return total
 }
 
 // GetOverview returns the cached overview for a cluster.
@@ -78,6 +120,7 @@ func (c *OverviewCache) StartClusterCache(ctx context.Context, clusterID string,
 	}
 	c.overviews[clusterID] = overview
 	c.podPhases[clusterID] = make(map[string]corev1.PodPhase)
+	c.podMetrics[clusterID] = make(map[string]podMetricsSnapshot)
 	c.mu.Unlock()
 
 	// Register handlers for real-time updates
@@ -186,11 +229,9 @@ func (c *OverviewCache) reconcilePodCountsFromStore(clusterID string) {
 	}
 
 	phases := make(map[string]corev1.PodPhase)
-	ps := models.OverviewPodStatus{
-		TotalRestarts:    ov.PodStatus.TotalRestarts,
-		CrashLoopBackOff: ov.PodStatus.CrashLoopBackOff,
-		OOMKilled:        ov.PodStatus.OOMKilled,
-	}
+	metrics := make(map[string]podMetricsSnapshot)
+	var ps models.OverviewPodStatus
+	totalRestarts := 0
 	count := 0
 	for _, obj := range store.List() {
 		pod, ok := obj.(*corev1.Pod)
@@ -198,16 +239,33 @@ func (c *OverviewCache) reconcilePodCountsFromStore(clusterID string) {
 			continue
 		}
 		count++
-		phases[string(pod.UID)] = pod.Status.Phase
+		uid := string(pod.UID)
+		phases[uid] = pod.Status.Phase
 		incrementPhaseCounter(&ps, pod.Status.Phase)
+
+		crashLoop, oomKilled := podCrashOOMFlags(pod)
+		snap := podMetricsSnapshot{restarts: podRestartCount(pod), crashLoop: crashLoop, oomKilled: oomKilled}
+		metrics[uid] = snap
+		totalRestarts += snap.restarts
+		if crashLoop {
+			ps.CrashLoopBackOff++
+		}
+		if oomKilled {
+			ps.OOMKilled++
+		}
 	}
+	ps.TotalRestarts = totalRestarts
 
 	ov.Counts.Pods = count
 	ov.PodStatus.Running = ps.Running
 	ov.PodStatus.Pending = ps.Pending
 	ov.PodStatus.Succeeded = ps.Succeeded
 	ov.PodStatus.Failed = ps.Failed
+	ov.PodStatus.TotalRestarts = ps.TotalRestarts
+	ov.PodStatus.CrashLoopBackOff = ps.CrashLoopBackOff
+	ov.PodStatus.OOMKilled = ps.OOMKilled
 	c.podPhases[clusterID] = phases
+	c.podMetrics[clusterID] = metrics
 }
 
 // GetInformerManager returns the InformerManager for a cluster, or nil if not
@@ -228,6 +286,7 @@ func (c *OverviewCache) StopClusterCache(clusterID string) {
 		delete(c.informers, clusterID)
 		delete(c.overviews, clusterID)
 		delete(c.podPhases, clusterID)
+		delete(c.podMetrics, clusterID)
 	}
 	if stopCh, exists := c.stopChs[clusterID]; exists {
 		close(stopCh)
@@ -415,17 +474,50 @@ func (c *OverviewCache) updatePodStatus(clusterID string, eventType string, obj 
 		phases = make(map[string]corev1.PodPhase)
 		c.podPhases[clusterID] = phases
 	}
+	metrics := c.podMetrics[clusterID]
+	if metrics == nil {
+		metrics = make(map[string]podMetricsSnapshot)
+		c.podMetrics[clusterID] = metrics
+	}
 
 	uid := string(pod.UID)
 	newPhase := pod.Status.Phase
-
-	// Track total restart count from container statuses
-	podRestarts := 0
-	for _, cs := range pod.Status.ContainerStatuses {
-		podRestarts += int(cs.RestartCount)
+	newCrashLoop, newOOMKilled := podCrashOOMFlags(pod)
+	newSnapshot := podMetricsSnapshot{
+		restarts:  podRestartCount(pod),
+		crashLoop: newCrashLoop,
+		oomKilled: newOOMKilled,
 	}
-	for _, cs := range pod.Status.InitContainerStatuses {
-		podRestarts += int(cs.RestartCount)
+
+	// applyMetricsDelta adjusts the aggregate counters by the difference
+	// between old and new per-pod snapshots — O(1) regardless of cluster
+	// size, instead of the full-rescan recalculateTotalRestarts/
+	// recalculatePodConditions this replaces.
+	applyMetricsDelta := func(old, new podMetricsSnapshot) {
+		ov.PodStatus.TotalRestarts += new.restarts - old.restarts
+		if ov.PodStatus.TotalRestarts < 0 {
+			ov.PodStatus.TotalRestarts = 0
+		}
+		if old.crashLoop != new.crashLoop {
+			if new.crashLoop {
+				ov.PodStatus.CrashLoopBackOff++
+			} else {
+				ov.PodStatus.CrashLoopBackOff--
+				if ov.PodStatus.CrashLoopBackOff < 0 {
+					ov.PodStatus.CrashLoopBackOff = 0
+				}
+			}
+		}
+		if old.oomKilled != new.oomKilled {
+			if new.oomKilled {
+				ov.PodStatus.OOMKilled++
+			} else {
+				ov.PodStatus.OOMKilled--
+				if ov.PodStatus.OOMKilled < 0 {
+					ov.PodStatus.OOMKilled = 0
+				}
+			}
+		}
 	}
 
 	switch eventType {
@@ -434,7 +526,8 @@ func (c *OverviewCache) updatePodStatus(clusterID string, eventType string, obj 
 			incrementPhaseCounter(&ov.PodStatus, newPhase)
 			phases[uid] = newPhase
 			ov.Counts.Pods++
-			ov.PodStatus.TotalRestarts += podRestarts
+			applyMetricsDelta(podMetricsSnapshot{}, newSnapshot)
+			metrics[uid] = newSnapshot
 		}
 	case "MODIFIED":
 		if oldPhase, exists := phases[uid]; exists {
@@ -443,15 +536,16 @@ func (c *OverviewCache) updatePodStatus(clusterID string, eventType string, obj 
 				incrementPhaseCounter(&ov.PodStatus, newPhase)
 				phases[uid] = newPhase
 			}
+			applyMetricsDelta(metrics[uid], newSnapshot)
+			metrics[uid] = newSnapshot
 		} else {
 			// Pod not tracked yet (missed ADDED event); treat as add
 			incrementPhaseCounter(&ov.PodStatus, newPhase)
 			phases[uid] = newPhase
 			ov.Counts.Pods++
+			applyMetricsDelta(podMetricsSnapshot{}, newSnapshot)
+			metrics[uid] = newSnapshot
 		}
-		// Recalculate total restarts from all tracked pods would be expensive;
-		// instead, on MODIFIED we re-list total from store for accuracy.
-		c.recalculateTotalRestarts(clusterID, ov)
 	case "DELETED":
 		if oldPhase, exists := phases[uid]; exists {
 			decrementPhaseCounter(&ov.PodStatus, oldPhase)
@@ -460,15 +554,15 @@ func (c *OverviewCache) updatePodStatus(clusterID string, eventType string, obj 
 			if ov.Counts.Pods < 0 {
 				ov.Counts.Pods = 0
 			}
-			ov.PodStatus.TotalRestarts -= podRestarts
-			if ov.PodStatus.TotalRestarts < 0 {
-				ov.PodStatus.TotalRestarts = 0
-			}
+			// Subtract the last-tracked snapshot, not a fresh read of obj —
+			// a DeletedFinalStateUnknown tombstone's object can be stale or
+			// incomplete, but our own tracked state is exactly what we added.
+			applyMetricsDelta(metrics[uid], podMetricsSnapshot{})
+			delete(metrics, uid)
 		}
 		_ = newPhase // suppress unused warning for deleted pods
 	}
 
-	c.recalculatePodConditions(clusterID, ov)
 	c.recalculateHealthRLocked(ov)
 }
 
@@ -627,66 +721,6 @@ func (c *OverviewCache) updateAlerts(clusterID string, _ string, _ interface{}) 
 	ov.Alerts.Critical = critical
 	ov.Alerts.Top3 = top3
 	c.recalculateHealthRLocked(ov)
-}
-
-// recalculateTotalRestarts recomputes the total restart count from the Pod informer store.
-// Called under write lock from updatePodStatus on MODIFIED events for accuracy.
-func (c *OverviewCache) recalculateTotalRestarts(clusterID string, ov *models.ClusterOverview) {
-	im, ok := c.informers[clusterID]
-	if !ok {
-		return
-	}
-	store := im.GetStore("Pod")
-	if store == nil {
-		return
-	}
-	total := 0
-	for _, obj := range store.List() {
-		pod, ok := obj.(*corev1.Pod)
-		if !ok {
-			continue
-		}
-		for _, cs := range pod.Status.ContainerStatuses {
-			total += int(cs.RestartCount)
-		}
-		for _, cs := range pod.Status.InitContainerStatuses {
-			total += int(cs.RestartCount)
-		}
-	}
-	ov.PodStatus.TotalRestarts = total
-}
-
-// recalculatePodConditions recomputes CrashLoopBackOff and OOMKilled counts from the Pod informer store.
-// Called under write lock from updatePodStatus for accuracy.
-func (c *OverviewCache) recalculatePodConditions(clusterID string, ov *models.ClusterOverview) {
-	im, ok := c.informers[clusterID]
-	if !ok {
-		return
-	}
-	store := im.GetStore("Pod")
-	if store == nil {
-		return
-	}
-	crashLoop := 0
-	oomKilled := 0
-	for _, obj := range store.List() {
-		pod, ok := obj.(*corev1.Pod)
-		if !ok {
-			continue
-		}
-		for _, cs := range pod.Status.ContainerStatuses {
-			if cs.State.Waiting != nil && cs.State.Waiting.Reason == "CrashLoopBackOff" {
-				crashLoop++
-				break
-			}
-			if cs.LastTerminationState.Terminated != nil && cs.LastTerminationState.Terminated.Reason == "OOMKilled" {
-				oomKilled++
-				break
-			}
-		}
-	}
-	ov.PodStatus.CrashLoopBackOff = crashLoop
-	ov.PodStatus.OOMKilled = oomKilled
 }
 
 // recalculateHealthRLocked builds a ClusterState from cached data and delegates
