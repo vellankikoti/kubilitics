@@ -7,7 +7,7 @@ import { backendRequest, BackendApiError, API_PREFIX } from './client';
 import type {
   PortForwardStartRequest,
   PortForwardStartResponse,
-  ContainerFileEntry,
+  ListContainerFilesResult,
 } from './types';
 
 /** POST /api/v1/clusters/{clusterId}/port-forward — starts a real kubectl port-forward subprocess. */
@@ -57,7 +57,9 @@ export async function stopPortForward(
 
 // ── File Transfer ────────────────────────────────────────────────────────
 
-/** POST /api/v1/clusters/{clusterId}/resources/{namespace}/{pod}/ls — lists files in a container directory. */
+/** POST /api/v1/clusters/{clusterId}/resources/{namespace}/{pod}/ls — lists files in a container directory.
+ * Server-side bounded (file_transfer.go's maxLsEntries); result.truncated
+ * tells the caller when a directory had more entries than were returned. */
 export async function listContainerFiles(
   baseUrl: string,
   clusterId: string,
@@ -65,8 +67,8 @@ export async function listContainerFiles(
   pod: string,
   path: string,
   container: string
-): Promise<ContainerFileEntry[]> {
-  return backendRequest<ContainerFileEntry[]>(
+): Promise<ListContainerFilesResult> {
+  return backendRequest<ListContainerFilesResult>(
     baseUrl,
     `clusters/${encodeURIComponent(clusterId)}/resources/${encodeURIComponent(namespace)}/${encodeURIComponent(pod)}/ls`,
     { method: 'POST', body: JSON.stringify({ path, container }) }

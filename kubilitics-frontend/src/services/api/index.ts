@@ -58,6 +58,7 @@ export type {
   PortForwardStartRequest,
   PortForwardStartResponse,
   ContainerFileEntry,
+  ListContainerFilesResult,
 } from './types';
 
 // ── Clusters ──────────────────────────────────────────────────────────────────
