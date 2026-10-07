@@ -2467,6 +2467,19 @@ func (h *Handler) GetResourceTopology(w http.ResponseWriter, r *http.Request) {
 		ClusterID:   clusterID,
 		ClusterName: clusterName,
 		Mode:        topologyv2.ViewModeCluster, // Use cluster mode to get ALL nodes; handler does its own BFS filtering
+		// Scope collection to the focus resource's own namespace (empty for
+		// a cluster-scoped kind like Node, which legitimately needs
+		// cross-namespace pods as neighbors). Every namespaced relationship
+		// a Pod/Deployment/etc.'s BFS neighborhood can reach — ownership,
+		// Service/NetworkPolicy/PDB selectors, ConfigMap/Secret/PVC refs —
+		// stays within one namespace by Kubernetes's own object model, so
+		// this doesn't drop real edges; it just stops collectFromClient
+		// (when the ClusterGraphEngine seed isn't available) from listing
+		// every resource of every kind across every OTHER namespace in the
+		// cluster just to show a 1-2 hop neighborhood around one resource —
+		// exactly the "fetches everything, times out, shows nothing" failure
+		// mode reported against v1.2.3's resource topology view.
+		Namespace: namespace,
 	}
 	// Parse hop depth from query (default 1 = direct connections only).
 	// Accept both "depth" (frontend convention) and "hops" (backend legacy) — "depth" takes precedence.
