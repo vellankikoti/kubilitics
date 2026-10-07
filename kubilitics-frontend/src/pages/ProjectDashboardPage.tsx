@@ -42,8 +42,9 @@ export default function ProjectDashboardPage() {
 
   const projectQuery = useProject(projectId ?? null);
   const project = projectQuery.data;
-  const { data: clustersFromBackend } = useClustersFromBackend();
-  const allClusters = clustersFromBackend ?? [];
+  const clustersQuery = useClustersFromBackend();
+  const allClusters = clustersQuery.data ?? [];
+  const clustersLoadFailed = clustersQuery.isError;
 
   useEffect(() => {
     if (project) {
@@ -63,9 +64,8 @@ export default function ProjectDashboardPage() {
   };
 
   const handleConnectCluster = (clusterId: string) => {
-    const backendCluster = allClusters.find((c) => c.id === clusterId);
-    if (!backendCluster) return;
-    // Presence SSE already has every registered cluster; activate by uuid.
+    // clusterId comes from project.clusters (already known-valid); allClusters is only
+    // used for display enrichment, so its absence (e.g. a failed fetch) must not block connecting.
     setActiveClusterBySessionId(clusterId);
     setDemo(false);
   };
@@ -140,6 +140,17 @@ export default function ProjectDashboardPage() {
           </Button>
         </div>
         <div className="rounded-xl border border-border bg-card p-6 flex-1">
+          {clustersLoadFailed && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 mb-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>Couldn&apos;t load live cluster names — connecting will still work.</span>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => clustersQuery.refetch()}>
+                Retry
+              </Button>
+            </div>
+          )}
           <p className="text-sm text-muted-foreground mb-4">Connect to one of this project&apos;s clusters:</p>
           <div className="flex flex-wrap gap-2">
             {project.clusters?.map((pc) => {

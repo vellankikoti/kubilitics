@@ -81,6 +81,7 @@ export default function ProjectDetailPage() {
   const setDemo = useDemoStore((s) => s.setDemo);
   const clustersQuery = useClustersFromBackend();
   const allClusters = clustersQuery.data ?? [];
+  const clustersLoadFailed = clustersQuery.isError;
 
   const projectQuery = useProject(projectId!);
   const project = projectQuery.data;
@@ -99,7 +100,11 @@ export default function ProjectDetailPage() {
   const handleConnect = (clusterId: string) => {
     const backendCluster = allClusters.find((c) => c.id === clusterId);
     if (!backendCluster) {
-      toast.error('Cluster not found');
+      toast.error(
+        clustersLoadFailed
+          ? 'Could not load cluster details — check your connection and try again'
+          : 'Cluster not found'
+      );
       return;
     }
     // Presence SSE has every registered cluster; activate by session id.
@@ -172,6 +177,17 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="space-y-8">
+      {clustersLoadFailed && (
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
+            <AlertCircle className="h-4 w-4 shrink-0" />
+            <span>Couldn&apos;t load live cluster connection details. Connect actions may not work until this is retried.</span>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => clustersQuery.refetch()}>
+            Retry
+          </Button>
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')} aria-label="Back">

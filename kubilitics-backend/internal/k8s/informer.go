@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
+	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextensionsinformers "k8s.io/apiextensions-apiserver/pkg/client/informers/externalversions"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -35,6 +39,11 @@ type InformerManager struct {
 	// for O(1) namespace lookups via ByIndex; GetStore() would throw it away.
 	stores map[string]cache.Indexer
 	synced atomic.Bool // true after WaitForCacheSync succeeds
+	// crdFactory is a separate SharedInformerFactory for CustomResourceDefinition:
+	// apiextensions.k8s.io isn't part of kubernetes.Interface, so it needs its own
+	// clientset. nil if that clientset failed to construct — CRDs then keep using
+	// the direct API fallback, same as any other uncached kind.
+	crdFactory apiextensionsinformers.SharedInformerFactory
 }
 
 // NewInformerManager creates a new informer manager
@@ -46,13 +55,25 @@ func NewInformerManager(client *Client) *InformerManager {
 	// a safety net for missed events, not a data source.
 	factory := informers.NewSharedInformerFactory(client.Clientset, 5*time.Minute)
 
-	return &InformerManager{
+	im := &InformerManager{
 		client:   client,
 		factory:  factory,
 		stopCh:   make(chan struct{}),
 		handlers: make(map[string]ResourceEventHandler),
 		stores:   make(map[string]cache.Indexer),
 	}
+
+	// client.Config is nil for test-only clients (NewClientForTest) — apiextensionsclientset.NewForConfig
+	// panics on a nil *rest.Config rather than returning an error, so this must be checked first.
+	if client.Config != nil {
+		if crdClient, err := apiextensionsclientset.NewForConfig(client.Config); err == nil {
+			im.crdFactory = apiextensionsinformers.NewSharedInformerFactory(crdClient, 5*time.Minute)
+		} else {
+			log.Printf("informer manager: CustomResourceDefinition caching disabled (apiextensions clientset: %v); CRD reads will use the direct API fallback", err)
+		}
+	}
+
+	return im
 }
 
 // RegisterHandler registers an event handler for a resource type
@@ -105,8 +126,28 @@ func (im *InformerManager) Start(ctx context.Context) error {
 	// Policy resources
 	im.setupPodDisruptionBudgetInformer()
 
+	// Oct 2026 informer-cache coverage-gap kinds (docs/ai/KNOWN-ISSUES.md) —
+	// same client-go SharedInformerFactory as everything above, all stable/GA
+	// APIs, so no new sync-compatibility risk.
+	im.setupInformer("ResourceQuota", im.factory.Core().V1().ResourceQuotas().Informer())
+	im.setupInformer("LimitRange", im.factory.Core().V1().LimitRanges().Informer())
+	im.setupInformer("EndpointSlice", im.factory.Discovery().V1().EndpointSlices().Informer())
+	im.setupInformer("Lease", im.factory.Coordination().V1().Leases().Informer())
+	im.setupInformer("VolumeAttachment", im.factory.Storage().V1().VolumeAttachments().Informer())
+	im.setupInformer("MutatingWebhookConfiguration", im.factory.Admissionregistration().V1().MutatingWebhookConfigurations().Informer())
+	im.setupInformer("ValidatingWebhookConfiguration", im.factory.Admissionregistration().V1().ValidatingWebhookConfigurations().Informer())
+
+	// CustomResourceDefinition uses the separate apiextensions clientset/factory
+	// built in NewInformerManager; only registered if that clientset is available.
+	if im.crdFactory != nil {
+		im.setupInformer("CustomResourceDefinition", im.crdFactory.Apiextensions().V1().CustomResourceDefinitions().Informer())
+	}
+
 	// Start all informers
 	im.factory.Start(im.stopCh)
+	if im.crdFactory != nil {
+		im.crdFactory.Start(im.stopCh)
+	}
 
 	// LOADING-5 (docs/PRODUCTION-RELIABILITY-AUDIT.md): WaitForCacheSync(im.stopCh)
 	// previously blocked forever if any single resource type never completed its
@@ -172,14 +213,37 @@ func (im *InformerManager) waitForSync(timeout time.Duration) bool {
 		close(giveUp)
 	}()
 
-	syncMap := im.factory.WaitForCacheSync(giveUp)
 	allSynced := true
-	for informerType, ok := range syncMap {
-		if !ok {
-			allSynced = false
-			log.Printf("informer cache sync: %s did not sync within the timeout (commonly RBAC — this service account may lack list/watch on that resource; the cache-first perf path stays permanently disabled for this cluster until it does)", informerType)
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	checkSync := func(syncMap map[reflect.Type]bool) {
+		mu.Lock()
+		defer mu.Unlock()
+		for informerType, ok := range syncMap {
+			if !ok {
+				allSynced = false
+				log.Printf("informer cache sync: %s did not sync within the timeout (commonly RBAC — this service account may lack list/watch on that resource; the cache-first perf path stays permanently disabled for this cluster until it does)", informerType)
+			}
 		}
 	}
+
+	// Both factories share stopCh/giveUp, so waiting on them concurrently keeps
+	// the total wait bounded by one timeout instead of two sequential ones.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		checkSync(im.factory.WaitForCacheSync(giveUp))
+	}()
+	if im.crdFactory != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			checkSync(im.crdFactory.WaitForCacheSync(giveUp))
+		}()
+	}
+	wg.Wait()
+
 	return allSynced
 }
 
@@ -215,6 +279,16 @@ func (im *InformerManager) retrySyncInBackground() {
 					allSynced = false
 					if tick%diagnosticEvery == 0 {
 						log.Printf("informer cache sync: %s still not synced after retrying in the background — commonly RBAC; the cache-first perf path stays disabled for this cluster until it does", informerType)
+					}
+				}
+			}
+			if im.crdFactory != nil {
+				for informerType, ok := range im.crdFactory.WaitForCacheSync(alreadyClosed) {
+					if !ok {
+						allSynced = false
+						if tick%diagnosticEvery == 0 {
+							log.Printf("informer cache sync: %s still not synced after retrying in the background — commonly RBAC; the cache-first perf path stays disabled for this cluster until it does", informerType)
+						}
 					}
 				}
 			}
@@ -264,6 +338,17 @@ var resourceKindToStoreKey = map[string]string{
 	"storageclasses":           "StorageClass",
 	"horizontalpodautoscalers": "HorizontalPodAutoscaler",
 	"poddisruptionbudgets":     "PodDisruptionBudget",
+
+	// Oct 2026 coverage-gap kinds (docs/ai/KNOWN-ISSUES.md) — see setupInformer
+	// call sites in Start() for the informers backing these.
+	"resourcequotas":                  "ResourceQuota",
+	"limitranges":                     "LimitRange",
+	"endpointslices":                  "EndpointSlice",
+	"leases":                          "Lease",
+	"volumeattachments":               "VolumeAttachment",
+	"mutatingwebhookconfigurations":   "MutatingWebhookConfiguration",
+	"validatingwebhookconfigurations": "ValidatingWebhookConfiguration",
+	"customresourcedefinitions":       "CustomResourceDefinition",
 }
 
 // ListFromCache reads resources from the in-memory informer cache.
@@ -695,6 +780,32 @@ func (im *InformerManager) Stop() {
 // GetStore returns the store for a resource type
 func (im *InformerManager) GetStore(resourceType string) cache.Store {
 	return im.stores[resourceType]
+}
+
+// setupInformer wires a store + ADDED/MODIFIED/DELETED event dispatch for a
+// kind, generically. Introduced for the Oct 2026 coverage-gap kinds (below)
+// to avoid repeating the ~20-line pattern the 27 hand-written setup*Informer
+// funcs above each already have — those are left as-is rather than migrated,
+// keeping this change a pure addition.
+func (im *InformerManager) setupInformer(kind string, informer cache.SharedIndexInformer) {
+	im.stores[kind] = informer.GetIndexer()
+	_, _ = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			if handler, ok := im.handlers[kind]; ok {
+				handler("ADDED", obj)
+			}
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			if handler, ok := im.handlers[kind]; ok {
+				handler("MODIFIED", newObj)
+			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			if handler, ok := im.handlers[kind]; ok {
+				handler("DELETED", obj)
+			}
+		},
+	})
 }
 
 // setupPodInformer sets up Pod informer
