@@ -98,7 +98,7 @@ export const TOOLTIP_METRICS_LIST_VS_DETAIL =
   'These are live resource usage numbers from the Kubernetes Metrics Server running in your cluster. They update every ~60 seconds.';
 
 export const TOOLTIP_METRICS_NETWORK_IO =
-  'Total data sent and received by this pod over the network since it started. Measured in MB (Megabytes). Higher values mean the pod is handling more traffic. Data comes from the kubelet running on the node.';
+  'Total data sent and received by this pod over the network since it started, shown in whatever unit fits best (KB, MB, or GB). This is the lifetime total, not a rate — the throughput graph below shows the current send/receive speed separately. Higher values mean the pod is handling more traffic. Data comes from the kubelet running on the node.';
 
 export const TOOLTIP_POD_USAGE_SAME_AS_LIST =
   'Current CPU and memory usage for each pod. CPU is in millicores (1000m = 1 CPU core). Memory is in MiB. These are the same values shown in the Pods list.';
