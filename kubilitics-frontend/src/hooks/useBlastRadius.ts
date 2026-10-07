@@ -43,7 +43,16 @@ export function useBlastRadius({
   const normalizedName = name ?? '';
   const baseEnabled = enabled && !!clusterId && isBackendConfigured;
 
-  // Check graph status once (no polling). If ready, proceed. If not, give up.
+  // CRITICAL fix: this used to check graph status ONCE with no polling — "if
+  // ready, proceed, if not, give up" (literally, per the old comment here).
+  // The backend's ClusterGraphEngine is started lazily on first request and
+  // its informer sync + first debounced rebuild take real wall-clock time
+  // (seconds), so the very first status check on a freshly-connected
+  // cluster almost always returns ready:false. With no polling, isGraphReady
+  // stayed false for the rest of the session — the blast-radius query below
+  // never ran again, and the UI silently degraded to a topology-only view
+  // with no error message explaining why, which is exactly what was
+  // reported as "a complete mess." Poll every 2s until ready, then stop.
   const {
     data: graphStatus,
     isLoading: isStatusLoading,
@@ -52,6 +61,7 @@ export function useBlastRadius({
     queryFn: () => getGraphStatus(effectiveBaseUrl, clusterId!),
     enabled: baseEnabled && !!clusterId,
     staleTime: 30_000,
+    refetchInterval: (query) => (query.state.data?.ready ? false : 2_000),
     retry: 1,
     retryDelay: 1_000,
   });
