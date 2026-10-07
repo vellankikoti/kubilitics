@@ -344,6 +344,40 @@ func (im *InformerManager) ListFromCache(resourceType, namespace string, opts me
 	return result, true
 }
 
+// ListTypedFromCache is the exported, cross-package counterpart to the
+// unexported cacheItemsAs/cachedTypedItems helpers in internal/api/rest and
+// internal/service (same pattern, kept separate rather than refactored to
+// share one implementation, since those two are already shipped/tested and
+// this is for a new caller — internal/topology/v2 — that cannot import
+// their unexported helpers). Reads resourceType from the informer cache via
+// ListFromCache, converting each item to T and skipping (with a logged
+// count) any that fail to convert. Returns (nil, false) when the cache is
+// unavailable, not yet synced, or the resource type is untracked — callers
+// fall back to a live API call.
+func ListTypedFromCache[T any](im *InformerManager, resourceType, namespace string, opts metav1.ListOptions) ([]T, bool) {
+	if im == nil {
+		return nil, false
+	}
+	cached, ok := im.ListFromCache(resourceType, namespace, opts)
+	if !ok || cached == nil {
+		return nil, false
+	}
+	items := make([]T, 0, len(cached.Items))
+	skipped := 0
+	for _, u := range cached.Items {
+		var item T
+		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.Object, &item); err == nil {
+			items = append(items, item)
+		} else {
+			skipped++
+		}
+	}
+	if skipped > 0 {
+		log.Printf("ListTypedFromCache[%T]: skipped %d/%d cached %s items due to conversion errors", *new(T), skipped, len(cached.Items), resourceType)
+	}
+	return items, true
+}
+
 // CacheListResult holds paginated cache results with metadata.
 type CacheListResult struct {
 	Items []unstructured.Unstructured

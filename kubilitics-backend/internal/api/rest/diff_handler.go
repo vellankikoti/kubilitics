@@ -60,7 +60,7 @@ func (h *Handler) CreateTopologySnapshot(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	topoResp, err := topologyv2builder.BuildTopology(ctx, opts, client)
+	topoResp, err := topologyv2builder.BuildTopology(ctx, opts, client, h.clusterService.GetInformerManager(clusterID))
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			respondTimeout(w, r, http.StatusServiceUnavailable, "", "CreateTopologySnapshot", clusterID, "Topology build timed out")

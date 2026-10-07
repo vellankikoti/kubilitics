@@ -2,10 +2,13 @@ package v2
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	k8stesting "k8s.io/client-go/testing"
@@ -80,7 +83,7 @@ func TestCollectFromClient_PaginatesBeyondSinglePage(t *testing.T) {
 	cs := newPaginatedFakeClientset(total, collectPageSize)
 	client := k8s.NewClientForTest(cs)
 
-	bundle, err := CollectFromClient(context.Background(), client, "")
+	bundle, err := CollectFromClient(context.Background(), client, "", nil)
 	if err != nil {
 		t.Fatalf("CollectFromClient returned error: %v", err)
 	}
@@ -113,7 +116,7 @@ func TestCollectFromClient_SafetyCapFlagsIncompleteResourceType(t *testing.T) {
 	})
 	client := k8s.NewClientForTest(cs)
 
-	bundle, err := CollectFromClient(context.Background(), client, "")
+	bundle, err := CollectFromClient(context.Background(), client, "", nil)
 	if err != nil {
 		t.Fatalf("CollectFromClient returned error: %v", err)
 	}
@@ -128,5 +131,102 @@ func TestCollectFromClient_SafetyCapFlagsIncompleteResourceType(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("expected 'deployments' to be recorded in FailedResources when the safety cap is hit, so callers can tell the graph is incomplete rather than genuinely complete")
+	}
+}
+
+// Batch 1 gap (Theme 1 #3/#4): collectFromClient previously always
+// live-listed every resource type, unlike buildClusterSummary/
+// GetClusterSummary which were already routed through the informer cache
+// in Batch 1. These tests prove the fix: once a resource type's informer
+// has synced, collectFromClient serves it from cache instead of a live API
+// call — verified by making the live path return an error/different data
+// and confirming the cache's data (not the live path's) is what comes back.
+
+func waitForSynced(t *testing.T, im *k8s.InformerManager) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for !im.HasSynced() {
+		if time.Now().After(deadline) {
+			t.Fatal("informer manager did not finish initial sync in time")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestCollectFromClient_ServesPodsFromCacheWhenInformerSynced(t *testing.T) {
+	cs := k8sfake.NewSimpleClientset(&corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "cached-pod", Namespace: "default"},
+	})
+	client := k8s.NewClientForTest(cs)
+	im := k8s.NewInformerManager(client)
+	if err := im.Start(context.Background()); err != nil {
+		t.Logf("Start returned %v (informers may still sync via background retry)", err)
+	}
+	waitForSynced(t, im)
+
+	// After the informer has synced, make the LIVE path fail. If
+	// collectFromClient still succeeds and returns the pod, it proves the
+	// cache — not this reactor — served the data.
+	cs.PrependReactor("list", "pods", func(k8stesting.Action) (bool, runtime.Object, error) {
+		return true, nil, fmt.Errorf("live API must not be called for an informer-tracked, synced resource type")
+	})
+
+	bundle, err := CollectFromClient(context.Background(), client, "", im)
+	if err != nil {
+		t.Fatalf("CollectFromClient returned error: %v", err)
+	}
+	if len(bundle.Pods) != 1 || bundle.Pods[0].Name != "cached-pod" {
+		t.Fatalf("expected the single cached pod, got %+v", bundle.Pods)
+	}
+	for _, rt := range bundle.FailedResources {
+		if rt == "pods" {
+			t.Fatal("pods must not be recorded as failed — it should have been served from cache, never reaching the failing live reactor")
+		}
+	}
+}
+
+func TestCollectFromClient_FallsBackToLiveWhenInformerNotSynced(t *testing.T) {
+	cs := k8sfake.NewSimpleClientset(&corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "live-pod", Namespace: "default"},
+	})
+	client := k8s.NewClientForTest(cs)
+	// A real but never-started InformerManager: HasSynced() is always false,
+	// so every ListFromCache call must report a miss and this must still
+	// fall back to a live call exactly as if im were nil.
+	im := k8s.NewInformerManager(client)
+
+	bundle, err := CollectFromClient(context.Background(), client, "", im)
+	if err != nil {
+		t.Fatalf("CollectFromClient returned error: %v", err)
+	}
+	if len(bundle.Pods) != 1 || bundle.Pods[0].Name != "live-pod" {
+		t.Fatalf("expected the live-fetched pod, got %+v", bundle.Pods)
+	}
+}
+
+func TestCollectFromClient_UntrackedKindAlwaysLiveEvenWithSyncedInformer(t *testing.T) {
+	// EndpointSlices is deliberately NOT one of the 27 kinds InformerManager
+	// tracks (Theme 4's informer-coverage gap, separate from this fix) — it
+	// must always go live, synced informer or not.
+	cs := k8sfake.NewSimpleClientset()
+	client := k8s.NewClientForTest(cs)
+	im := k8s.NewInformerManager(client)
+	if err := im.Start(context.Background()); err != nil {
+		t.Logf("Start returned %v", err)
+	}
+	waitForSynced(t, im)
+
+	liveCalled := false
+	cs.PrependReactor("list", "endpointslices", func(k8stesting.Action) (bool, runtime.Object, error) {
+		liveCalled = true
+		return false, nil, nil // let the fake's default tracker handle it
+	})
+
+	_, err := CollectFromClient(context.Background(), client, "", im)
+	if err != nil {
+		t.Fatalf("CollectFromClient returned error: %v", err)
+	}
+	if !liveCalled {
+		t.Fatal("expected EndpointSlices (an untracked kind) to still go through the live API even with a fully synced informer manager")
 	}
 }

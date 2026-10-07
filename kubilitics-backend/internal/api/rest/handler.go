@@ -2184,7 +2184,8 @@ func (h *Handler) GetTopologyV2(w http.ResponseWriter, r *http.Request) {
 		resp = cached
 	} else {
 		// Cache miss (or forced) — build topology
-		built, buildErr := topologyv2builder.BuildTopology(ctx, opts, client)
+		im := h.clusterService.GetInformerManager(clusterID)
+		built, buildErr := topologyv2builder.BuildTopology(ctx, opts, client, im)
 		if buildErr != nil {
 			if errors.Is(buildErr, context.DeadlineExceeded) {
 				respondTimeout(w, r, http.StatusServiceUnavailable, "", "GetTopologyV2", clusterID, "Topology build timed out")
@@ -2302,7 +2303,8 @@ func (h *Handler) GetTopologyV2Traffic(w http.ResponseWriter, r *http.Request) {
 	if cached, ok := topologyCacheGet(cacheKey); ok {
 		resp = cached
 	} else {
-		built, buildErr := topologyv2builder.BuildTopology(ctx, opts, client)
+		im := h.clusterService.GetInformerManager(clusterID)
+		built, buildErr := topologyv2builder.BuildTopology(ctx, opts, client, im)
 		if buildErr != nil {
 			if errors.Is(buildErr, context.DeadlineExceeded) {
 				respondTimeout(w, r, http.StatusServiceUnavailable, "", "GetTopologyV2Traffic", clusterID, "Topology build timed out")
@@ -2326,7 +2328,7 @@ func (h *Handler) GetTopologyV2Traffic(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Collect the resource bundle for traffic inference
-	bundle, _ := topologyv2.CollectFromClient(ctx, client, namespace)
+	bundle, _ := topologyv2.CollectFromClient(ctx, client, namespace, h.clusterService.GetInformerManager(clusterID))
 
 	trafficEdges := topologyv2builder.InferTraffic(resp.Nodes, resp.Edges, bundle)
 	criticalityScores := topologyv2builder.ScoreNodes(resp.Nodes, resp.Edges)
@@ -2389,7 +2391,7 @@ func (h *Handler) GetTopologyV2Impact(w http.ResponseWriter, r *http.Request) {
 		ClusterName: clusterName,
 		Mode:        topologyv2.ViewModeCluster,
 	}
-	resp, err := topologyv2builder.BuildTopology(r.Context(), opts, client)
+	resp, err := topologyv2builder.BuildTopology(r.Context(), opts, client, h.clusterService.GetInformerManager(clusterID))
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -2520,10 +2522,11 @@ func (h *Handler) GetResourceTopology(w http.ResponseWriter, r *http.Request) {
 		}
 		var bundle *topologyv2.ResourceBundle
 		var collectErr error
+		im := h.clusterService.GetInformerManager(clusterID)
 		if seed != nil {
-			bundle, collectErr = topologyv2.CollectRemainderFromClient(ctx, client, v2Opts.Namespace, seed)
+			bundle, collectErr = topologyv2.CollectRemainderFromClient(ctx, client, v2Opts.Namespace, seed, im)
 		} else {
-			bundle, collectErr = topologyv2.CollectFromClient(ctx, client, v2Opts.Namespace)
+			bundle, collectErr = topologyv2.CollectFromClient(ctx, client, v2Opts.Namespace, im)
 		}
 		if collectErr != nil {
 			buildErr = collectErr
@@ -2677,7 +2680,7 @@ func (h *Handler) GetCriticality(w http.ResponseWriter, r *http.Request) {
 			ClusterName: clusterName,
 			Mode:        topologyv2.ViewModeCluster,
 		}
-		built, buildErr := topologyv2builder.BuildTopology(ctx, opts, client)
+		built, buildErr := topologyv2builder.BuildTopology(ctx, opts, client, h.clusterService.GetInformerManager(clusterID))
 		if buildErr != nil {
 			if errors.Is(buildErr, context.DeadlineExceeded) {
 				respondTimeout(w, r, http.StatusServiceUnavailable, "", "GetCriticality", clusterID, "Topology build timed out")

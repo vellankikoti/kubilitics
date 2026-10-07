@@ -8,12 +8,15 @@ import (
 	"github.com/kubilitics/kubilitics-backend/internal/topology/v2"
 )
 
-// BuildTopology builds a topology from the cluster via client. Returns an error if client is nil.
-func BuildTopology(ctx context.Context, opts v2.Options, client *k8s.Client) (*v2.TopologyResponse, error) {
+// BuildTopology builds a topology from the cluster via client. Returns an
+// error if client is nil. im is the cluster's InformerManager, used to serve
+// informer-tracked resource types from cache instead of live API calls; pass
+// nil to always live-fetch.
+func BuildTopology(ctx context.Context, opts v2.Options, client *k8s.Client, im *k8s.InformerManager) (*v2.TopologyResponse, error) {
 	if client == nil {
 		return nil, fmt.Errorf("cluster client is required to build topology")
 	}
-	bundle, err := v2.CollectFromClient(ctx, client, opts.Namespace)
+	bundle, err := v2.CollectFromClient(ctx, client, opts.Namespace, im)
 	if err != nil {
 		return nil, err
 	}
