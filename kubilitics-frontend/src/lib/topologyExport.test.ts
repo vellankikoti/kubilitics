@@ -43,18 +43,24 @@ describe('inlineAllImages', () => {
     // Mock FileReader
     const mockReadAsDataURL = vi.fn();
     const originalFileReader = globalThis.FileReader;
-    globalThis.FileReader = vi.fn().mockImplementation(() => ({
-      readAsDataURL: function (this: { result: string | null; onloadend?: (() => void) | null }, _blob: Blob) {
-        mockReadAsDataURL(_blob);
-        setTimeout(() => {
-          this.result = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxjaXJjbGUgcj0iMTAiLz48L3N2Zz4=';
-          this.onloadend?.();
-        }, 0);
-      },
-      result: null,
-      onloadend: null,
-      onerror: null,
-    })) as unknown as typeof FileReader;
+    // vitest 4's mock "new" handling requires a function/class implementation
+    // (not an arrow function returning an object literal) for `new FileReader()`
+    // to correctly delegate to this factory — see the "did not use 'function'
+    // or 'class'" warning vitest emits otherwise.
+    globalThis.FileReader = vi.fn().mockImplementation(function () {
+      return {
+        readAsDataURL: function (this: { result: string | null; onloadend?: (() => void) | null }, _blob: Blob) {
+          mockReadAsDataURL(_blob);
+          setTimeout(() => {
+            this.result = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxjaXJjbGUgcj0iMTAiLz48L3N2Zz4=';
+            this.onloadend?.();
+          }, 0);
+        },
+        result: null,
+        onloadend: null,
+        onerror: null,
+      };
+    }) as unknown as typeof FileReader;
 
     const inlined = await inlineAllImages(container);
 
@@ -120,17 +126,20 @@ describe('inlineAllImages', () => {
     });
 
     const originalFileReader = globalThis.FileReader;
-    globalThis.FileReader = vi.fn().mockImplementation(() => ({
-      readAsDataURL: function (this: { result: string | null; onloadend?: (() => void) | null }) {
-        setTimeout(() => {
-          this.result = 'data:image/svg+xml;base64,abc123';
-          this.onloadend?.();
-        }, 0);
-      },
-      result: null,
-      onloadend: null,
-      onerror: null,
-    })) as unknown as typeof FileReader;
+    // See comment in the first test above re: vitest 4's "new" mock handling.
+    globalThis.FileReader = vi.fn().mockImplementation(function () {
+      return {
+        readAsDataURL: function (this: { result: string | null; onloadend?: (() => void) | null }) {
+          setTimeout(() => {
+            this.result = 'data:image/svg+xml;base64,abc123';
+            this.onloadend?.();
+          }, 0);
+        },
+        result: null,
+        onloadend: null,
+        onerror: null,
+      };
+    }) as unknown as typeof FileReader;
 
     const inlined = await inlineAllImages(container);
 

@@ -116,9 +116,19 @@ function requestSignal(callerSignal?: AbortSignal | null, timeoutMs: number = DE
   return combined.signal;
 }
 
-/** True if `e` is the DOMException AbortSignal.timeout() throws when its deadline fires. */
+/**
+ * True if `e` is the DOMException AbortSignal.timeout() throws when its deadline fires.
+ *
+ * Deliberately duck-typed on `.name` rather than `instanceof DOMException`: Node's
+ * built-in AbortSignal.timeout() constructs its DOMException via an internal binding
+ * that is NOT the same class reference as a jsdom-environment's `globalThis.DOMException`
+ * polyfill (confirmed via the vitest 4 / jsdom 25 test environment — `instanceof` across
+ * that realm boundary is false even though `.name` and `.constructor.name` both read
+ * "DOMException"/"TimeoutError" correctly). `instanceof` would misclassify a genuine
+ * timeout as a non-timeout error in exactly this case.
+ */
 function isRequestTimeout(e: unknown): boolean {
-  return e instanceof DOMException && e.name === 'TimeoutError';
+  return !!e && typeof e === 'object' && (e as { name?: unknown }).name === 'TimeoutError';
 }
 
 /** Check if error is CORS-related. CORS errors should NOT open circuit breaker. */
