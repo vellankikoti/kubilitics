@@ -449,6 +449,16 @@ export function useElkLayout(
   const [elkReady, setElkReady] = useState(false);
   const elkRef = useRef<unknown>(null);
   const layoutGenRef = useRef(0);
+  // Shape-fingerprint gate: `topology` gets a new object reference on every
+  // fetch/WebSocket update even when the node/edge ID set is identical (only
+  // status/metrics/labels changed) — this previously re-ran the full layout
+  // algorithm (ELK or grid) on every such update. Caching the last computed
+  // positions keyed by the shape (which nodes/edges actually participate in
+  // layout, plus viewMode since that changes ELK_OPTIONS) lets an unchanged
+  // shape reuse cached positions and skip straight to re-rendering with
+  // fresh node data — a real relayout still runs whenever the shape changes.
+  const lastShapeFingerprintRef = useRef<string | null>(null);
+  const lastPositionsRef = useRef<Map<string, { x: number; y: number }> | null>(null);
 
   // Lazily load ELK
   useEffect(() => {
@@ -477,14 +487,26 @@ export function useElkLayout(
       return;
     }
 
-    const gen = ++layoutGenRef.current;
-    setIsLayouting(true);
-
     const nodeCount = topology.nodes.length;
     const nodeIds = new Set(topology.nodes.map((n) => n.id));
     const validEdges = topology.edges.filter(
       (e) => nodeIds.has(e.source) && nodeIds.has(e.target)
     );
+
+    // elkRef readiness is part of the key: a fingerprint cached while ELK
+    // hadn't finished loading yet (so categoryGridLayout ran as a fallback)
+    // must NOT be reused once ELK becomes available for the same topology —
+    // that would permanently stick with the fallback grid instead of ever
+    // running the real layout.
+    const shapeFingerprint =
+      viewMode + "|" + String(!!elkRef.current) + "|" +
+      Array.from(nodeIds).sort().join(",") + "|" +
+      validEdges.map((e) => e.id).sort().join(",");
+    const cachedPositions =
+      shapeFingerprint === lastShapeFingerprintRef.current ? lastPositionsRef.current : null;
+
+    const gen = ++layoutGenRef.current;
+    if (!cachedPositions) setIsLayouting(true);
 
     // Compute graph density to choose algorithm
     const density = validEdges.length / Math.max(1, nodeCount);
@@ -497,7 +519,9 @@ export function useElkLayout(
     try {
       let positions: Map<string, { x: number; y: number }>;
 
-      if (nodeCount > 300) {
+      if (cachedPositions) {
+        positions = cachedPositions;
+      } else if (nodeCount > 300) {
         // ─── LARGE GRAPH: category-grouped grid ─────────────────────────
         // ELK is too slow and produces poor results for large sparse graphs.
         // Category grid gives instant, readable layouts.
@@ -551,6 +575,9 @@ export function useElkLayout(
       // Stale check
       if (gen !== layoutGenRef.current) return;
 
+      lastShapeFingerprintRef.current = shapeFingerprint;
+      lastPositionsRef.current = positions;
+
       const positioned = topology.nodes.map((tn) => {
         const pos = positions.get(tn.id) ?? { x: 0, y: 0 };
         return {
@@ -593,6 +620,8 @@ export function useElkLayout(
       if (gen !== layoutGenRef.current) return;
 
       const positions = categoryGridLayout(topology);
+      lastShapeFingerprintRef.current = shapeFingerprint;
+      lastPositionsRef.current = positions;
       const positioned = topology.nodes.map((tn) => {
         const pos = positions.get(tn.id) ?? { x: 0, y: 0 };
         return {
