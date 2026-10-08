@@ -252,6 +252,15 @@ func (im *InformerManager) waitForSync(timeout time.Duration) bool {
 // after the initial bounded wait in Start() gave up without every cache
 // having synced.
 func (im *InformerManager) retrySyncInBackground() {
+	// Every backend goroutine needs this (see docs/ai/ARCHITECTURE.md) — an
+	// unrecovered panic here previously would have crashed the entire backend
+	// process for every connected cluster, not just stopped this retry loop.
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Default().Error("panic in informer cache-sync background retry loop", "error", r)
+		}
+	}()
+
 	ticker := time.NewTicker(syncRetryInterval)
 	defer ticker.Stop()
 
