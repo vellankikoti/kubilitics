@@ -97,20 +97,14 @@ export default function ProjectDetailPage() {
     // This ensures filtering works when clicking 'Pods' or other sidebar items from this page.
   }, [project, setActiveProject, clearActiveProject]);
 
-  const handleConnect = (clusterId: string) => {
+  const handleConnect = (clusterId: string, fallbackName: string) => {
+    // clusterId comes from project.clusters (already known-valid); allClusters is only
+    // used to prefer a fresher display name — its absence (e.g. a failed fetch) must
+    // not block connecting. Mirrors the ProjectDashboardPage.handleConnectCluster fix.
     const backendCluster = allClusters.find((c) => c.id === clusterId);
-    if (!backendCluster) {
-      toast.error(
-        clustersLoadFailed
-          ? 'Could not load cluster details — check your connection and try again'
-          : 'Cluster not found'
-      );
-      return;
-    }
-    // Presence SSE has every registered cluster; activate by session id.
     setActiveClusterBySessionId(clusterId);
     setDemo(false);
-    toast.success(`Connected to ${backendCluster.name}`);
+    toast.success(`Connected to ${backendCluster?.name ?? fallbackName}`);
     navigate(`/projects/${projectId}/dashboard`, { replace: true });
   };
 
@@ -304,7 +298,7 @@ export default function ProjectDetailPage() {
                     size="sm"
                     variant="default"
                     className="flex-1"
-                    onClick={() => handleConnect(pc.cluster_id)}
+                    onClick={() => handleConnect(pc.cluster_id, pc.cluster_name)}
                   >
                     <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                     Connect
