@@ -53,6 +53,7 @@ import (
 	schedulingv1 "k8s.io/api/scheduling/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -1046,18 +1047,48 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 	// this handler that goes through the per-Client circuit breaker, and
 	// a stuck breaker was marking /summary unreachable even when every
 	// other list endpoint on the same cluster was returning live data.
-	nodes, _ := client.Clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-	namespaces, _ := client.Clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+	//
+	// Perf: both kinds are informer-tracked (Headlamp/Lens model) — a warm
+	// cache answers in <1ms instead of a live round-trip to the API server.
+	// Nodes stay typed (computeClusterHealth below needs Status.Conditions);
+	// namespaces only need a count, so the unstructured cache form is used
+	// directly without a conversion pass.
+	im := h.clusterService.GetInformerManager(clusterID)
+	var nodes *corev1.NodeList
+	if im != nil && im.HasSynced() {
+		if cached, ok := im.ListFromCache("nodes", "", metav1.ListOptions{}); ok && cached != nil {
+			nodes = &corev1.NodeList{Items: cacheItemsAs[corev1.Node](cached.Items)}
+		}
+	}
+	if nodes == nil {
+		nodes, _ = client.Clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+	}
+	// Live fallback deliberately uses the typed Clientset (not the dynamic
+	// client/client.ListResources) — matches the pre-existing live-API
+	// transport exactly, so this path's behavior/error modes are unchanged
+	// from before the cache was added in front of it.
+	var namespacesLive *corev1.NamespaceList
+	namespaceCount := 0
+	haveNamespaces := false
+	if im != nil && im.HasSynced() {
+		if cached, ok := im.ListFromCache("namespaces", "", metav1.ListOptions{}); ok && cached != nil {
+			namespaceCount = len(cached.Items)
+			haveNamespaces = true
+		}
+	}
+	if !haveNamespaces {
+		namespacesLive, _ = client.Clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+		if namespacesLive != nil {
+			namespaceCount = len(namespacesLive.Items)
+			haveNamespaces = true
+		}
+	}
 	nodeCount := 0
 	if nodes != nil {
 		nodeCount = len(nodes.Items)
 	}
-	namespaceCount := 0
-	if namespaces != nil {
-		namespaceCount = len(namespaces.Items)
-	}
 	// Both calls returned nil — apiserver is genuinely unreachable.
-	if nodes == nil && namespaces == nil {
+	if nodes == nil && !haveNamespaces {
 		return nil, fmt.Errorf("cluster API returned no data for nodes or namespaces")
 	}
 
@@ -1103,6 +1134,15 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 		}
 	}
 
+	// All list variables keep their ORIGINAL typed shape and their ORIGINAL
+	// live-API transport (client.Clientset.*) on a cache miss — only an
+	// informer-cache short-circuit is added in front. This deliberately
+	// avoids routing the fallback path through the dynamic client
+	// (client.ListResources): that path is exercised far less often and
+	// switching its transport would be an unrelated, untested behavior
+	// change (confirmed by a fake-client test panic during development —
+	// the fake dynamic client doesn't register List kinds for most of
+	// these types, unlike the fake typed Clientset).
 	var pods *corev1.PodList
 	var deployments *appsv1.DeploymentList
 	var services *corev1.ServiceList
@@ -1114,7 +1154,7 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 	var ingresses *networkingv1.IngressList
 	var ingressClasses *networkingv1.IngressClassList
 	var endpoints *corev1.EndpointsList
-	var endpointSlices *discoveryv1.EndpointSliceList
+	var endpointSlices *discoveryv1.EndpointSliceList // not informer-tracked; stays typed+live (Theme 4/#25)
 	var networkPolicies *networkingv1.NetworkPolicyList
 	var configmaps *corev1.ConfigMapList
 	var secrets *corev1.SecretList
@@ -1127,188 +1167,307 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 	var roleBindings *rbacv1.RoleBindingList
 	var clusterRoleBindings *rbacv1.ClusterRoleBindingList
 	var hpas *autoscalingv2.HorizontalPodAutoscalerList
-	var limitRanges *corev1.LimitRangeList
-	var resourceQuotas *corev1.ResourceQuotaList
+	var limitRanges *corev1.LimitRangeList              // not informer-tracked; stays typed+live
+	var resourceQuotas *corev1.ResourceQuotaList         // not informer-tracked; stays typed+live
 	var pdbs *policyv1.PodDisruptionBudgetList
-	var priorityClasses *schedulingv1.PriorityClassList
-	var mutatingWebhooks *admissionregistrationv1.MutatingWebhookConfigurationList
-	var validatingWebhooks *admissionregistrationv1.ValidatingWebhookConfigurationList
+	var priorityClasses *schedulingv1.PriorityClassList // not informer-tracked; stays typed+live
+	var mutatingWebhooks *admissionregistrationv1.MutatingWebhookConfigurationList   // not informer-tracked; stays typed+live
+	var validatingWebhooks *admissionregistrationv1.ValidatingWebhookConfigurationList // not informer-tracked; stays typed+live
+
+	// cachedList is a per-goroutine helper: informer cache first (Headlamp/Lens
+	// model, <1ms on a warm cache), live API only on a genuine cache miss
+	// (informer not synced yet, or this resource kind isn't informer-tracked).
+	// This is the fix for the "~29 unbounded live List calls per request"
+	// bottleneck — on a warm cache this function makes 0 API-server round
+	// trips for the 23 informer-tracked kinds below.
+	cachedList := func(resourceType string) (*unstructured.UnstructuredList, bool) {
+		if im == nil || !im.HasSynced() {
+			return nil, false
+		}
+		cached, ok := im.ListFromCache(resourceType, "", listOpts)
+		if !ok || cached == nil {
+			return nil, false
+		}
+		return cached, true
+	}
 
 	g.Go(func() error {
+		if cached, ok := cachedList("pods"); ok {
+			pods = &corev1.PodList{Items: cacheItemsAs[corev1.Pod](cached.Items)}
+			return nil
+		}
 		var err error
 		pods, err = client.Clientset.CoreV1().Pods("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("deployments"); ok {
+			deployments = &appsv1.DeploymentList{Items: cacheItemsAs[appsv1.Deployment](cached.Items)}
+			return nil
+		}
 		var err error
 		deployments, err = client.Clientset.AppsV1().Deployments("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("services"); ok {
+			services = &corev1.ServiceList{Items: cacheItemsAs[corev1.Service](cached.Items)}
+			return nil
+		}
 		var err error
 		services, err = client.Clientset.CoreV1().Services("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("statefulsets"); ok {
+			statefulsets = &appsv1.StatefulSetList{Items: cacheItemsAs[appsv1.StatefulSet](cached.Items)}
+			return nil
+		}
 		var err error
 		statefulsets, err = client.Clientset.AppsV1().StatefulSets("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("replicasets"); ok {
+			replicasets = &appsv1.ReplicaSetList{Items: cacheItemsAs[appsv1.ReplicaSet](cached.Items)}
+			return nil
+		}
 		var err error
 		replicasets, err = client.Clientset.AppsV1().ReplicaSets("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("daemonsets"); ok {
+			daemonsets = &appsv1.DaemonSetList{Items: cacheItemsAs[appsv1.DaemonSet](cached.Items)}
+			return nil
+		}
 		var err error
 		daemonsets, err = client.Clientset.AppsV1().DaemonSets("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("jobs"); ok {
+			jobs = &batchv1.JobList{Items: cacheItemsAs[batchv1.Job](cached.Items)}
+			return nil
+		}
 		var err error
 		jobs, err = client.Clientset.BatchV1().Jobs("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("cronjobs"); ok {
+			cronjobs = &batchv1.CronJobList{Items: cacheItemsAs[batchv1.CronJob](cached.Items)}
+			return nil
+		}
 		var err error
 		cronjobs, err = client.Clientset.BatchV1().CronJobs("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("ingresses"); ok {
+			ingresses = &networkingv1.IngressList{Items: cacheItemsAs[networkingv1.Ingress](cached.Items)}
+			return nil
+		}
 		var err error
 		ingresses, err = client.Clientset.NetworkingV1().Ingresses("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("ingressclasses"); ok {
+			ingressClasses = &networkingv1.IngressClassList{Items: cacheItemsAs[networkingv1.IngressClass](cached.Items)}
+			return nil
+		}
 		var err error
 		ingressClasses, err = client.Clientset.NetworkingV1().IngressClasses().List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("endpoints"); ok {
+			endpoints = &corev1.EndpointsList{Items: cacheItemsAs[corev1.Endpoints](cached.Items)}
+			return nil
+		}
 		var err error
 		endpoints, err = client.Clientset.CoreV1().Endpoints("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		// Not informer-tracked (see Theme 4/#25) — always live.
 		var err error
 		endpointSlices, err = client.Clientset.DiscoveryV1().EndpointSlices("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("networkpolicies"); ok {
+			networkPolicies = &networkingv1.NetworkPolicyList{Items: cacheItemsAs[networkingv1.NetworkPolicy](cached.Items)}
+			return nil
+		}
 		var err error
 		networkPolicies, err = client.Clientset.NetworkingV1().NetworkPolicies("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("configmaps"); ok {
+			configmaps = &corev1.ConfigMapList{Items: cacheItemsAs[corev1.ConfigMap](cached.Items)}
+			return nil
+		}
 		var err error
 		configmaps, err = client.Clientset.CoreV1().ConfigMaps("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("secrets"); ok {
+			secrets = &corev1.SecretList{Items: cacheItemsAs[corev1.Secret](cached.Items)}
+			return nil
+		}
 		var err error
 		secrets, err = client.Clientset.CoreV1().Secrets("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("persistentvolumes"); ok {
+			pvs = &corev1.PersistentVolumeList{Items: cacheItemsAs[corev1.PersistentVolume](cached.Items)}
+			return nil
+		}
 		var err error
 		pvs, err = client.Clientset.CoreV1().PersistentVolumes().List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("persistentvolumeclaims"); ok {
+			pvcs = &corev1.PersistentVolumeClaimList{Items: cacheItemsAs[corev1.PersistentVolumeClaim](cached.Items)}
+			return nil
+		}
 		var err error
 		pvcs, err = client.Clientset.CoreV1().PersistentVolumeClaims("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("storageclasses"); ok {
+			storageClasses = &storagev1.StorageClassList{Items: cacheItemsAs[storagev1.StorageClass](cached.Items)}
+			return nil
+		}
 		var err error
 		storageClasses, err = client.Clientset.StorageV1().StorageClasses().List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("serviceaccounts"); ok {
+			serviceAccounts = &corev1.ServiceAccountList{Items: cacheItemsAs[corev1.ServiceAccount](cached.Items)}
+			return nil
+		}
 		var err error
 		serviceAccounts, err = client.Clientset.CoreV1().ServiceAccounts("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("roles"); ok {
+			roles = &rbacv1.RoleList{Items: cacheItemsAs[rbacv1.Role](cached.Items)}
+			return nil
+		}
 		var err error
 		roles, err = client.Clientset.RbacV1().Roles("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("clusterroles"); ok {
+			clusterRoles = &rbacv1.ClusterRoleList{Items: cacheItemsAs[rbacv1.ClusterRole](cached.Items)}
+			return nil
+		}
 		var err error
 		clusterRoles, err = client.Clientset.RbacV1().ClusterRoles().List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("rolebindings"); ok {
+			roleBindings = &rbacv1.RoleBindingList{Items: cacheItemsAs[rbacv1.RoleBinding](cached.Items)}
+			return nil
+		}
 		var err error
 		roleBindings, err = client.Clientset.RbacV1().RoleBindings("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("clusterrolebindings"); ok {
+			clusterRoleBindings = &rbacv1.ClusterRoleBindingList{Items: cacheItemsAs[rbacv1.ClusterRoleBinding](cached.Items)}
+			return nil
+		}
 		var err error
 		clusterRoleBindings, err = client.Clientset.RbacV1().ClusterRoleBindings().List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("horizontalpodautoscalers"); ok {
+			hpas = &autoscalingv2.HorizontalPodAutoscalerList{Items: cacheItemsAs[autoscalingv2.HorizontalPodAutoscaler](cached.Items)}
+			return nil
+		}
 		var err error
 		hpas, err = client.Clientset.AutoscalingV2().HorizontalPodAutoscalers("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		// Not informer-tracked (see Theme 4/#25) — always live.
 		var err error
 		limitRanges, err = client.Clientset.CoreV1().LimitRanges("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		// Not informer-tracked (see Theme 4/#25) — always live.
 		var err error
 		resourceQuotas, err = client.Clientset.CoreV1().ResourceQuotas("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		if cached, ok := cachedList("poddisruptionbudgets"); ok {
+			pdbs = &policyv1.PodDisruptionBudgetList{Items: cacheItemsAs[policyv1.PodDisruptionBudget](cached.Items)}
+			return nil
+		}
 		var err error
 		pdbs, err = client.Clientset.PolicyV1().PodDisruptionBudgets("").List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		// Not informer-tracked (see Theme 4/#25) — always live.
 		var err error
 		priorityClasses, err = client.Clientset.SchedulingV1().PriorityClasses().List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		// Not informer-tracked (see Theme 4/#25) — always live.
 		var err error
 		mutatingWebhooks, err = client.Clientset.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, listOpts)
 		trackErr(err)
 		return nil
 	})
 	g.Go(func() error {
+		// Not informer-tracked (see Theme 4/#25) — always live.
 		var err error
 		validatingWebhooks, err = client.Clientset.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(ctx, listOpts)
 		trackErr(err)
@@ -1471,71 +1630,91 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 	if projectNSSet != nil {
 		podCount = 0
 		podStatus = models.OverviewPodStatus{}
-		for _, p := range pods.Items {
-			if _, ok := projectNSSet[p.Namespace]; !ok {
-				continue
-			}
-			podCount++
-			switch p.Status.Phase {
-			case "Running":
-				podStatus.Running++
-			case "Pending":
-				podStatus.Pending++
-			case "Failed":
-				podStatus.Failed++
-			case "Succeeded":
-				podStatus.Succeeded++
-			}
-			for _, cs := range p.Status.ContainerStatuses {
-				podStatus.TotalRestarts += int(cs.RestartCount)
+		// Nil-guarded: pods/deployments can be nil here if both the informer
+		// cache and the live-API fallback failed for this request (pre-existing
+		// gap — every other resource type in this filtering block was already
+		// nil-checked, these two were not).
+		if pods != nil {
+			for _, p := range pods.Items {
+				if _, ok := projectNSSet[p.Namespace]; !ok {
+					continue
+				}
+				podCount++
+				switch p.Status.Phase {
+				case "Running":
+					podStatus.Running++
+				case "Pending":
+					podStatus.Pending++
+				case "Failed":
+					podStatus.Failed++
+				case "Succeeded":
+					podStatus.Succeeded++
+				}
+				for _, cs := range p.Status.ContainerStatuses {
+					podStatus.TotalRestarts += int(cs.RestartCount)
+				}
 			}
 		}
 		deploymentCount = 0
-		for _, d := range deployments.Items {
-			if _, ok := projectNSSet[d.Namespace]; ok {
-				deploymentCount++
+		if deployments != nil {
+			for _, d := range deployments.Items {
+				if _, ok := projectNSSet[d.Namespace]; ok {
+					deploymentCount++
+				}
 			}
 		}
 		serviceCount = 0
-		for _, s := range services.Items {
-			if _, ok := projectNSSet[s.Namespace]; ok {
-				serviceCount++
+		if services != nil {
+			for _, s := range services.Items {
+				if _, ok := projectNSSet[s.GetNamespace()]; ok {
+					serviceCount++
+				}
 			}
 		}
 		statefulsetCount = 0
-		for _, sts := range statefulsets.Items {
-			if _, ok := projectNSSet[sts.Namespace]; ok {
-				statefulsetCount++
+		if statefulsets != nil {
+			for _, sts := range statefulsets.Items {
+				if _, ok := projectNSSet[sts.GetNamespace()]; ok {
+					statefulsetCount++
+				}
 			}
 		}
 		replicasetCount = 0
-		for _, rs := range replicasets.Items {
-			if _, ok := projectNSSet[rs.Namespace]; ok {
-				replicasetCount++
+		if replicasets != nil {
+			for _, rs := range replicasets.Items {
+				if _, ok := projectNSSet[rs.GetNamespace()]; ok {
+					replicasetCount++
+				}
 			}
 		}
 		daemonsetCount = 0
-		for _, ds := range daemonsets.Items {
-			if _, ok := projectNSSet[ds.Namespace]; ok {
-				daemonsetCount++
+		if daemonsets != nil {
+			for _, ds := range daemonsets.Items {
+				if _, ok := projectNSSet[ds.GetNamespace()]; ok {
+					daemonsetCount++
+				}
 			}
 		}
 		jobCount = 0
-		for _, j := range jobs.Items {
-			if _, ok := projectNSSet[j.Namespace]; ok {
-				jobCount++
+		if jobs != nil {
+			for _, j := range jobs.Items {
+				if _, ok := projectNSSet[j.GetNamespace()]; ok {
+					jobCount++
+				}
 			}
 		}
 		cronjobCount = 0
-		for _, cj := range cronjobs.Items {
-			if _, ok := projectNSSet[cj.Namespace]; ok {
-				cronjobCount++
+		if cronjobs != nil {
+			for _, cj := range cronjobs.Items {
+				if _, ok := projectNSSet[cj.GetNamespace()]; ok {
+					cronjobCount++
+				}
 			}
 		}
 		ingressCount = 0
 		if ingresses != nil {
 			for _, i := range ingresses.Items {
-				if _, ok := projectNSSet[i.Namespace]; ok {
+				if _, ok := projectNSSet[i.GetNamespace()]; ok {
 					ingressCount++
 				}
 			}
@@ -1543,7 +1722,7 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 		endpointCount = 0
 		if endpoints != nil {
 			for _, e := range endpoints.Items {
-				if _, ok := projectNSSet[e.Namespace]; ok {
+				if _, ok := projectNSSet[e.GetNamespace()]; ok {
 					endpointCount++
 				}
 			}
@@ -1559,7 +1738,7 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 		networkPolicyCount = 0
 		if networkPolicies != nil {
 			for _, n := range networkPolicies.Items {
-				if _, ok := projectNSSet[n.Namespace]; ok {
+				if _, ok := projectNSSet[n.GetNamespace()]; ok {
 					networkPolicyCount++
 				}
 			}
@@ -1567,7 +1746,7 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 		configmapCount = 0
 		if configmaps != nil {
 			for _, c := range configmaps.Items {
-				if _, ok := projectNSSet[c.Namespace]; ok {
+				if _, ok := projectNSSet[c.GetNamespace()]; ok {
 					configmapCount++
 				}
 			}
@@ -1575,7 +1754,7 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 		secretCount = 0
 		if secrets != nil {
 			for _, s := range secrets.Items {
-				if _, ok := projectNSSet[s.Namespace]; ok {
+				if _, ok := projectNSSet[s.GetNamespace()]; ok {
 					secretCount++
 				}
 			}
@@ -1583,7 +1762,7 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 		pvcCount = 0
 		if pvcs != nil {
 			for _, p := range pvcs.Items {
-				if _, ok := projectNSSet[p.Namespace]; ok {
+				if _, ok := projectNSSet[p.GetNamespace()]; ok {
 					pvcCount++
 				}
 			}
@@ -1591,7 +1770,7 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 		serviceAccountCount = 0
 		if serviceAccounts != nil {
 			for _, s := range serviceAccounts.Items {
-				if _, ok := projectNSSet[s.Namespace]; ok {
+				if _, ok := projectNSSet[s.GetNamespace()]; ok {
 					serviceAccountCount++
 				}
 			}
@@ -1599,7 +1778,7 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 		roleCount = 0
 		if roles != nil {
 			for _, ro := range roles.Items {
-				if _, ok := projectNSSet[ro.Namespace]; ok {
+				if _, ok := projectNSSet[ro.GetNamespace()]; ok {
 					roleCount++
 				}
 			}
@@ -1607,7 +1786,7 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 		roleBindingCount = 0
 		if roleBindings != nil {
 			for _, rb := range roleBindings.Items {
-				if _, ok := projectNSSet[rb.Namespace]; ok {
+				if _, ok := projectNSSet[rb.GetNamespace()]; ok {
 					roleBindingCount++
 				}
 			}
@@ -1615,7 +1794,7 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 		hpaCount = 0
 		if hpas != nil {
 			for _, h := range hpas.Items {
-				if _, ok := projectNSSet[h.Namespace]; ok {
+				if _, ok := projectNSSet[h.GetNamespace()]; ok {
 					hpaCount++
 				}
 			}
@@ -1639,7 +1818,7 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 		pdbCount = 0
 		if pdbs != nil {
 			for _, p := range pdbs.Items {
-				if _, ok := projectNSSet[p.Namespace]; ok {
+				if _, ok := projectNSSet[p.GetNamespace()]; ok {
 					pdbCount++
 				}
 			}
@@ -2005,7 +2184,8 @@ func (h *Handler) GetTopologyV2(w http.ResponseWriter, r *http.Request) {
 		resp = cached
 	} else {
 		// Cache miss (or forced) — build topology
-		built, buildErr := topologyv2builder.BuildTopology(ctx, opts, client)
+		im := h.clusterService.GetInformerManager(clusterID)
+		built, buildErr := topologyv2builder.BuildTopology(ctx, opts, client, im)
 		if buildErr != nil {
 			if errors.Is(buildErr, context.DeadlineExceeded) {
 				respondTimeout(w, r, http.StatusServiceUnavailable, "", "GetTopologyV2", clusterID, "Topology build timed out")
@@ -2123,7 +2303,8 @@ func (h *Handler) GetTopologyV2Traffic(w http.ResponseWriter, r *http.Request) {
 	if cached, ok := topologyCacheGet(cacheKey); ok {
 		resp = cached
 	} else {
-		built, buildErr := topologyv2builder.BuildTopology(ctx, opts, client)
+		im := h.clusterService.GetInformerManager(clusterID)
+		built, buildErr := topologyv2builder.BuildTopology(ctx, opts, client, im)
 		if buildErr != nil {
 			if errors.Is(buildErr, context.DeadlineExceeded) {
 				respondTimeout(w, r, http.StatusServiceUnavailable, "", "GetTopologyV2Traffic", clusterID, "Topology build timed out")
@@ -2147,7 +2328,7 @@ func (h *Handler) GetTopologyV2Traffic(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Collect the resource bundle for traffic inference
-	bundle, _ := topologyv2.CollectFromClient(ctx, client, namespace)
+	bundle, _ := topologyv2.CollectFromClient(ctx, client, namespace, h.clusterService.GetInformerManager(clusterID))
 
 	trafficEdges := topologyv2builder.InferTraffic(resp.Nodes, resp.Edges, bundle)
 	criticalityScores := topologyv2builder.ScoreNodes(resp.Nodes, resp.Edges)
@@ -2210,7 +2391,7 @@ func (h *Handler) GetTopologyV2Impact(w http.ResponseWriter, r *http.Request) {
 		ClusterName: clusterName,
 		Mode:        topologyv2.ViewModeCluster,
 	}
-	resp, err := topologyv2builder.BuildTopology(r.Context(), opts, client)
+	resp, err := topologyv2builder.BuildTopology(r.Context(), opts, client, h.clusterService.GetInformerManager(clusterID))
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -2286,6 +2467,19 @@ func (h *Handler) GetResourceTopology(w http.ResponseWriter, r *http.Request) {
 		ClusterID:   clusterID,
 		ClusterName: clusterName,
 		Mode:        topologyv2.ViewModeCluster, // Use cluster mode to get ALL nodes; handler does its own BFS filtering
+		// Scope collection to the focus resource's own namespace (empty for
+		// a cluster-scoped kind like Node, which legitimately needs
+		// cross-namespace pods as neighbors). Every namespaced relationship
+		// a Pod/Deployment/etc.'s BFS neighborhood can reach — ownership,
+		// Service/NetworkPolicy/PDB selectors, ConfigMap/Secret/PVC refs —
+		// stays within one namespace by Kubernetes's own object model, so
+		// this doesn't drop real edges; it just stops collectFromClient
+		// (when the ClusterGraphEngine seed isn't available) from listing
+		// every resource of every kind across every OTHER namespace in the
+		// cluster just to show a 1-2 hop neighborhood around one resource —
+		// exactly the "fetches everything, times out, shows nothing" failure
+		// mode reported against v1.2.3's resource topology view.
+		Namespace: namespace,
 	}
 	// Parse hop depth from query (default 1 = direct connections only).
 	// Accept both "depth" (frontend convention) and "hops" (backend legacy) — "depth" takes precedence.
@@ -2341,10 +2535,11 @@ func (h *Handler) GetResourceTopology(w http.ResponseWriter, r *http.Request) {
 		}
 		var bundle *topologyv2.ResourceBundle
 		var collectErr error
+		im := h.clusterService.GetInformerManager(clusterID)
 		if seed != nil {
-			bundle, collectErr = topologyv2.CollectRemainderFromClient(ctx, client, v2Opts.Namespace, seed)
+			bundle, collectErr = topologyv2.CollectRemainderFromClient(ctx, client, v2Opts.Namespace, seed, im)
 		} else {
-			bundle, collectErr = topologyv2.CollectFromClient(ctx, client, v2Opts.Namespace)
+			bundle, collectErr = topologyv2.CollectFromClient(ctx, client, v2Opts.Namespace, im)
 		}
 		if collectErr != nil {
 			buildErr = collectErr
@@ -2498,7 +2693,7 @@ func (h *Handler) GetCriticality(w http.ResponseWriter, r *http.Request) {
 			ClusterName: clusterName,
 			Mode:        topologyv2.ViewModeCluster,
 		}
-		built, buildErr := topologyv2builder.BuildTopology(ctx, opts, client)
+		built, buildErr := topologyv2builder.BuildTopology(ctx, opts, client, h.clusterService.GetInformerManager(clusterID))
 		if buildErr != nil {
 			if errors.Is(buildErr, context.DeadlineExceeded) {
 				respondTimeout(w, r, http.StatusServiceUnavailable, "", "GetCriticality", clusterID, "Topology build timed out")

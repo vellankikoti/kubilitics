@@ -212,7 +212,7 @@ const CLUSTER_SCOPED_KINDS: ResourceType[] = [
 
 // Generic hook for fetching any K8s resource list (backend or direct K8s). Per A3.3: single code path for backend mode.
 // When backend is used, optional options.limit (e.g. 5000) requests that many items for count/sidebar use.
-export function useK8sResourceList<T extends KubernetesResource>(
+export function useK8sResourceList<T extends KubernetesResource, TSelected = ResourceList<T>>(
   resourceType: ResourceType,
   namespace?: string,
   options?: {
@@ -223,6 +223,14 @@ export function useK8sResourceList<T extends KubernetesResource>(
     labelSelector?: string;
     staleTime?: number;
     placeholderData?: (previousData: ResourceList<T> | undefined) => ResourceList<T> | undefined;
+    // Project the full response down to only what the caller needs (e.g. a
+    // count instead of the full item list). React Query re-renders a
+    // subscriber whenever the SELECTED value's reference changes, not the
+    // raw query data — a caller that only needs `.items.length` no longer
+    // re-renders on every unrelated field change in the full payload.
+    // Optional and fully backward-compatible: omitting it keeps today's
+    // behavior (TSelected defaults to the untransformed ResourceList<T>).
+    select?: (data: ResourceList<T>) => TSelected;
   }
 ) {
   const { config } = useKubernetesConfigStore();
@@ -320,6 +328,7 @@ export function useK8sResourceList<T extends KubernetesResource>(
       return failureCount < 3;
     },
     retryDelay: (attempt: number) => Math.min(1000 * 2 ** attempt, 8000),
+    select: options?.select,
   });
 }
 

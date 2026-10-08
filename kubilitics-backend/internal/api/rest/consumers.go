@@ -1,15 +1,67 @@
 package rest
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gorilla/mux"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/kubilitics/kubilitics-backend/internal/k8s"
 	"github.com/kubilitics/kubilitics-backend/internal/pkg/logger"
 	"github.com/kubilitics/kubilitics-backend/internal/pkg/validate"
 )
+
+// resolveDeploymentRefs resolves each pod's owning Deployment (via its
+// ReplicaSet owner reference) using a single namespace-scoped ReplicaSet
+// List call, instead of one ReplicaSets().Get() per matching pod (the
+// previous N+1 pattern duplicated across all three consumer handlers below).
+func resolveDeploymentRefs(ctx context.Context, client *k8s.Client, namespace string, pods []corev1.Pod) []Ref {
+	rsNames := make(map[string]struct{})
+	for _, pod := range pods {
+		for _, ref := range pod.OwnerReferences {
+			if ref.Kind == "ReplicaSet" {
+				rsNames[ref.Name] = struct{}{}
+				break
+			}
+		}
+	}
+	if len(rsNames) == 0 {
+		return nil
+	}
+	rsList, err := client.Clientset.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil
+	}
+	rsToDeployment := make(map[string]string, len(rsList.Items))
+	for _, rs := range rsList.Items {
+		for _, o := range rs.OwnerReferences {
+			if o.Kind == "Deployment" {
+				rsToDeployment[rs.Name] = o.Name
+				break
+			}
+		}
+	}
+	var out []Ref
+	seenDep := make(map[string]bool)
+	for _, pod := range pods {
+		for _, ref := range pod.OwnerReferences {
+			if ref.Kind != "ReplicaSet" {
+				continue
+			}
+			if depName, ok := rsToDeployment[ref.Name]; ok {
+				k := pod.Namespace + "/" + depName
+				if !seenDep[k] {
+					seenDep[k] = true
+					out = append(out, Ref{Namespace: pod.Namespace, Name: depName})
+				}
+			}
+			break
+		}
+	}
+	return out
+}
 
 // ConsumersResponse is the JSON shape for configmap/secret consumers endpoints.
 type ConsumersResponse struct {
@@ -165,28 +217,7 @@ func (h *Handler) GetConfigMapConsumers(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	out := buildConsumersFromPods(matching)
-	seenDep := make(map[string]bool)
-	for _, pod := range matching {
-		for _, ref := range pod.OwnerReferences {
-			if ref.Kind == "ReplicaSet" {
-				rs, err := client.Clientset.AppsV1().ReplicaSets(pod.Namespace).Get(r.Context(), ref.Name, metav1.GetOptions{})
-				if err != nil {
-					continue
-				}
-				for _, r := range rs.OwnerReferences {
-					if r.Kind == "Deployment" {
-						k := pod.Namespace + "/" + r.Name
-						if !seenDep[k] {
-							seenDep[k] = true
-							out.Deployments = append(out.Deployments, Ref{Namespace: pod.Namespace, Name: r.Name})
-						}
-						break
-					}
-				}
-				break
-			}
-		}
-	}
+	out.Deployments = resolveDeploymentRefs(r.Context(), client, namespace, matching)
 	respondJSON(w, http.StatusOK, out)
 }
 
@@ -221,28 +252,7 @@ func (h *Handler) GetSecretConsumers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	out := buildConsumersFromPods(matching)
-	seenDep := make(map[string]bool)
-	for _, pod := range matching {
-		for _, ref := range pod.OwnerReferences {
-			if ref.Kind == "ReplicaSet" {
-				rs, err := client.Clientset.AppsV1().ReplicaSets(pod.Namespace).Get(r.Context(), ref.Name, metav1.GetOptions{})
-				if err != nil {
-					continue
-				}
-				for _, r := range rs.OwnerReferences {
-					if r.Kind == "Deployment" {
-						k := pod.Namespace + "/" + r.Name
-						if !seenDep[k] {
-							seenDep[k] = true
-							out.Deployments = append(out.Deployments, Ref{Namespace: pod.Namespace, Name: r.Name})
-						}
-						break
-					}
-				}
-				break
-			}
-		}
-	}
+	out.Deployments = resolveDeploymentRefs(r.Context(), client, namespace, matching)
 	respondJSON(w, http.StatusOK, out)
 }
 
@@ -278,27 +288,6 @@ func (h *Handler) GetPVCConsumers(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	out := buildConsumersFromPods(matching)
-	seenDep := make(map[string]bool)
-	for _, pod := range matching {
-		for _, ref := range pod.OwnerReferences {
-			if ref.Kind == "ReplicaSet" {
-				rs, err := client.Clientset.AppsV1().ReplicaSets(pod.Namespace).Get(r.Context(), ref.Name, metav1.GetOptions{})
-				if err != nil {
-					continue
-				}
-				for _, r := range rs.OwnerReferences {
-					if r.Kind == "Deployment" {
-						k := pod.Namespace + "/" + r.Name
-						if !seenDep[k] {
-							seenDep[k] = true
-							out.Deployments = append(out.Deployments, Ref{Namespace: pod.Namespace, Name: r.Name})
-						}
-						break
-					}
-				}
-				break
-			}
-		}
-	}
+	out.Deployments = resolveDeploymentRefs(r.Context(), client, namespace, matching)
 	respondJSON(w, http.StatusOK, out)
 }

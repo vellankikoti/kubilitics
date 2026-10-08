@@ -101,10 +101,11 @@ export function WorkloadCapacitySnapshot() {
       .map((p) => ({ phase: p, count: phaseCounts[p], color: PHASE_COLORS[p] ?? 'bg-muted' }));
   }, [phaseCounts]);
 
-  // podsList/nodesList feed the phase counts, node readiness, and namespace
-  // chart above with no prior error check — a failed fetch rendered
-  // identically to a genuinely idle/empty cluster ("Stable", 0 everywhere).
-  const hasDataError = podsList.isError || nodesList.isError;
+  // Every one of these queries feeds a metric cell or the phase/namespace
+  // charts above; missing any of them from this check lets that query's
+  // failure render as a silent 0 ("Stable") instead of "Unavailable".
+  const hasDataError = podsList.isError || nodesList.isError || deploymentsList.isError
+    || servicesList.isError || namespacesList.isError || summaryQuery.isError || signals.isError;
 
   const trendLabel = hasDataError
     ? 'Unavailable'

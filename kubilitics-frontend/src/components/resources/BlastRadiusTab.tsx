@@ -9,7 +9,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertTriangle, Shield } from 'lucide-react';
+import { AlertTriangle, Shield, Loader2 } from 'lucide-react';
 
 import { useBlastRadius } from '@/hooks/useBlastRadius';
 import { useResourceTopology } from '@/hooks/useResourceTopology';
@@ -391,6 +391,22 @@ export function BlastRadiusTab({ kind, namespace, name }: BlastRadiusTabProps) {
 
   return (
     <div className="flex flex-col gap-4 p-4 w-full">
+      {/* Dependency-graph warm-up banner. Previously isGraphReady was
+          fetched but never rendered anywhere — the backend's graph engine
+          starts lazily on first request and takes real time (informer sync
+          + first debounced rebuild) to become ready, so the blast-radius
+          score/waves/risk cards below would just never appear with no
+          explanation, reading as "broken" rather than "warming up." The
+          topology canvas above already renders independently (it doesn't
+          need the graph engine), so this only covers the blast-radius-
+          specific panels. */}
+      {canFetch && !isGraphReady && !brError && (
+        <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-200 text-sm">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-500" />
+          <span>Building dependency graph for this cluster — blast radius analysis will appear automatically once ready.</span>
+        </div>
+      )}
+
       {/* Coverage Banner */}
       {hasBlastData && blastData && (
         <CoverageBanner

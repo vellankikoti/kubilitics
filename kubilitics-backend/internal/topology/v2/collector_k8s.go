@@ -82,9 +82,12 @@ func paginatedCollect[TList continuable, TItem any](
 }
 
 // CollectFromClient fills a ResourceBundle by listing resources from the given k8s client.
-// Namespace filters namespaced resources; empty means all namespaces.
-func CollectFromClient(ctx context.Context, client *k8s.Client, namespace string) (*ResourceBundle, error) {
-	return collectFromClient(ctx, client, namespace, nil)
+// Namespace filters namespaced resources; empty means all namespaces. im is
+// the cluster's InformerManager, used to serve any informer-tracked resource
+// type from cache (<1ms) instead of a live API call; pass nil to always
+// live-fetch (e.g. a cluster whose informers haven't started yet).
+func CollectFromClient(ctx context.Context, client *k8s.Client, namespace string, im *k8s.InformerManager) (*ResourceBundle, error) {
+	return collectFromClient(ctx, client, namespace, nil, im)
 }
 
 // CollectRemainderFromClient behaves like CollectFromClient, except that any
@@ -100,11 +103,33 @@ func CollectFromClient(ctx context.Context, client *k8s.Client, namespace string
 // resource types the engine does not track (RBAC, Nodes, Namespaces,
 // storage, events, etc.), without reducing the bundle's completeness — every
 // field is still populated, just from two different sources.
-func CollectRemainderFromClient(ctx context.Context, client *k8s.Client, namespace string, seed *ResourceBundle) (*ResourceBundle, error) {
-	return collectFromClient(ctx, client, namespace, seed)
+func CollectRemainderFromClient(ctx context.Context, client *k8s.Client, namespace string, seed *ResourceBundle, im *k8s.InformerManager) (*ResourceBundle, error) {
+	return collectFromClient(ctx, client, namespace, seed, im)
 }
 
-func collectFromClient(ctx context.Context, client *k8s.Client, namespace string, seed *ResourceBundle) (*ResourceBundle, error) {
+// collectWithCache serves resourceType from the cluster's informer cache
+// when available (Theme 1 #3/#4 — collectFromClient previously bypassed the
+// informer cache entirely, unlike buildClusterSummary/GetClusterSummary),
+// falling back to the existing live-API pagination path on any cache miss
+// (not yet synced, untracked resource type, or im == nil). A cache hit
+// returns the complete set directly — no continuation-token pagination is
+// needed since the informer store already holds everything in memory.
+func collectWithCache[TList continuable, TItem any](
+	ctx context.Context,
+	im *k8s.InformerManager,
+	namespace string,
+	resourceType string,
+	recordFailure func(resourceType string, err error),
+	listFn func(ctx context.Context, opts metav1.ListOptions) (TList, error),
+	itemsOf func(TList) []TItem,
+) []TItem {
+	if items, ok := k8s.ListTypedFromCache[TItem](im, resourceType, namespace, metav1.ListOptions{}); ok {
+		return items
+	}
+	return paginatedCollect(ctx, resourceType, recordFailure, listFn, itemsOf)
+}
+
+func collectFromClient(ctx context.Context, client *k8s.Client, namespace string, seed *ResourceBundle, im *k8s.InformerManager) (*ResourceBundle, error) {
 	if client == nil || client.Clientset == nil {
 		return nil, nil
 	}
@@ -128,7 +153,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.Pods = seed.Pods
 			return nil
 		}
-		bundle.Pods = paginatedCollect(gctx, "pods", recordFailure,
+		bundle.Pods = collectWithCache(gctx, im, namespace, "pods", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*corev1.PodList, error) {
 				return cs.CoreV1().Pods(nsOpts).List(ctx, opts)
 			},
@@ -141,7 +166,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.Deployments = seed.Deployments
 			return nil
 		}
-		bundle.Deployments = paginatedCollect(gctx, "deployments", recordFailure,
+		bundle.Deployments = collectWithCache(gctx, im, namespace, "deployments", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*appsv1.DeploymentList, error) {
 				return cs.AppsV1().Deployments(nsOpts).List(ctx, opts)
 			},
@@ -154,7 +179,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.ReplicaSets = seed.ReplicaSets
 			return nil
 		}
-		bundle.ReplicaSets = paginatedCollect(gctx, "replicasets", recordFailure,
+		bundle.ReplicaSets = collectWithCache(gctx, im, namespace, "replicasets", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*appsv1.ReplicaSetList, error) {
 				return cs.AppsV1().ReplicaSets(nsOpts).List(ctx, opts)
 			},
@@ -167,7 +192,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.StatefulSets = seed.StatefulSets
 			return nil
 		}
-		bundle.StatefulSets = paginatedCollect(gctx, "statefulsets", recordFailure,
+		bundle.StatefulSets = collectWithCache(gctx, im, namespace, "statefulsets", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*appsv1.StatefulSetList, error) {
 				return cs.AppsV1().StatefulSets(nsOpts).List(ctx, opts)
 			},
@@ -180,7 +205,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.DaemonSets = seed.DaemonSets
 			return nil
 		}
-		bundle.DaemonSets = paginatedCollect(gctx, "daemonsets", recordFailure,
+		bundle.DaemonSets = collectWithCache(gctx, im, namespace, "daemonsets", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*appsv1.DaemonSetList, error) {
 				return cs.AppsV1().DaemonSets(nsOpts).List(ctx, opts)
 			},
@@ -193,7 +218,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.Jobs = seed.Jobs
 			return nil
 		}
-		bundle.Jobs = paginatedCollect(gctx, "jobs", recordFailure,
+		bundle.Jobs = collectWithCache(gctx, im, namespace, "jobs", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*batchv1.JobList, error) {
 				return cs.BatchV1().Jobs(nsOpts).List(ctx, opts)
 			},
@@ -206,7 +231,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.CronJobs = seed.CronJobs
 			return nil
 		}
-		bundle.CronJobs = paginatedCollect(gctx, "cronjobs", recordFailure,
+		bundle.CronJobs = collectWithCache(gctx, im, namespace, "cronjobs", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*batchv1.CronJobList, error) {
 				return cs.BatchV1().CronJobs(nsOpts).List(ctx, opts)
 			},
@@ -219,7 +244,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.Services = seed.Services
 			return nil
 		}
-		bundle.Services = paginatedCollect(gctx, "services", recordFailure,
+		bundle.Services = collectWithCache(gctx, im, namespace, "services", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*corev1.ServiceList, error) {
 				return cs.CoreV1().Services(nsOpts).List(ctx, opts)
 			},
@@ -232,7 +257,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.Endpoints = seed.Endpoints
 			return nil
 		}
-		bundle.Endpoints = paginatedCollect(gctx, "endpoints", recordFailure,
+		bundle.Endpoints = collectWithCache(gctx, im, namespace, "endpoints", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*corev1.EndpointsList, error) {
 				return cs.CoreV1().Endpoints(nsOpts).List(ctx, opts)
 			},
@@ -259,7 +284,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.Ingresses = seed.Ingresses
 			return nil
 		}
-		bundle.Ingresses = paginatedCollect(gctx, "ingresses", recordFailure,
+		bundle.Ingresses = collectWithCache(gctx, im, namespace, "ingresses", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*networkingv1.IngressList, error) {
 				return cs.NetworkingV1().Ingresses(nsOpts).List(ctx, opts)
 			},
@@ -268,7 +293,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 		return nil
 	})
 	g.Go(func() error {
-		bundle.IngressClasses = paginatedCollect(gctx, "ingressclasses", recordFailure,
+		bundle.IngressClasses = collectWithCache(gctx, im, namespace, "ingressclasses", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*networkingv1.IngressClassList, error) {
 				return cs.NetworkingV1().IngressClasses().List(ctx, opts)
 			},
@@ -281,7 +306,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.ConfigMaps = seed.ConfigMaps
 			return nil
 		}
-		bundle.ConfigMaps = paginatedCollect(gctx, "configmaps", recordFailure,
+		bundle.ConfigMaps = collectWithCache(gctx, im, namespace, "configmaps", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*corev1.ConfigMapList, error) {
 				return cs.CoreV1().ConfigMaps(nsOpts).List(ctx, opts)
 			},
@@ -294,7 +319,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.Secrets = seed.Secrets
 			return nil
 		}
-		bundle.Secrets = paginatedCollect(gctx, "secrets", recordFailure,
+		bundle.Secrets = collectWithCache(gctx, im, namespace, "secrets", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*corev1.SecretList, error) {
 				return cs.CoreV1().Secrets(nsOpts).List(ctx, opts)
 			},
@@ -307,7 +332,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.PVCs = seed.PVCs
 			return nil
 		}
-		bundle.PVCs = paginatedCollect(gctx, "pvcs", recordFailure,
+		bundle.PVCs = collectWithCache(gctx, im, namespace, "persistentvolumeclaims", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*corev1.PersistentVolumeClaimList, error) {
 				return cs.CoreV1().PersistentVolumeClaims(nsOpts).List(ctx, opts)
 			},
@@ -316,7 +341,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 		return nil
 	})
 	g.Go(func() error {
-		bundle.PVs = paginatedCollect(gctx, "pvs", recordFailure,
+		bundle.PVs = collectWithCache(gctx, im, namespace, "persistentvolumes", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*corev1.PersistentVolumeList, error) {
 				return cs.CoreV1().PersistentVolumes().List(ctx, opts)
 			},
@@ -325,7 +350,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 		return nil
 	})
 	g.Go(func() error {
-		bundle.StorageClasses = paginatedCollect(gctx, "storageclasses", recordFailure,
+		bundle.StorageClasses = collectWithCache(gctx, im, namespace, "storageclasses", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*storagev1.StorageClassList, error) {
 				return cs.StorageV1().StorageClasses().List(ctx, opts)
 			},
@@ -334,7 +359,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 		return nil
 	})
 	g.Go(func() error {
-		bundle.Nodes = paginatedCollect(gctx, "nodes", recordFailure,
+		bundle.Nodes = collectWithCache(gctx, im, namespace, "nodes", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*corev1.NodeList, error) {
 				return cs.CoreV1().Nodes().List(ctx, opts)
 			},
@@ -343,7 +368,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 		return nil
 	})
 	g.Go(func() error {
-		bundle.Namespaces = paginatedCollect(gctx, "namespaces", recordFailure,
+		bundle.Namespaces = collectWithCache(gctx, im, namespace, "namespaces", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*corev1.NamespaceList, error) {
 				return cs.CoreV1().Namespaces().List(ctx, opts)
 			},
@@ -356,7 +381,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.ServiceAccounts = seed.ServiceAccounts
 			return nil
 		}
-		bundle.ServiceAccounts = paginatedCollect(gctx, "serviceaccounts", recordFailure,
+		bundle.ServiceAccounts = collectWithCache(gctx, im, namespace, "serviceaccounts", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*corev1.ServiceAccountList, error) {
 				return cs.CoreV1().ServiceAccounts(nsOpts).List(ctx, opts)
 			},
@@ -365,7 +390,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 		return nil
 	})
 	g.Go(func() error {
-		bundle.Roles = paginatedCollect(gctx, "roles", recordFailure,
+		bundle.Roles = collectWithCache(gctx, im, namespace, "roles", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*rbacv1.RoleList, error) {
 				return cs.RbacV1().Roles(nsOpts).List(ctx, opts)
 			},
@@ -374,7 +399,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 		return nil
 	})
 	g.Go(func() error {
-		bundle.RoleBindings = paginatedCollect(gctx, "rolebindings", recordFailure,
+		bundle.RoleBindings = collectWithCache(gctx, im, namespace, "rolebindings", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*rbacv1.RoleBindingList, error) {
 				return cs.RbacV1().RoleBindings(nsOpts).List(ctx, opts)
 			},
@@ -383,7 +408,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 		return nil
 	})
 	g.Go(func() error {
-		bundle.ClusterRoles = paginatedCollect(gctx, "clusterroles", recordFailure,
+		bundle.ClusterRoles = collectWithCache(gctx, im, namespace, "clusterroles", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*rbacv1.ClusterRoleList, error) {
 				return cs.RbacV1().ClusterRoles().List(ctx, opts)
 			},
@@ -392,7 +417,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 		return nil
 	})
 	g.Go(func() error {
-		bundle.ClusterRoleBindings = paginatedCollect(gctx, "clusterrolebindings", recordFailure,
+		bundle.ClusterRoleBindings = collectWithCache(gctx, im, namespace, "clusterrolebindings", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*rbacv1.ClusterRoleBindingList, error) {
 				return cs.RbacV1().ClusterRoleBindings().List(ctx, opts)
 			},
@@ -401,7 +426,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 		return nil
 	})
 	g.Go(func() error {
-		bundle.HPAs = paginatedCollect(gctx, "hpas", recordFailure,
+		bundle.HPAs = collectWithCache(gctx, im, namespace, "horizontalpodautoscalers", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*autoscalingv2.HorizontalPodAutoscalerList, error) {
 				return cs.AutoscalingV2().HorizontalPodAutoscalers(nsOpts).List(ctx, opts)
 			},
@@ -414,7 +439,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.PDBs = seed.PDBs
 			return nil
 		}
-		bundle.PDBs = paginatedCollect(gctx, "pdbs", recordFailure,
+		bundle.PDBs = collectWithCache(gctx, im, namespace, "poddisruptionbudgets", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*policyv1.PodDisruptionBudgetList, error) {
 				return cs.PolicyV1().PodDisruptionBudgets(nsOpts).List(ctx, opts)
 			},
@@ -427,7 +452,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 			bundle.NetworkPolicies = seed.NetworkPolicies
 			return nil
 		}
-		bundle.NetworkPolicies = paginatedCollect(gctx, "networkpolicies", recordFailure,
+		bundle.NetworkPolicies = collectWithCache(gctx, im, namespace, "networkpolicies", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*networkingv1.NetworkPolicyList, error) {
 				return cs.NetworkingV1().NetworkPolicies(nsOpts).List(ctx, opts)
 			},
@@ -476,7 +501,7 @@ func collectFromClient(ctx context.Context, client *k8s.Client, namespace string
 		return nil
 	})
 	g.Go(func() error {
-		bundle.Events = paginatedCollect(gctx, "events", recordFailure,
+		bundle.Events = collectWithCache(gctx, im, namespace, "events", recordFailure,
 			func(ctx context.Context, opts metav1.ListOptions) (*corev1.EventList, error) {
 				return cs.CoreV1().Events(nsOpts).List(ctx, opts)
 			},

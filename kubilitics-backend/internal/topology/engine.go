@@ -10,6 +10,14 @@ import (
 
 	"github.com/kubilitics/kubilitics-backend/internal/k8s"
 	"github.com/kubilitics/kubilitics-backend/internal/models"
+	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	batchv1 "k8s.io/api/batch/v1"
+	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	policyv1 "k8s.io/api/policy/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -53,13 +61,36 @@ func convertOwnerRefs(refs []metav1.OwnerReference) []OwnerRef {
 // Engine builds topology graphs from Kubernetes resources
 type Engine struct {
 	client *k8s.Client
+	// im is the cluster's InformerManager, used to serve informer-tracked
+	// resource types from cache (<1ms) instead of a live API call — see
+	// listWithCache. Nil-safe: a nil im (or an unsynced/untracked kind)
+	// falls straight through to the original live List call, so this is
+	// purely additive. Before this, discoverResources' ~25 live List calls
+	// were this engine's single biggest latency source — the same
+	// bypass-the-cache pattern already fixed in buildClusterSummary
+	// (internal/api/rest/handler.go) and collectFromClient
+	// (internal/topology/v2/collector_k8s.go), but this is the engine
+	// actually behind the main/default Topology tab, so it had the biggest
+	// real-world impact of the three.
+	im *k8s.InformerManager
 }
 
-// NewEngine creates a new topology engine
-func NewEngine(client *k8s.Client) *Engine {
+// NewEngine creates a new topology engine. im may be nil (falls back to
+// always-live, identical to this engine's previous behavior).
+func NewEngine(client *k8s.Client, im *k8s.InformerManager) *Engine {
 	return &Engine{
 		client: client,
+		im:     im,
 	}
+}
+
+// listWithCache serves resourceType from the cluster's informer cache when
+// available, falling back to (nil, false) on any cache miss — not yet
+// synced, untracked resource kind, or e.im == nil. A cache hit returns the
+// complete set directly; no pagination is needed since the informer store
+// already holds everything in memory.
+func listWithCache[T any](e *Engine, resourceType, namespace string) ([]T, bool) {
+	return k8s.ListTypedFromCache[T](e.im, resourceType, namespace, metav1.ListOptions{})
 }
 
 // BuildGraph constructs the topology graph (clusterID is used for contract metadata).
@@ -171,11 +202,17 @@ func (e *Engine) discoverResources(ctx context.Context, graph *Graph, filters mo
 }
 
 func (e *Engine) discoverPods(ctx context.Context, graph *Graph, namespace string) error {
-	pods, err := e.client.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list pods: %w", err)
+	var pods []corev1.Pod
+	if cached, ok := listWithCache[corev1.Pod](e, "pods", namespace); ok {
+		pods = cached
+	} else {
+		result, err := e.client.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list pods: %w", err)
+		}
+		pods = result.Items
 	}
-	for _, pod := range pods.Items {
+	for _, pod := range pods {
 		node := buildNode("Pod", pod.Namespace, pod.Name, string(pod.Status.Phase), pod.ObjectMeta)
 
 		// Infer health from actual container statuses and pod phase (P1 topology data model fix).
@@ -249,11 +286,17 @@ func (e *Engine) discoverPods(ctx context.Context, graph *Graph, namespace strin
 }
 
 func (e *Engine) discoverServices(ctx context.Context, graph *Graph, namespace string) error {
-	services, err := e.client.Clientset.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list services: %w", err)
+	var services []corev1.Service
+	if cached, ok := listWithCache[corev1.Service](e, "services", namespace); ok {
+		services = cached
+	} else {
+		result, err := e.client.Clientset.CoreV1().Services(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list services: %w", err)
+		}
+		services = result.Items
 	}
-	for _, svc := range services.Items {
+	for _, svc := range services {
 		node := buildNode("Service", svc.Namespace, svc.Name, "Active", svc.ObjectMeta)
 		node.ClusterIP = svc.Spec.ClusterIP
 		node.ServiceType = string(svc.Spec.Type)
@@ -271,11 +314,17 @@ func (e *Engine) discoverServices(ctx context.Context, graph *Graph, namespace s
 }
 
 func (e *Engine) discoverDeployments(ctx context.Context, graph *Graph, namespace string) error {
-	deployments, err := e.client.Clientset.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list deployments: %w", err)
+	var deployments []appsv1.Deployment
+	if cached, ok := listWithCache[appsv1.Deployment](e, "deployments", namespace); ok {
+		deployments = cached
+	} else {
+		result, err := e.client.Clientset.AppsV1().Deployments(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list deployments: %w", err)
+		}
+		deployments = result.Items
 	}
-	for _, deploy := range deployments.Items {
+	for _, deploy := range deployments {
 		// Determine status from replica state instead of hardcoding "Active".
 		desired := int32(1)
 		if deploy.Spec.Replicas != nil {
@@ -316,11 +365,17 @@ func (e *Engine) discoverDeployments(ctx context.Context, graph *Graph, namespac
 }
 
 func (e *Engine) discoverReplicaSets(ctx context.Context, graph *Graph, namespace string) error {
-	replicaSets, err := e.client.Clientset.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list replicasets: %w", err)
+	var replicaSets []appsv1.ReplicaSet
+	if cached, ok := listWithCache[appsv1.ReplicaSet](e, "replicasets", namespace); ok {
+		replicaSets = cached
+	} else {
+		result, err := e.client.Clientset.AppsV1().ReplicaSets(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list replicasets: %w", err)
+		}
+		replicaSets = result.Items
 	}
-	for _, rs := range replicaSets.Items {
+	for _, rs := range replicaSets {
 		desired := int32(0)
 		if rs.Spec.Replicas != nil {
 			desired = *rs.Spec.Replicas
@@ -360,11 +415,17 @@ func (e *Engine) discoverReplicaSets(ctx context.Context, graph *Graph, namespac
 }
 
 func (e *Engine) discoverStatefulSets(ctx context.Context, graph *Graph, namespace string) error {
-	statefulSets, err := e.client.Clientset.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list statefulsets: %w", err)
+	var statefulSets []appsv1.StatefulSet
+	if cached, ok := listWithCache[appsv1.StatefulSet](e, "statefulsets", namespace); ok {
+		statefulSets = cached
+	} else {
+		result, err := e.client.Clientset.AppsV1().StatefulSets(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list statefulsets: %w", err)
+		}
+		statefulSets = result.Items
 	}
-	for _, sts := range statefulSets.Items {
+	for _, sts := range statefulSets {
 		desired := int32(1)
 		if sts.Spec.Replicas != nil {
 			desired = *sts.Spec.Replicas
@@ -404,11 +465,17 @@ func (e *Engine) discoverStatefulSets(ctx context.Context, graph *Graph, namespa
 }
 
 func (e *Engine) discoverDaemonSets(ctx context.Context, graph *Graph, namespace string) error {
-	daemonSets, err := e.client.Clientset.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list daemonsets: %w", err)
+	var daemonSets []appsv1.DaemonSet
+	if cached, ok := listWithCache[appsv1.DaemonSet](e, "daemonsets", namespace); ok {
+		daemonSets = cached
+	} else {
+		result, err := e.client.Clientset.AppsV1().DaemonSets(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list daemonsets: %w", err)
+		}
+		daemonSets = result.Items
 	}
-	for _, ds := range daemonSets.Items {
+	for _, ds := range daemonSets {
 		desired := ds.Status.DesiredNumberScheduled
 		ready := ds.Status.NumberReady
 		available := ds.Status.NumberAvailable
@@ -445,11 +512,17 @@ func (e *Engine) discoverDaemonSets(ctx context.Context, graph *Graph, namespace
 }
 
 func (e *Engine) discoverJobs(ctx context.Context, graph *Graph, namespace string) error {
-	jobs, err := e.client.Clientset.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list jobs: %w", err)
+	var jobs []batchv1.Job
+	if cached, ok := listWithCache[batchv1.Job](e, "jobs", namespace); ok {
+		jobs = cached
+	} else {
+		result, err := e.client.Clientset.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list jobs: %w", err)
+		}
+		jobs = result.Items
 	}
-	for _, job := range jobs.Items {
+	for _, job := range jobs {
 		status := "Active"
 		health := "warning" // In-progress jobs are warning level
 		for _, cond := range job.Status.Conditions {
@@ -478,11 +551,17 @@ func (e *Engine) discoverJobs(ctx context.Context, graph *Graph, namespace strin
 }
 
 func (e *Engine) discoverCronJobs(ctx context.Context, graph *Graph, namespace string) error {
-	cronJobs, err := e.client.Clientset.BatchV1().CronJobs(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list cronjobs: %w", err)
+	var cronJobs []batchv1.CronJob
+	if cached, ok := listWithCache[batchv1.CronJob](e, "cronjobs", namespace); ok {
+		cronJobs = cached
+	} else {
+		result, err := e.client.Clientset.BatchV1().CronJobs(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list cronjobs: %w", err)
+		}
+		cronJobs = result.Items
 	}
-	for _, cj := range cronJobs.Items {
+	for _, cj := range cronJobs {
 		status := "Active"
 		health := "healthy"
 		if cj.Spec.Suspend != nil && *cj.Spec.Suspend {
@@ -499,33 +578,51 @@ func (e *Engine) discoverCronJobs(ctx context.Context, graph *Graph, namespace s
 }
 
 func (e *Engine) discoverConfigMaps(ctx context.Context, graph *Graph, namespace string) error {
-	configMaps, err := e.client.Clientset.CoreV1().ConfigMaps(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list configmaps: %w", err)
+	var configMaps []corev1.ConfigMap
+	if cached, ok := listWithCache[corev1.ConfigMap](e, "configmaps", namespace); ok {
+		configMaps = cached
+	} else {
+		result, err := e.client.Clientset.CoreV1().ConfigMaps(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list configmaps: %w", err)
+		}
+		configMaps = result.Items
 	}
-	for _, cm := range configMaps.Items {
+	for _, cm := range configMaps {
 		graph.AddNode(buildNode("ConfigMap", cm.Namespace, cm.Name, "Active", cm.ObjectMeta))
 	}
 	return nil
 }
 
 func (e *Engine) discoverSecrets(ctx context.Context, graph *Graph, namespace string) error {
-	secrets, err := e.client.Clientset.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list secrets: %w", err)
+	var secrets []corev1.Secret
+	if cached, ok := listWithCache[corev1.Secret](e, "secrets", namespace); ok {
+		secrets = cached
+	} else {
+		result, err := e.client.Clientset.CoreV1().Secrets(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list secrets: %w", err)
+		}
+		secrets = result.Items
 	}
-	for _, secret := range secrets.Items {
+	for _, secret := range secrets {
 		graph.AddNode(buildNode("Secret", secret.Namespace, secret.Name, "Active", secret.ObjectMeta))
 	}
 	return nil
 }
 
 func (e *Engine) discoverNodes(ctx context.Context, graph *Graph) error {
-	nodes, err := e.client.Clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list nodes: %w", err)
+	var nodes []corev1.Node
+	if cached, ok := listWithCache[corev1.Node](e, "nodes", ""); ok {
+		nodes = cached
+	} else {
+		result, err := e.client.Clientset.CoreV1().Nodes().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list nodes: %w", err)
+		}
+		nodes = result.Items
 	}
-	for _, node := range nodes.Items {
+	for _, node := range nodes {
 		status := "Ready"
 		health := "healthy"
 		for _, cond := range node.Status.Conditions {
@@ -572,22 +669,34 @@ func (e *Engine) discoverNamespaces(ctx context.Context, graph *Graph, namespace
 		graph.AddNode(buildNode("Namespace", "", ns.Name, string(ns.Status.Phase), ns.ObjectMeta))
 		return nil
 	}
-	namespaces, err := e.client.Clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list namespaces: %w", err)
+	var namespaces []corev1.Namespace
+	if cached, ok := listWithCache[corev1.Namespace](e, "namespaces", ""); ok {
+		namespaces = cached
+	} else {
+		result, err := e.client.Clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list namespaces: %w", err)
+		}
+		namespaces = result.Items
 	}
-	for _, ns := range namespaces.Items {
+	for _, ns := range namespaces {
 		graph.AddNode(buildNode("Namespace", "", ns.Name, string(ns.Status.Phase), ns.ObjectMeta))
 	}
 	return nil
 }
 
 func (e *Engine) discoverPersistentVolumes(ctx context.Context, graph *Graph) error {
-	pvs, err := e.client.Clientset.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list persistent volumes: %w", err)
+	var pvs []corev1.PersistentVolume
+	if cached, ok := listWithCache[corev1.PersistentVolume](e, "persistentvolumes", ""); ok {
+		pvs = cached
+	} else {
+		result, err := e.client.Clientset.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list persistent volumes: %w", err)
+		}
+		pvs = result.Items
 	}
-	for _, pv := range pvs.Items {
+	for _, pv := range pvs {
 		node := buildNode("PersistentVolume", "", pv.Name, string(pv.Status.Phase), pv.ObjectMeta)
 		graph.AddNode(node)
 		// Store spec.storageClassName now, from data already fetched by this
@@ -610,11 +719,17 @@ func (e *Engine) discoverPersistentVolumes(ctx context.Context, graph *Graph) er
 }
 
 func (e *Engine) discoverPersistentVolumeClaims(ctx context.Context, graph *Graph, namespace string) error {
-	pvcs, err := e.client.Clientset.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list persistent volume claims: %w", err)
+	var pvcs []corev1.PersistentVolumeClaim
+	if cached, ok := listWithCache[corev1.PersistentVolumeClaim](e, "persistentvolumeclaims", namespace); ok {
+		pvcs = cached
+	} else {
+		result, err := e.client.Clientset.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list persistent volume claims: %w", err)
+		}
+		pvcs = result.Items
 	}
-	for _, pvc := range pvcs.Items {
+	for _, pvc := range pvcs {
 		node := buildNode("PersistentVolumeClaim", pvc.Namespace, pvc.Name, string(pvc.Status.Phase), pvc.ObjectMeta)
 		graph.AddNode(node)
 		// Same fix as discoverPersistentVolumes above — volumeName/
@@ -634,33 +749,51 @@ func (e *Engine) discoverPersistentVolumeClaims(ctx context.Context, graph *Grap
 }
 
 func (e *Engine) discoverServiceAccounts(ctx context.Context, graph *Graph, namespace string) error {
-	sas, err := e.client.Clientset.CoreV1().ServiceAccounts(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list service accounts: %w", err)
+	var sas []corev1.ServiceAccount
+	if cached, ok := listWithCache[corev1.ServiceAccount](e, "serviceaccounts", namespace); ok {
+		sas = cached
+	} else {
+		result, err := e.client.Clientset.CoreV1().ServiceAccounts(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list service accounts: %w", err)
+		}
+		sas = result.Items
 	}
-	for _, sa := range sas.Items {
+	for _, sa := range sas {
 		graph.AddNode(buildNode("ServiceAccount", sa.Namespace, sa.Name, "Active", sa.ObjectMeta))
 	}
 	return nil
 }
 
 func (e *Engine) discoverEndpoints(ctx context.Context, graph *Graph, namespace string) error {
-	endpoints, err := e.client.Clientset.CoreV1().Endpoints(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list endpoints: %w", err)
+	var endpoints []corev1.Endpoints
+	if cached, ok := listWithCache[corev1.Endpoints](e, "endpoints", namespace); ok {
+		endpoints = cached
+	} else {
+		result, err := e.client.Clientset.CoreV1().Endpoints(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list endpoints: %w", err)
+		}
+		endpoints = result.Items
 	}
-	for _, ep := range endpoints.Items {
+	for _, ep := range endpoints {
 		graph.AddNode(buildNode("Endpoints", ep.Namespace, ep.Name, "Active", ep.ObjectMeta))
 	}
 	return nil
 }
 
 func (e *Engine) discoverIngresses(ctx context.Context, graph *Graph, namespace string) error {
-	ingresses, err := e.client.Clientset.NetworkingV1().Ingresses(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list ingresses: %w", err)
+	var ingresses []networkingv1.Ingress
+	if cached, ok := listWithCache[networkingv1.Ingress](e, "ingresses", namespace); ok {
+		ingresses = cached
+	} else {
+		result, err := e.client.Clientset.NetworkingV1().Ingresses(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list ingresses: %w", err)
+		}
+		ingresses = result.Items
 	}
-	for _, ing := range ingresses.Items {
+	for _, ing := range ingresses {
 		node := buildNode("Ingress", ing.Namespace, ing.Name, "Active", ing.ObjectMeta)
 		graph.AddNode(node)
 		// Store spec for inference (rules -> http -> paths -> backend.service.name + defaultBackend)
@@ -693,11 +826,17 @@ func (e *Engine) discoverIngresses(ctx context.Context, graph *Graph, namespace 
 }
 
 func (e *Engine) discoverNetworkPolicies(ctx context.Context, graph *Graph, namespace string) error {
-	nps, err := e.client.Clientset.NetworkingV1().NetworkPolicies(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list network policies: %w", err)
+	var nps []networkingv1.NetworkPolicy
+	if cached, ok := listWithCache[networkingv1.NetworkPolicy](e, "networkpolicies", namespace); ok {
+		nps = cached
+	} else {
+		result, err := e.client.Clientset.NetworkingV1().NetworkPolicies(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list network policies: %w", err)
+		}
+		nps = result.Items
 	}
-	for _, np := range nps.Items {
+	for _, np := range nps {
 		node := buildNode("NetworkPolicy", np.Namespace, np.Name, "Active", np.ObjectMeta)
 		graph.AddNode(node)
 		// Store spec.podSelector.matchLabels for relationship inference (NP->Pod matching).
@@ -713,22 +852,34 @@ func (e *Engine) discoverNetworkPolicies(ctx context.Context, graph *Graph, name
 }
 
 func (e *Engine) discoverRoles(ctx context.Context, graph *Graph, namespace string) error {
-	roles, err := e.client.Clientset.RbacV1().Roles(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list roles: %w", err)
+	var roles []rbacv1.Role
+	if cached, ok := listWithCache[rbacv1.Role](e, "roles", namespace); ok {
+		roles = cached
+	} else {
+		result, err := e.client.Clientset.RbacV1().Roles(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list roles: %w", err)
+		}
+		roles = result.Items
 	}
-	for _, role := range roles.Items {
+	for _, role := range roles {
 		graph.AddNode(buildNode("Role", role.Namespace, role.Name, "Active", role.ObjectMeta))
 	}
 	return nil
 }
 
 func (e *Engine) discoverRoleBindings(ctx context.Context, graph *Graph, namespace string) error {
-	rbs, err := e.client.Clientset.RbacV1().RoleBindings(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list role bindings: %w", err)
+	var rbs []rbacv1.RoleBinding
+	if cached, ok := listWithCache[rbacv1.RoleBinding](e, "rolebindings", namespace); ok {
+		rbs = cached
+	} else {
+		result, err := e.client.Clientset.RbacV1().RoleBindings(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list role bindings: %w", err)
+		}
+		rbs = result.Items
 	}
-	for _, rb := range rbs.Items {
+	for _, rb := range rbs {
 		node := buildNode("RoleBinding", rb.Namespace, rb.Name, "Active", rb.ObjectMeta)
 		graph.AddNode(node)
 		extra := map[string]interface{}{"roleRef": map[string]interface{}{"kind": rb.RoleRef.Kind, "name": rb.RoleRef.Name}}
@@ -743,22 +894,34 @@ func (e *Engine) discoverRoleBindings(ctx context.Context, graph *Graph, namespa
 }
 
 func (e *Engine) discoverClusterRoles(ctx context.Context, graph *Graph) error {
-	crs, err := e.client.Clientset.RbacV1().ClusterRoles().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list cluster roles: %w", err)
+	var crs []rbacv1.ClusterRole
+	if cached, ok := listWithCache[rbacv1.ClusterRole](e, "clusterroles", ""); ok {
+		crs = cached
+	} else {
+		result, err := e.client.Clientset.RbacV1().ClusterRoles().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list cluster roles: %w", err)
+		}
+		crs = result.Items
 	}
-	for _, cr := range crs.Items {
+	for _, cr := range crs {
 		graph.AddNode(buildNode("ClusterRole", "", cr.Name, "Active", cr.ObjectMeta))
 	}
 	return nil
 }
 
 func (e *Engine) discoverClusterRoleBindings(ctx context.Context, graph *Graph) error {
-	crbs, err := e.client.Clientset.RbacV1().ClusterRoleBindings().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list cluster role bindings: %w", err)
+	var crbs []rbacv1.ClusterRoleBinding
+	if cached, ok := listWithCache[rbacv1.ClusterRoleBinding](e, "clusterrolebindings", ""); ok {
+		crbs = cached
+	} else {
+		result, err := e.client.Clientset.RbacV1().ClusterRoleBindings().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list cluster role bindings: %w", err)
+		}
+		crbs = result.Items
 	}
-	for _, crb := range crbs.Items {
+	for _, crb := range crbs {
 		node := buildNode("ClusterRoleBinding", "", crb.Name, "Active", crb.ObjectMeta)
 		graph.AddNode(node)
 		extra := map[string]interface{}{"roleRef": map[string]interface{}{"kind": crb.RoleRef.Kind, "name": crb.RoleRef.Name}}
@@ -773,22 +936,34 @@ func (e *Engine) discoverClusterRoleBindings(ctx context.Context, graph *Graph) 
 }
 
 func (e *Engine) discoverStorageClasses(ctx context.Context, graph *Graph) error {
-	scs, err := e.client.Clientset.StorageV1().StorageClasses().List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list storage classes: %w", err)
+	var scs []storagev1.StorageClass
+	if cached, ok := listWithCache[storagev1.StorageClass](e, "storageclasses", ""); ok {
+		scs = cached
+	} else {
+		result, err := e.client.Clientset.StorageV1().StorageClasses().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list storage classes: %w", err)
+		}
+		scs = result.Items
 	}
-	for _, sc := range scs.Items {
+	for _, sc := range scs {
 		graph.AddNode(buildNode("StorageClass", "", sc.Name, "Active", sc.ObjectMeta))
 	}
 	return nil
 }
 
 func (e *Engine) discoverHorizontalPodAutoscalers(ctx context.Context, graph *Graph, namespace string) error {
-	hpas, err := e.client.Clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list horizontal pod autoscalers: %w", err)
+	var hpas []autoscalingv2.HorizontalPodAutoscaler
+	if cached, ok := listWithCache[autoscalingv2.HorizontalPodAutoscaler](e, "horizontalpodautoscalers", namespace); ok {
+		hpas = cached
+	} else {
+		result, err := e.client.Clientset.AutoscalingV2().HorizontalPodAutoscalers(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list horizontal pod autoscalers: %w", err)
+		}
+		hpas = result.Items
 	}
-	for _, hpa := range hpas.Items {
+	for _, hpa := range hpas {
 		node := buildNode("HorizontalPodAutoscaler", hpa.Namespace, hpa.Name, "Active", hpa.ObjectMeta)
 		graph.AddNode(node)
 		if hpa.Spec.ScaleTargetRef.Kind != "" {
@@ -801,11 +976,17 @@ func (e *Engine) discoverHorizontalPodAutoscalers(ctx context.Context, graph *Gr
 }
 
 func (e *Engine) discoverPodDisruptionBudgets(ctx context.Context, graph *Graph, namespace string) error {
-	pdbs, err := e.client.Clientset.PolicyV1().PodDisruptionBudgets(namespace).List(ctx, metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to list pod disruption budgets: %w", err)
+	var pdbs []policyv1.PodDisruptionBudget
+	if cached, ok := listWithCache[policyv1.PodDisruptionBudget](e, "poddisruptionbudgets", namespace); ok {
+		pdbs = cached
+	} else {
+		result, err := e.client.Clientset.PolicyV1().PodDisruptionBudgets(namespace).List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to list pod disruption budgets: %w", err)
+		}
+		pdbs = result.Items
 	}
-	for _, pdb := range pdbs.Items {
+	for _, pdb := range pdbs {
 		node := buildNode("PodDisruptionBudget", pdb.Namespace, pdb.Name, "Active", pdb.ObjectMeta)
 		graph.AddNode(node)
 		// Store spec.selector.matchLabels for relationship inference (PDB->Pod matching).

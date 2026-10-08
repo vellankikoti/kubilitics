@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/sonner';
 import type { ParsedLog } from '@/hooks/useLogParser';
+import { HighlightedText } from '@/components/logs/HighlightedText';
 
 /* ─── Props ───────────────────────────────────────────────────────────────── */
 
@@ -20,6 +21,10 @@ export interface StructuredLogRowProps {
   onToggle: () => void;
   onFilterAdd: (field: string, value: string) => void;
   onNavigateToEvents?: (traceId: string) => void;
+  /** Search regex from the toolbar's plain-text search box — previously
+   * had zero effect in structured view; now highlights matches the same
+   * way the plain log view does. */
+  searchRegex?: RegExp | null;
 }
 
 /* ─── Helpers ─────────────────────────────────────────────────────────────── */
@@ -82,6 +87,7 @@ export const StructuredLogRow = memo(function StructuredLogRow({
   onToggle,
   onFilterAdd,
   onNavigateToEvents,
+  searchRegex = null,
 }: StructuredLogRowProps) {
   const levelStyle = LEVEL_STYLES[log.level ?? 'INFO'] ?? LEVEL_STYLES.INFO;
   const rowBg = ROW_BG[log.level ?? ''] ?? '';
@@ -127,7 +133,7 @@ export const StructuredLogRow = memo(function StructuredLogRow({
 
         {/* Message */}
         <span className="flex-1 min-w-0 text-[12px] font-mono truncate text-foreground/90">
-          {log.message ?? log.raw}
+          <HighlightedText text={log.message ?? log.raw} regex={searchRegex} />
         </span>
 
         {/* Inline fields */}

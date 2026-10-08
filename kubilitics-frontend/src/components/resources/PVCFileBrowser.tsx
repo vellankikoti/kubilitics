@@ -111,10 +111,18 @@ export function PVCFileBrowser({
 }: PVCFileBrowserProps) {
   const [currentPath, setCurrentPath] = useState(mountPath);
   const [entries, setEntries] = useState<ContainerFileEntry[]>([]);
+  const [entriesTruncated, setEntriesTruncated] = useState<{ totalCount: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Race guard: loadDirectory is async and fires on every navigation click.
+  // Clicking through directories quickly (A -> B -> C) could previously let
+  // a slow response for A land and overwrite state after C had already
+  // loaded, showing stale listings with no indication anything was wrong.
+  // Each call captures the generation at call time and only applies its
+  // result if nothing newer has started since.
+  const loadGenerationRef = useRef(0);
 
   // Preview state
   const [previewFile, setPreviewFile] = useState<{ name: string; path: string } | null>(null);
@@ -130,6 +138,7 @@ export function PVCFileBrowser({
 
   const loadDirectory = useCallback(
     async (dirPath: string) => {
+      const generation = ++loadGenerationRef.current;
       setLoading(true);
       setError(null);
       try {
@@ -141,15 +150,19 @@ export function PVCFileBrowser({
           dirPath,
           containerName
         );
-        setEntries(result || []);
+        if (generation !== loadGenerationRef.current) return; // superseded by a newer navigation
+        setEntries(result?.entries ?? []);
+        setEntriesTruncated(result?.truncated ? { totalCount: result.totalCount } : null);
         setCurrentPath(dirPath);
         // Clear tree expansion when navigating via breadcrumb
         setExpandedDirs({});
       } catch (e) {
+        if (generation !== loadGenerationRef.current) return;
         setError(e instanceof Error ? e.message : 'Failed to list files');
         setEntries([]);
+        setEntriesTruncated(null);
       } finally {
-        setLoading(false);
+        if (generation === loadGenerationRef.current) setLoading(false);
       }
     },
     [baseUrl, clusterId, namespace, podName, containerName]
@@ -204,7 +217,7 @@ export function PVCFileBrowser({
       // Expand: load children
       setExpandedLoading((prev) => new Set(prev).add(dirPath));
       try {
-        const children = await listContainerFiles(
+        const result = await listContainerFiles(
           baseUrl,
           clusterId,
           namespace,
@@ -212,13 +225,20 @@ export function PVCFileBrowser({
           dirPath,
           containerName
         );
-        const nodes: TreeNode[] = (children || []).map((c) => ({
+        const nodes: TreeNode[] = (result?.entries ?? []).map((c) => ({
           ...c,
           path: joinPath(dirPath, c.name),
         }));
         setExpandedDirs((prev) => ({ ...prev, [dirPath]: nodes }));
-      } catch {
-        toast.error(`Failed to list ${dirPath}`);
+        if (result?.truncated) {
+          toast.warning(`${dirPath}: showing first ${nodes.length} of ${result.totalCount} entries`);
+        }
+      } catch (e) {
+        // Previously discarded the real error (permission-denied, pod-gone,
+        // path-not-found all looked identical here), unlike loadDirectory's
+        // own catch path which already surfaced it.
+        const message = e instanceof Error ? e.message : 'Unknown error';
+        toast.error(`Failed to list ${dirPath}: ${message}`);
       } finally {
         setExpandedLoading((prev) => {
           const next = new Set(prev);
@@ -253,7 +273,10 @@ export function PVCFileBrowser({
           filePath,
           containerName
         );
-        const resp = await fetch(url);
+        // Previously had no timeout of its own — if the SPDY exec stream
+        // stalled, "Loading preview..." could spin indefinitely with
+        // nothing to bound it. 20s matches backendRequest's own default.
+        const resp = await fetch(url, { signal: AbortSignal.timeout(20_000) });
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
         const contentLength = resp.headers.get('content-length');
@@ -656,6 +679,11 @@ export function PVCFileBrowser({
             <div className="sticky bottom-0 px-4 py-2 text-[10px] text-slate-400 dark:text-slate-500 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-200/60 dark:border-slate-700/40">
               {dirs.length} folder{dirs.length !== 1 ? 's' : ''}, {files.length} file
               {files.length !== 1 ? 's' : ''}
+              {entriesTruncated && (
+                <span className="ml-2 text-amber-600 dark:text-amber-400">
+                  — showing first {entries.length} of {entriesTruncated.totalCount} entries (truncated)
+                </span>
+              )}
             </div>
           </ScrollArea>
         )}

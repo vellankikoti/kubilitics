@@ -24,6 +24,7 @@ import {
   FlipHorizontal,
   Braces,
   ChevronDown,
+  ChevronUp,
   ChevronRight,
   Pin,
   PinOff,
@@ -49,6 +50,7 @@ import { toast } from '@/components/ui/sonner';
 import { useLogParser } from '@/hooks/useLogParser';
 import type { ParsedLog } from '@/hooks/useLogParser';
 import { StructuredLogRow } from '@/components/logs/StructuredLogRow';
+import { HighlightedText } from '@/components/logs/HighlightedText';
 import { LogFieldFacets } from '@/components/logs/LogFieldFacets';
 import { LogQueryBar } from '@/components/logs/LogQueryBar';
 import { SystemEventMarker } from '@/components/logs/SystemEventMarker';
@@ -165,71 +167,90 @@ function expandWithContext(
   return expanded;
 }
 
-// ─── HighlightedText ──────────────────────────────────────────────────────────
+// ─── JsonTree ─────────────────────────────────────────────────────────────────
+// Every color below used to be hardcoded for a dark background (e.g.
+// text-white/50 — literally invisible on light mode's white page). Now
+// theme-aware, matching the rest of the file's isDark-branching pattern.
+// Also threads searchRegex through to string values so a search match is
+// actually highlighted here too — previously "JSON" mode silently dropped
+// all search highlighting, the exact "selecting JSON isn't highlighting the
+// filtered text" bug reported.
 
-function HighlightedText({
-  text,
-  regex,
-}: {
-  text: string;
-  regex: RegExp | null;
-}) {
-  if (!regex) return <>{text}</>;
-  // Clone to avoid mutating shared regex state across cells
-  const re = new RegExp(regex.source, regex.flags);
-  const parts: { text: string; match: boolean }[] = [];
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) parts.push({ text: text.slice(last, m.index), match: false });
-    parts.push({ text: m[0], match: true });
-    last = m.index + m[0].length;
-    if (m[0].length === 0) { re.lastIndex++; }
-  }
-  if (last < text.length) parts.push({ text: text.slice(last), match: false });
-
-  return (
-    <>
-      {parts.map((p, i) =>
-        p.match ? (
-          <mark key={i} className="bg-orange-500/40 text-white rounded-sm not-italic font-medium">
-            {p.text}
-          </mark>
-        ) : (
-          <span key={i}>{p.text}</span>
-        )
-      )}
-    </>
-  );
+interface JsonTreeColors {
+  null: string;
+  boolean: string;
+  number: string;
+  string: string;
+  key: string;
+  punctuation: string;
+  toggle: string;
+  dim: string;
 }
 
-// ─── JsonTree ─────────────────────────────────────────────────────────────────
+const JSON_TREE_DARK: JsonTreeColors = {
+  null: 'text-slate-400',
+  boolean: 'text-purple-400',
+  number: 'text-amber-300',
+  string: 'text-emerald-300',
+  key: 'text-blue-300',
+  punctuation: 'text-white/30',
+  toggle: 'text-white/40 hover:text-white/70',
+  dim: 'text-white/50',
+};
 
-function JsonTree({ data, depth = 0 }: { data: unknown; depth?: number }) {
+const JSON_TREE_LIGHT: JsonTreeColors = {
+  null: 'text-slate-500',
+  boolean: 'text-purple-700',
+  number: 'text-amber-700',
+  string: 'text-emerald-700',
+  key: 'text-blue-700',
+  punctuation: 'text-black/40',
+  toggle: 'text-black/40 hover:text-black/70',
+  dim: 'text-black/50',
+};
+
+function JsonTree({
+  data,
+  depth = 0,
+  isDark,
+  searchRegex,
+}: {
+  data: unknown;
+  depth?: number;
+  isDark: boolean;
+  searchRegex: RegExp | null;
+}) {
   const [collapsed, setCollapsed] = useState(depth > 1);
+  const c = isDark ? JSON_TREE_DARK : JSON_TREE_LIGHT;
 
-  if (data === null) return <span className="text-slate-400">null</span>;
-  if (typeof data === 'boolean') return <span className="text-purple-400">{String(data)}</span>;
-  if (typeof data === 'number') return <span className="text-amber-300">{String(data)}</span>;
-  if (typeof data === 'string') return <span className="text-emerald-300">&quot;{data}&quot;</span>;
+  if (data === null) return <span className={c.null}>null</span>;
+  if (typeof data === 'boolean') return <span className={c.boolean}>{String(data)}</span>;
+  if (typeof data === 'number') return <span className={c.number}>{String(data)}</span>;
+  if (typeof data === 'string') {
+    return (
+      <span className={c.string}>
+        &quot;<HighlightedText text={data} regex={searchRegex} />&quot;
+      </span>
+    );
+  }
 
   if (Array.isArray(data)) {
-    if (data.length === 0) return <span className="text-white/50">[]</span>;
+    if (data.length === 0) return <span className={c.dim}>[]</span>;
     return (
       <span>
-        <button onClick={() => setCollapsed(v => !v)} className="text-white/40 hover:text-white/70">
+        <button onClick={() => setCollapsed(v => !v)} className={c.toggle}>
           {collapsed ? <ChevronRight className="inline h-3 w-3" /> : <ChevronDown className="inline h-3 w-3" />}
         </button>
         {collapsed ? (
-          <span className="text-white/50">[{data.length}]</span>
+          <span className={c.dim}>[{data.length}]</span>
         ) : (
           <span>
             {'['}
             <div style={{ marginLeft: 16 }}>
               {data.map((item, i) => (
                 <div key={i}>
-                  <JsonTree data={item} depth={depth + 1} />
-                  {i < data.length - 1 && <span className="text-white/30">,</span>}
+                  <JsonTree data={item} depth={depth + 1} isDark={isDark} searchRegex={searchRegex} />
+                  {i < data.length - 1 && <span className={c.punctuation}>,</span>}
                 </div>
               ))}
             </div>
@@ -242,24 +263,24 @@ function JsonTree({ data, depth = 0 }: { data: unknown; depth?: number }) {
 
   if (typeof data === 'object') {
     const entries = Object.entries(data as Record<string, unknown>);
-    if (entries.length === 0) return <span className="text-white/50">{'{}'}</span>;
+    if (entries.length === 0) return <span className={c.dim}>{'{}'}</span>;
     return (
       <span>
-        <button onClick={() => setCollapsed(v => !v)} className="text-white/40 hover:text-white/70">
+        <button onClick={() => setCollapsed(v => !v)} className={c.toggle}>
           {collapsed ? <ChevronRight className="inline h-3 w-3" /> : <ChevronDown className="inline h-3 w-3" />}
         </button>
         {collapsed ? (
-          <span className="text-white/50">{'{'}{entries.length} keys{'}'}</span>
+          <span className={c.dim}>{'{'}{entries.length} keys{'}'}</span>
         ) : (
           <span>
             {'{'}
             <div style={{ marginLeft: 16 }}>
               {entries.map(([k, v], i) => (
                 <div key={k}>
-                  <span className="text-blue-300">&quot;{k}&quot;</span>
-                  <span className="text-white/50">: </span>
-                  <JsonTree data={v} depth={depth + 1} />
-                  {i < entries.length - 1 && <span className="text-white/30">,</span>}
+                  <span className={c.key}>&quot;<HighlightedText text={k} regex={searchRegex} />&quot;</span>
+                  <span className={c.dim}>: </span>
+                  <JsonTree data={v} depth={depth + 1} isDark={isDark} searchRegex={searchRegex} />
+                  {i < entries.length - 1 && <span className={c.punctuation}>,</span>}
                 </div>
               ))}
             </div>
@@ -270,7 +291,7 @@ function JsonTree({ data, depth = 0 }: { data: unknown; depth?: number }) {
     );
   }
 
-  return <span className="text-white/70">{String(data)}</span>;
+  return <span className={isDark ? 'text-white/70' : 'text-black/70'}>{String(data)}</span>;
 }
 
 // ─── LogRow ───────────────────────────────────────────────────────────────────
@@ -279,6 +300,7 @@ interface LogRowProps {
   log: LogEntry;
   index: number;
   isContext: boolean;
+  isCurrentMatch: boolean;
   showTimestamps: boolean;
   wrapLines: boolean;
   prettifyJson: boolean;
@@ -292,6 +314,7 @@ const LogRow = memo(function LogRow({
   log,
   index,
   isContext,
+  isCurrentMatch,
   showTimestamps,
   wrapLines,
   prettifyJson,
@@ -346,6 +369,13 @@ const LogRow = memo(function LogRow({
   // Context lines get a left border indicator
   const contextCls = isContext ? (isDark ? 'border-l-2 border-white/10 opacity-60' : 'border-l-2 border-black/10 opacity-60') : '';
 
+  // The row under keyboard match-navigation gets a distinct outline so it's
+  // obvious which of the N matches is "current" — addresses "no navigation
+  // for these findings" alongside the next/prev controls in the toolbar.
+  const currentMatchCls = isCurrentMatch
+    ? (isDark ? 'ring-1 ring-inset ring-orange-500/60 bg-orange-500/[0.08]' : 'ring-1 ring-inset ring-orange-500/50 bg-orange-100/60')
+    : '';
+
   const showJson = prettifyJson && log.isJson && log.jsonData !== undefined;
 
   return (
@@ -356,6 +386,7 @@ const LogRow = memo(function LogRow({
         altShade,
         hoverCls,
         contextCls,
+        currentMatchCls,
       )}
     >
       {/* Line number */}
@@ -396,10 +427,10 @@ const LogRow = memo(function LogRow({
       >
         {showJson ? (
           <span className="text-[11px] leading-relaxed">
-            <JsonTree data={log.jsonData} depth={0} />
+            <JsonTree data={log.jsonData} depth={0} isDark={isDark} searchRegex={searchRegex} />
           </span>
         ) : (
-          <HighlightedText text={log.message} regex={searchRegex} />
+          <HighlightedText text={log.message} regex={searchRegex} isCurrent={isCurrentMatch} />
         )}
       </span>
 
@@ -688,7 +719,6 @@ export function LogViewer({
   const filteredStructuredLogs = useMemo(() => {
     if (!showStructured) return structuredLogs;
     const filterEntries = Object.entries(structuredFilters);
-    if (filterEntries.length === 0) return structuredLogs;
 
     return structuredLogs.filter((log) => {
       for (const [field, value] of filterEntries) {
@@ -700,9 +730,21 @@ export function LogViewer({
           if (strVal !== value) return false;
         }
       }
+      // The plain-text search box (top toolbar) previously had zero effect
+      // here — switching to Structured view silently dropped the user's
+      // search entirely, with no indication why. Apply it the same way the
+      // plain-text view does: match against the message, or the raw line
+      // for cases where structured parsing didn't extract a message field.
+      if (searchRegex && !regexError) {
+        searchRegex.lastIndex = 0;
+        const target = log.message ?? log.raw;
+        const matches = searchRegex.test(target);
+        searchRegex.lastIndex = 0;
+        if (inverseFilter ? matches : !matches) return false;
+      }
       return true;
     });
-  }, [showStructured, structuredLogs, structuredFilters]);
+  }, [showStructured, structuredLogs, structuredFilters, searchRegex, regexError, inverseFilter]);
 
   // ── Merge system events into log timeline ───────────────────────────────
   type TimelineItem = { type: 'log'; log: ParsedLog } | { type: 'event'; event: WideEvent };
@@ -813,12 +855,44 @@ export function LogViewer({
     overscan: 30,
   });
 
-  // Auto-scroll when following
+  // Auto-scroll to bottom only when NOT actively searching — while
+  // searching, the match-navigation scroll below takes over. Without this
+  // guard, "follow" would keep yanking the view back to the tail every time
+  // a new line streamed in, fighting the user's search navigation.
   useEffect(() => {
-    if (isStreaming && filteredLogs.length > 0) {
+    if (isStreaming && filteredLogs.length > 0 && !searchQuery.trim()) {
       virtualizer.scrollToIndex(filteredLogs.length - 1, { align: 'end' });
     }
-  }, [filteredLogs.length, isStreaming, virtualizer]);
+  }, [filteredLogs.length, isStreaming, virtualizer, searchQuery]);
+
+  // ── Match navigation ─────────────────────────────────────────────────────
+  // CRITICAL bug reported: search had no way to jump between matches, and
+  // the log view's scroll position was left wherever it happened to be when
+  // the (usually much shorter) filtered list replaced the full one — often
+  // scrolled PAST the new, shorter content, making matches genuinely
+  // impossible to find by scrolling. currentMatchIndex + the two effects
+  // below fix both: every new search starts at match 1 and scrolls there;
+  // explicit next/prev navigation (buttons or Enter/Shift+Enter) scrolls to
+  // whichever match is now current.
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+
+  useEffect(() => {
+    setCurrentMatchIndex(0);
+  }, [searchQuery, selectedLevel, regexMode, inverseFilter]);
+
+  useEffect(() => {
+    if (!searchQuery.trim() || filteredLogs.length === 0) return;
+    const idx = Math.min(currentMatchIndex, filteredLogs.length - 1);
+    virtualizer.scrollToIndex(idx, { align: 'center' });
+  }, [currentMatchIndex, searchQuery, filteredLogs.length, virtualizer]);
+
+  const goToNextMatch = useCallback(() => {
+    setCurrentMatchIndex(i => (filteredLogs.length === 0 ? 0 : (i + 1) % filteredLogs.length));
+  }, [filteredLogs.length]);
+
+  const goToPrevMatch = useCallback(() => {
+    setCurrentMatchIndex(i => (filteredLogs.length === 0 ? 0 : (i - 1 + filteredLogs.length) % filteredLogs.length));
+  }, [filteredLogs.length]);
 
   // ── Commit search to history on Enter/blur ───────────────────────────────
   const commitSearchToHistory = useCallback(() => {
@@ -922,21 +996,64 @@ export function LogViewer({
         )}
 
         {/* Search */}
-        <div className="relative shrink-0 w-72">
+        <div className="relative shrink-0 w-80">
           <Search className={cn('absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 pointer-events-none', isDark ? 'text-white/30' : 'text-slate-400')} />
           <input
             type="text"
             placeholder={regexMode ? 'Regex filter\u2026' : 'Search logs\u2026'}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { commitSearchToHistory(); setHistoryOpen(false); } }}
+            onKeyDown={e => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (e.shiftKey) goToPrevMatch(); else goToNextMatch();
+                commitSearchToHistory();
+                setHistoryOpen(false);
+              } else if (e.key === 'Escape') {
+                setSearchQuery('');
+              }
+            }}
             onBlur={() => { commitSearchToHistory(); setTimeout(() => setHistoryOpen(false), 150); }}
             onFocus={() => setHistoryOpen(true)}
-            className={cn('w-full h-8 border rounded-lg pl-9 pr-10 text-sm outline-none transition-colors', inputCls, regexError && 'border-red-500/50')}
+            className={cn('w-full h-8 border rounded-lg pl-9 pr-24 text-sm outline-none transition-colors', inputCls, regexError && 'border-red-500/50')}
           />
-          {regexError && <span className="absolute right-7 top-1/2 -translate-y-1/2"><AlertTriangle className="h-3 w-3 text-red-400" /></span>}
+          {regexError && <span className="absolute right-[4.75rem] top-1/2 -translate-y-1/2"><AlertTriangle className="h-3 w-3 text-red-400" /></span>}
           {searchQuery && !regexError && (
-            <span className={cn('absolute right-2 top-1/2 -translate-y-1/2 text-[10px] tabular-nums pointer-events-none', isDark ? 'text-white/35' : 'text-slate-400')}>{filteredLogs.length}</span>
+            <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+              {/* CRITICAL fix: real match navigation, not just a static count.
+                  Previously there was no way to jump between matches, and the
+                  count itself was rendered too faint (grayed-out) to read at
+                  a glance \u2014 both reported bugs. */}
+              <span
+                className={cn(
+                  'text-[11px] font-semibold tabular-nums pointer-events-none px-1',
+                  filteredLogs.length === 0
+                    ? (isDark ? 'text-red-400/80' : 'text-red-500')
+                    : (isDark ? 'text-white/80' : 'text-slate-700'),
+                )}
+                title={filteredLogs.length === 0 ? 'No matches' : `Match ${currentMatchIndex + 1} of ${filteredLogs.length}`}
+              >
+                {filteredLogs.length === 0 ? '0/0' : `${currentMatchIndex + 1}/${filteredLogs.length}`}
+              </span>
+              <button
+                type="button"
+                onClick={goToPrevMatch}
+                disabled={filteredLogs.length === 0}
+                title="Previous match (Shift+Enter)"
+                className={cn('p-0.5 rounded disabled:opacity-30 disabled:cursor-not-allowed', isDark ? 'text-white/50 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200')}
+              >
+                <ChevronUp className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={goToNextMatch}
+                disabled={filteredLogs.length === 0}
+                title="Next match (Enter)"
+                className={cn('p-0.5 rounded disabled:opacity-30 disabled:cursor-not-allowed', isDark ? 'text-white/50 hover:text-white hover:bg-white/10' : 'text-slate-500 hover:text-slate-900 hover:bg-slate-200')}
+              >
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+            </div>
           )}
           <FilterHistoryDropdown open={historyOpen && history.length > 0} onClose={() => setHistoryOpen(false)} history={history} onSelect={q => { setSearchQuery(q); }} onTogglePin={togglePin} onRemove={removeFilter} onClear={clearHistory} isDark={isDark} />
         </div>
@@ -1093,14 +1210,20 @@ export function LogViewer({
                 ))}
               </div>
             ) : structuredTimeline.length === 0 ? (
-              <div className={cn('flex flex-col items-center justify-center h-48 text-sm gap-2', isDark ? 'text-white/30' : 'text-black/30')}>
-                {Object.keys(structuredFilters).length > 0 ? (
+              <div className={cn('flex flex-col items-center justify-center h-48 text-sm gap-2', isDark ? 'text-white/50' : 'text-black/60')}>
+                {Object.keys(structuredFilters).length > 0 || searchQuery.trim() ? (
                   <>
                     <span className="text-2xl">{'\u26A1'}</span>
-                    <span>No logs match your structured filters</span>
+                    <span>
+                      {Object.keys(structuredFilters).length > 0 && searchQuery.trim()
+                        ? 'No logs match your filters and search'
+                        : searchQuery.trim()
+                          ? `No logs match "${searchQuery.trim()}"`
+                          : 'No logs match your structured filters'}
+                    </span>
                     <button
-                      onClick={handleStructuredFilterClear}
-                      className={cn('text-xs underline underline-offset-2 mt-1', isDark ? 'text-white/40 hover:text-white/70' : 'text-black/40 hover:text-black/70')}
+                      onClick={() => { handleStructuredFilterClear(); setSearchQuery(''); }}
+                      className={cn('text-xs underline underline-offset-2 mt-1', isDark ? 'text-white/50 hover:text-white/80' : 'text-black/50 hover:text-black/80')}
                     >
                       Clear filters
                     </button>
@@ -1129,6 +1252,7 @@ export function LogViewer({
                       onToggle={() => handleToggleExpandRow(item.log.index)}
                       onFilterAdd={handleStructuredFilterAdd}
                       onNavigateToEvents={handleNavigateToEvents}
+                      searchRegex={searchRegex}
                     />
                   );
                 })}
@@ -1215,6 +1339,7 @@ export function LogViewer({
                 const isContext = contextLines > 0 && searchQuery.trim()
                   ? !directMatchIndices.has(originalIndex)
                   : false;
+                const isCurrentMatch = Boolean(searchQuery.trim()) && virtualRow.index === currentMatchIndex;
 
                 return (
                   <div
@@ -1233,6 +1358,7 @@ export function LogViewer({
                       log={log}
                       index={virtualRow.index}
                       isContext={isContext}
+                      isCurrentMatch={isCurrentMatch}
                       showTimestamps={showTimestamps}
                       wrapLines={wrapLines}
                       prettifyJson={prettifyJson}

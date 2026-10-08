@@ -58,10 +58,22 @@ export interface ResizableTableProviderProps {
   children: React.ReactNode;
 }
 
+// Resize drag fires setColumnWidth on every mousemove tick — a synchronous
+// localStorage write per tick was measurable jank on a drag. Persisting is
+// debounced; the visual width (React state) still updates immediately.
+const SAVE_DEBOUNCE_MS = 300;
+
 export function ResizableTableProvider({ tableId, columnConfig, children }: ResizableTableProviderProps) {
   const [columnWidths, setColumnWidthsState] = React.useState<ColumnWidths>(() =>
     loadWidths(tableId, columnConfig),
   );
+  const saveTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, []);
 
   const setColumnWidth = React.useCallback(
     (columnId: string, width: number) => {
@@ -70,7 +82,8 @@ export function ResizableTableProvider({ tableId, columnConfig, children }: Resi
       const clamped = Math.min(MAX_WIDTH, Math.max(minW, width));
       setColumnWidthsState((prev) => {
         const next = { ...prev, [columnId]: clamped };
-        saveWidths(tableId, next);
+        if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = setTimeout(() => saveWidths(tableId, next), SAVE_DEBOUNCE_MS);
         return next;
       });
     },
@@ -95,14 +108,22 @@ export function ResizableTableProvider({ tableId, columnConfig, children }: Resi
     [columnConfig],
   );
 
-  const value: ResizableTableContextValue = {
-    tableId,
-    columnConfig,
-    columnWidths,
-    setColumnWidth,
-    getWidth,
-    getMinWidth,
-  };
+  // Previously rebuilt fresh on every render with no memoization, so every
+  // re-render of the provider (even one unrelated to column widths) handed
+  // every consumer (ResizableTableHead/Cell on every row) a new context
+  // value and forced them all to re-render — fans out to the 67+ pages
+  // using this component.
+  const value = React.useMemo<ResizableTableContextValue>(
+    () => ({
+      tableId,
+      columnConfig,
+      columnWidths,
+      setColumnWidth,
+      getWidth,
+      getMinWidth,
+    }),
+    [tableId, columnConfig, columnWidths, setColumnWidth, getWidth, getMinWidth],
+  );
 
   return (
     <ResizableTableContext.Provider value={value}>

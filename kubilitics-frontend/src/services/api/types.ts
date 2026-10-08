@@ -424,6 +424,16 @@ export interface ContainerFileEntry {
   modified: string;
 }
 
+/** Response from listing a container directory. Bounded server-side
+ * (file_transfer.go's maxLsEntries) — truncated/totalCount tell the
+ * frontend when a directory has more entries than were returned, instead
+ * of silently showing an incomplete listing as if it were complete. */
+export interface ListContainerFilesResult {
+  entries: ContainerFileEntry[];
+  truncated: boolean;
+  totalCount: number;
+}
+
 // ---- Blast Radius Types (v2 — camelCase) ----
 
 export interface ResourceRef {

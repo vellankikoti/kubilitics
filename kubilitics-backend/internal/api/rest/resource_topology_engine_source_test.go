@@ -126,3 +126,56 @@ func TestGetResourceTopology_LiveFetchesWhenNoEngineRunning(t *testing.T) {
 		t.Fatalf("expected response to contain the deployment's data sourced live, got: %s", w.Body.String())
 	}
 }
+
+// TestGetResourceTopology_ScopesLiveCollectionToResourceNamespace covers a
+// real production bug: GetResourceTopology always built the v2 Options with
+// Namespace left empty, so when no graph engine was running (the common
+// case), CollectFromClient listed every namespaced resource type across
+// EVERY namespace in the cluster just to show a 1-2 hop neighborhood around
+// one resource — the "fetches everything, times out, shows nothing" failure
+// users hit on larger/multi-namespace clusters. Seeds two namespaces with a
+// Deployment each and asserts the live "list deployments" call made for a
+// resource-topology request on namespace "target-ns" is namespace-scoped to
+// "target-ns", not cluster-wide (""), and never touches "other-ns" at all.
+func TestGetResourceTopology_ScopesLiveCollectionToResourceNamespace(t *testing.T) {
+	const clusterID = "ns-scoped-cluster"
+	cs := k8sfake.NewSimpleClientset(
+		&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "target-ns"}},
+		&appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "other", Namespace: "other-ns"}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "target-ns"}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "other-ns"}},
+	)
+
+	var listedNamespaces []string
+	cs.PrependReactor("list", "deployments", func(action k8stesting.Action) (bool, runtime.Object, error) {
+		listAction := action.(k8stesting.ListActionImpl)
+		listedNamespaces = append(listedNamespaces, listAction.GetNamespace())
+		return false, nil, nil // let the default tracker still serve it
+	})
+
+	dyn := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(runtime.NewScheme(), nil)
+	client := k8s.NewClientForTest(cs)
+	client.Dynamic = dyn
+	client.SetClusterID(clusterID)
+
+	h := newResourceTopologyTestHandler(t, clusterID, client)
+	// No graph engine started — forces the live CollectFromClient path,
+	// which is exactly what the Namespace-scoping fix targets.
+	r := httptest.NewRequest(http.MethodGet, "/clusters/"+clusterID+"/topology/resource/Deployment/target-ns/web", nil)
+	w := serve(h, r)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "web") {
+		t.Fatalf("expected response to contain the target deployment, got: %s", w.Body.String())
+	}
+	for _, ns := range listedNamespaces {
+		if ns != "target-ns" {
+			t.Fatalf("expected every live 'list deployments' call to be scoped to namespace %q, got a call scoped to %q (listedNamespaces=%v) — this is the cluster-wide-fetch regression", "target-ns", ns, listedNamespaces)
+		}
+	}
+	if len(listedNamespaces) == 0 {
+		t.Fatal("expected at least one live 'list deployments' call")
+	}
+}

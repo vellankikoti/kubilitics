@@ -16,6 +16,7 @@ import {
   ArrowUp,
   ArrowDown,
   Wrench,
+  Loader2,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -294,7 +295,7 @@ export default function SPOFInventory() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   // Data fetching — pass server-side filters when supported
-  const { data, isLoading, isFetching, error, refetch } = useSPOFInventory();
+  const { data, isLoading, isFetching, error, isGraphBuilding, refetch } = useSPOFInventory();
 
   // Client-side filtering (in case the backend doesn't support query params yet, or for additional responsiveness)
   const filteredItems = useMemo(() => {
@@ -428,6 +429,17 @@ export default function SPOFInventory() {
             isSyncing={isFetching}
             showAiButton={false}
           />
+
+          {/* The backend's dependency graph engine builds lazily on first
+              request (informer sync + first rebuild); previously this 503
+              surfaced as a hard ApiError page for up to 60s. Now it's a
+              self-healing soft state — show progress, not a failure. */}
+          {isGraphBuilding && (
+            <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-200 text-sm">
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-blue-500" />
+              <span>Building dependency graph for this cluster — SPOF inventory will appear automatically once ready.</span>
+            </div>
+          )}
 
           {/* Summary Cards */}
           <SPOFSummaryCards

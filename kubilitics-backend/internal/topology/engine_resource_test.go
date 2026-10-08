@@ -63,7 +63,7 @@ func TestBuildResourceSubgraph_Service_NotImplemented(t *testing.T) {
 	}
 	cs := fake.NewSimpleClientset(svc)
 	client := k8s.NewClientForTest(cs)
-	engine := NewEngine(client)
+	engine := NewEngine(client, nil)
 
 	_, err := engine.BuildResourceSubgraph(ctx, "Service", ns, name)
 	if err != nil {
@@ -78,7 +78,7 @@ func TestBuildResourceSubgraph_NetworkingKinds_NotImplemented(t *testing.T) {
 	ns, name := "default", "res-name"
 	cs := fake.NewSimpleClientset()
 	client := k8s.NewClientForTest(cs)
-	engine := NewEngine(client)
+	engine := NewEngine(client, nil)
 
 	kinds := []string{"Service", "Ingress", "IngressClass", "Endpoints", "EndpointSlice", "NetworkPolicy"}
 	for _, kind := range kinds {
@@ -107,7 +107,7 @@ func TestBuildResourceSubgraph_Node_NotImplemented(t *testing.T) {
 	}
 	cs := fake.NewSimpleClientset(node)
 	client := k8s.NewClientForTest(cs)
-	engine := NewEngine(client)
+	engine := NewEngine(client, nil)
 
 	// Cluster-scoped: namespace is empty
 	g, err := engine.BuildResourceSubgraph(ctx, "Node", "", nodeName)
@@ -130,7 +130,7 @@ func TestBuildResourceSubgraph_Node_NormalizedKind(t *testing.T) {
 	}
 	cs := fake.NewSimpleClientset(node)
 	client := k8s.NewClientForTest(cs)
-	engine := NewEngine(client)
+	engine := NewEngine(client, nil)
 
 	for _, kind := range []string{"Node", "nodes", "node"} {
 		t.Run(kind, func(t *testing.T) {

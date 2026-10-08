@@ -43,7 +43,7 @@ func TestInferStorageRelationships_PendingPVCWithExtra_DoesNotRefetch(t *testing
 	})
 
 	client := k8s.NewClientForTest(cs)
-	engine := NewEngine(client)
+	engine := NewEngine(client, nil)
 	graph := NewGraph(0)
 	graph.AddNode(models.TopologyNode{
 		ID: "PersistentVolumeClaim/default/pending", Kind: "PersistentVolumeClaim", Namespace: "default", Name: "pending",
@@ -88,7 +88,7 @@ func TestInferStorageRelationships_NoExtraAtAll_StillFallsBackToLiveGet(t *testi
 	})
 
 	client := k8s.NewClientForTest(cs)
-	engine := NewEngine(client)
+	engine := NewEngine(client, nil)
 	graph := NewGraph(0)
 	graph.AddNode(models.TopologyNode{ID: "PersistentVolumeClaim/default/legacy", Kind: "PersistentVolumeClaim", Namespace: "default", Name: "legacy"})
 	graph.AddNode(models.TopologyNode{ID: "PersistentVolume/pv-legacy", Kind: "PersistentVolume", Name: "pv-legacy"})

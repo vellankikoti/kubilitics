@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"log"
 	"log/slog"
 	"net/http"
 	"time"
@@ -20,6 +21,28 @@ import (
 // fromUnstructured converts an unstructured map into a typed K8s object.
 func fromUnstructured(obj map[string]interface{}, out interface{}) error {
 	return runtime.DefaultUnstructuredConverter.FromUnstructured(obj, out)
+}
+
+// cacheItemsAs converts a slice of informer-cache unstructured items into a
+// typed slice, skipping any item that fails to convert (same best-effort
+// behavior as the pods conversion below). Lets a cache hit be returned in
+// the exact typed shape its live-API fallback already returns elsewhere
+// (see buildClusterSummary in handler.go).
+func cacheItemsAs[T any](items []unstructured.Unstructured) []T {
+	result := make([]T, 0, len(items))
+	skipped := 0
+	for _, u := range items {
+		var item T
+		if err := fromUnstructured(u.Object, &item); err == nil {
+			result = append(result, item)
+		} else {
+			skipped++
+		}
+	}
+	if skipped > 0 {
+		log.Printf("cacheItemsAs[%T]: skipped %d/%d cached items due to conversion errors", *new(T), skipped, len(items))
+	}
+	return result
 }
 
 // GetWorkloadsOverview handles GET /clusters/{clusterId}/workloads

@@ -100,8 +100,19 @@ export function useClusterUtilization(clusterId: string | undefined) {
     }
   });
 
-  const cpuPercent = cpuTotalMillicores > 0 ? (cpuUsedMillicores / cpuTotalMillicores) * 100 : 0;
-  const memoryPercent = memoryTotalBytes > 0 ? (memoryUsedBytes / memoryTotalBytes) * 100 : 0;
+  // Clamped to [0,100] — every sibling percent computation in the codebase
+  // (e.g. ClusterCapacity.tsx's pct() helper) already does this. Usage can
+  // transiently read above allocatable capacity (a metrics-server sample
+  // landing mid-eviction, a node briefly missing from this hook's own list
+  // while its usage total still includes stale cached data, etc.); the
+  // alternative — displaying "753%" — is never useful to a user and was
+  // reported as a real bug.
+  const cpuPercent = cpuTotalMillicores > 0
+    ? Math.min(100, Math.max(0, (cpuUsedMillicores / cpuTotalMillicores) * 100))
+    : 0;
+  const memoryPercent = memoryTotalBytes > 0
+    ? Math.min(100, Math.max(0, (memoryUsedBytes / memoryTotalBytes) * 100))
+    : 0;
 
   const utilization: ClusterUtilization = {
     cpuPercent: Math.round(cpuPercent * 10) / 10,

@@ -87,7 +87,8 @@ func (s *topologyService) GetTopology(ctx context.Context, clusterID string, fil
 		return nil, err
 	}
 
-	engine := topology.NewEngine(client)
+	im := s.clusterService.GetInformerManager(clusterID)
+	engine := topology.NewEngine(client, im)
 	g, err := engine.BuildGraph(ctx, filters, clusterID, maxNodes)
 	if err != nil {
 		span.RecordError(err)
@@ -130,7 +131,8 @@ func (s *topologyService) GetTopologyWithClient(ctx context.Context, client *k8s
 		span.SetAttributes(attribute.Bool("topology.cache_hit", false), attribute.Bool("topology.force_refresh", true))
 	}
 
-	engine := topology.NewEngine(client)
+	im := s.clusterService.GetInformerManager(clusterID)
+	engine := topology.NewEngine(client, im)
 	g, err := engine.BuildGraph(ctx, filters, clusterID, maxNodes)
 	if err != nil {
 		span.RecordError(err)
@@ -161,7 +163,7 @@ func (s *topologyService) GetResourceTopology(ctx context.Context, clusterID str
 
 // GetResourceTopologyWithClient builds resource topology using provided client (Headlamp/Lens model)
 func (s *topologyService) GetResourceTopologyWithClient(ctx context.Context, client *k8s.Client, clusterID string, kind, namespace, name string) (*models.TopologyGraph, error) {
-	engine := topology.NewEngine(client)
+	engine := topology.NewEngine(client, s.clusterService.GetInformerManager(clusterID))
 	g, err := engine.BuildResourceSubgraph(ctx, kind, namespace, name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build resource topology: %w", err)

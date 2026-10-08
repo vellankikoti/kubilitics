@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"path"
 	"strings"
@@ -29,6 +30,21 @@ type FileEntry struct {
 	Size     int64  `json:"size"`
 	Modified string `json:"modified"`
 }
+
+// listFilesResponse wraps the entries with a truncation signal. Previously
+// this endpoint returned a bare FileEntry array with no cap at all — `ls -la`
+// on a directory with thousands of entries returned one giant JSON array
+// that the frontend then rendered un-virtualized in a fixed-height scroll
+// area, freezing the UI. maxLsEntries bounds what's ever sent; Truncated
+// tells the frontend (and the user) the directory has more than that,
+// instead of silently showing an incomplete listing as if it were complete.
+type listFilesResponse struct {
+	Entries    []FileEntry `json:"entries"`
+	Truncated  bool        `json:"truncated"`
+	TotalCount int         `json:"totalCount"`
+}
+
+const maxLsEntries = 2000
 
 // listFilesRequest is the JSON body for POST /ls.
 type listFilesRequest struct {
@@ -123,6 +139,48 @@ func execInContainer(ctx context.Context, client *k8s.Client, namespace, podName
 	return stdout.String(), stderr.String(), nil
 }
 
+// execInContainerToWriter is execInContainer's streaming counterpart: stdout
+// is written directly to w as it arrives instead of being buffered into a
+// string first. Used by DownloadContainerFile so a large file in the PVC
+// streams straight through to the HTTP response — the backend never holds
+// more than the SPDY exec stream's own internal buffering in memory, unlike
+// the previous `cat`-into-bytes.Buffer-into-string path, which held the
+// entire file in memory twice over (once in execInContainer's buffer, again
+// in the string it returned) with no size limit.
+func execInContainerToWriter(ctx context.Context, client *k8s.Client, namespace, podName, container string, command []string, w io.Writer) error {
+	req := client.Clientset.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Namespace(namespace).
+		Name(podName).
+		SubResource("exec").
+		VersionedParams(&corev1.PodExecOptions{
+			Container: container,
+			Command:   command,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       false,
+		}, scheme.ParameterCodec)
+
+	executor, err := remotecommand.NewSPDYExecutor(client.Config, "POST", req.URL())
+	if err != nil {
+		return fmt.Errorf("failed to create executor: %w", err)
+	}
+
+	var stderr bytes.Buffer
+	opts := remotecommand.StreamOptions{
+		Stdout: w,
+		Stderr: &stderr,
+		Tty:    false,
+	}
+	if err := executor.StreamWithContext(ctx, opts); err != nil {
+		if stderr.Len() > 0 {
+			return fmt.Errorf("%w — %s", err, stderr.String())
+		}
+		return err
+	}
+	return nil
+}
+
 // ListContainerFiles handles POST /clusters/{clusterId}/resources/{namespace}/{pod}/ls
 // Executes `ls -la {path}` in the container via K8s exec API and returns parsed entries.
 func (h *Handler) ListContainerFiles(w http.ResponseWriter, r *http.Request) {
@@ -179,7 +237,22 @@ func (h *Handler) ListContainerFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	entries := parseLsOutput(stdout)
-	respondJSON(w, http.StatusOK, entries)
+	capped, truncated := capEntries(entries, maxLsEntries)
+	respondJSON(w, http.StatusOK, listFilesResponse{
+		Entries:    capped,
+		Truncated:  truncated,
+		TotalCount: len(entries),
+	})
+}
+
+// capEntries bounds entries to at most max items, reporting whether it had
+// to cut anything. Separated from ListContainerFiles so the cap behavior is
+// unit-testable without exec/SPDY machinery.
+func capEntries(entries []FileEntry, max int) ([]FileEntry, bool) {
+	if len(entries) <= max {
+		return entries, false
+	}
+	return entries[:max], true
 }
 
 // DownloadContainerFile handles GET /clusters/{clusterId}/resources/{namespace}/{pod}/download
@@ -219,19 +292,44 @@ func (h *Handler) DownloadContainerFile(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	command := []string{"cat", cleanPath}
-	stdout, stderr, err := execInContainer(ctx, client, namespace, podName, container, command, nil)
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("exec failed: %s — %s", err.Error(), stderr))
+	// Best-effort size check so Content-Length can be set — this also lets
+	// the frontend's existing preview size-guard actually work (it reads
+	// content-length, which this endpoint previously never set). Also
+	// doubles as a pre-flight existence check: if stat's stderr says the
+	// path doesn't exist, fail fast with a real 404 BEFORE writing any
+	// response headers/body — streaming below can't un-send a 200 once
+	// bytes start flowing, so a missing file must be caught here, not left
+	// to `cat` to discover mid-stream. `stat` itself being unavailable
+	// (minimal/distroless container) is NOT treated as "file missing" —
+	// Content-Length is simply omitted and streaming still proceeds.
+	sizeOut, statStderr, statErr := execInContainer(ctx, client, namespace, podName, container,
+		[]string{"stat", "-c", "%s", cleanPath}, nil)
+	if statErr == nil {
+		if size, parseErr := parseInt64(strings.TrimSpace(sizeOut)); parseErr == nil && size >= 0 {
+			w.Header().Set("Content-Length", fmt.Sprintf("%d", size))
+		}
+	} else if strings.Contains(statStderr, "No such file") {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("file not found: %s", cleanPath))
 		return
 	}
 
 	fileName := path.Base(cleanPath)
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.WriteHeader(http.StatusOK)
-	// nosemgrep: go.lang.security.audit.xss.no-direct-write-to-responsewriter.no-direct-write-to-responsewriter
-	_, _ = w.Write([]byte(stdout)) // Content-Type: application/octet-stream — not HTML
+
+	// Previously buffered the ENTIRE file into a bytes.Buffer (execInContainer's
+	// stdout) before writing anything to the client — a multi-GB file in the
+	// PVC could exhaust backend memory with no safeguard. Streams directly to
+	// the ResponseWriter instead: only the SPDY exec stream's own internal
+	// buffering is in memory at any point, not the whole file.
+	if err := execInContainerToWriter(ctx, client, namespace, podName, container,
+		[]string{"cat", cleanPath}, w); err != nil {
+		// Headers are already written at this point (streaming), so the
+		// response is likely already partially sent — log server-side
+		// (with the request ID for correlation); the client will just see
+		// a truncated/failed download, same as any other mid-stream error.
+		log.Printf("[%s] download stream failed for %s/%s:%s: %v", logger.FromContext(ctx), namespace, podName, cleanPath, err)
+	}
 }
 
 // UploadContainerFile handles POST /clusters/{clusterId}/resources/{namespace}/{pod}/upload
