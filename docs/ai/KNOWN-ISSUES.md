@@ -77,14 +77,22 @@ Regression tests: `internal/k8s/informer_coverage_gap_test.go`.
 - ProjectDetailPage / ProjectDashboardPage status-badge gap — both pages
   now surface `useClustersFromBackend()`'s `isError` as a dismissible
   retry banner instead of silently discarding it. Root cause traced to
-  the *callers*, not the hook (it already exposed `error`). Separately,
-  `ProjectDashboardPage.handleConnectCluster` had a real functional bug:
-  it gated the Connect action on finding the cluster in the enrichment
-  list (`allClusters.find(...)`), so a metadata-fetch failure made the
-  Connect button a silent no-op even though `clusterId` was already known
-  from `project.clusters`. Fixed by connecting directly on the known id;
-  enrichment data is now display-only. Regression test:
-  `src/pages/ProjectDashboardPage.test.tsx`.
+  the *callers*, not the hook (it already exposed `error`). Both pages
+  also had the same real functional bug in their Connect handler: it
+  gated the Connect action on finding the cluster in the enrichment list
+  (`allClusters.find(...)`), so a metadata-fetch failure made Connect a
+  silent no-op even though `clusterId` was already known from
+  `project.clusters`. Fixed by connecting directly on the known id;
+  enrichment data is now display-only for the success-toast name.
+  **Caught two different ways**: `ProjectDashboardPage`'s fix was unit
+  tested first (`src/pages/ProjectDashboardPage.test.tsx`); the identical
+  bug in `ProjectDetailPage.handleConnect` was missed in the first pass
+  (only its error *message* was improved, not the no-op itself) and only
+  surfaced by live end-to-end testing — backend + frontend started
+  against a real kind cluster, driven with Playwright, clusters API
+  mocked to fail. Lesson: when the same bug class appears on two pages,
+  verify the fix landed identically on both, not just the one with a
+  test.
 - 81 silent-data-failure / panic-recovery / resource-leak / cluster-switch-
   race fixes shipped in v1.2.3 — see
   `docs/releases/v1.2.3-RELEASE-REPORT.md` and
