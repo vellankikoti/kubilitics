@@ -1293,7 +1293,7 @@ func (h *Handler) buildClusterSummary(ctx context.Context, r *http.Request) (*mo
 	})
 	g.Go(func() error {
 		if cached, ok := cachedList("endpoints"); ok {
-			endpoints = &corev1.EndpointsList{Items: cacheItemsAs[corev1.Endpoints](cached.Items)}
+			endpoints = &corev1.EndpointsList{Items: cacheItemsAs[corev1.Endpoints](cached.Items)} //nolint:staticcheck // TODO: migrate to EndpointSlice (same as topology/v2)
 			return nil
 		}
 		var err error

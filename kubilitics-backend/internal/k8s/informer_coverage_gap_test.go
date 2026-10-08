@@ -48,6 +48,11 @@ func TestListFromCache_CoverageGapKinds_HitCache(t *testing.T) {
 			}
 			im := &InformerManager{stores: map[string]cache.Indexer{tc.storeKey: store}}
 			im.synced.Store(true)
+			// CustomResourceDefinition checks crdSynced, not synced — its factory's
+			// sync state is tracked independently (see the crdSynced field comment
+			// in informer.go for why: CRD RBAC denial must not disable caching for
+			// every other kind too).
+			im.crdSynced.Store(true)
 
 			result, ok := im.ListFromCache(tc.resourceType, "", metav1.ListOptions{})
 			if !ok {
@@ -75,5 +80,35 @@ func TestNewInformerManager_NilConfig_DoesNotPanic(t *testing.T) {
 
 	if im.crdFactory != nil {
 		t.Error("expected crdFactory to stay nil when client.Config is nil")
+	}
+}
+
+// Regression test for the backend-review finding (docs/ai/KNOWN-ISSUES.md):
+// the CRD factory's sync state must NOT be coupled to the main factory's.
+// CustomResourceDefinition is cluster-scoped and commonly outside a
+// restricted ServiceAccount's RBAC; before this fix, one cluster lacking CRD
+// watch/list permission would permanently disable the ENTIRE cache — pods,
+// deployments, services, everything — not just CRDs, because both factories'
+// sync state was ANDed into a single global flag.
+func TestListFromCache_CRDNotSynced_DoesNotBlockOtherKinds(t *testing.T) {
+	podStore := cache.NewIndexer(cache.MetaNamespaceKeyFunc, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc})
+	if err := podStore.Add(&corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "pod-1", Namespace: "default"}}); err != nil {
+		t.Fatalf("seed store: %v", err)
+	}
+
+	im := &InformerManager{stores: map[string]cache.Indexer{"Pod": podStore}}
+	im.synced.Store(true) // main factory (pods, deployments, ...) synced fine
+	// im.crdSynced deliberately left false — simulates CRD RBAC permanently denied
+
+	podResult, ok := im.ListFromCache("pods", "", metav1.ListOptions{})
+	if !ok {
+		t.Fatal("expected pods to be served from cache even though the CRD factory never synced")
+	}
+	if len(podResult.Items) != 1 {
+		t.Fatalf("expected 1 pod, got %d", len(podResult.Items))
+	}
+
+	if _, ok := im.ListFromCache("customresourcedefinitions", "", metav1.ListOptions{}); ok {
+		t.Fatal("expected CRDs to correctly report a cache miss (not synced) while CRD sync is pending — this itself falls back to the live API, which is correct; only pods incorrectly blocking would be the bug")
 	}
 }

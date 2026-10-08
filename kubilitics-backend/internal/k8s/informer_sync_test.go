@@ -33,7 +33,7 @@ func TestInformerManager_WaitForSync_TimesOutIfNeverStarted(t *testing.T) {
 	im.factory.Start(im.stopCh) // started, but will never successfully sync
 
 	start := time.Now()
-	ok := im.waitForSync(100 * time.Millisecond)
+	ok, _ := im.waitForSync(100 * time.Millisecond) // crdFactory is nil for test clients, so crdSynced is trivially true
 	elapsed := time.Since(start)
 
 	if ok {
@@ -52,7 +52,8 @@ func TestInformerManager_WaitForSync_SucceedsWhenStarted(t *testing.T) {
 	im.setupPodInformer()
 	im.factory.Start(im.stopCh)
 
-	if !im.waitForSync(5 * time.Second) {
+	mainSynced, _ := im.waitForSync(5 * time.Second) // crdFactory is nil for test clients, so crdSynced is trivially true
+	if !mainSynced {
 		t.Fatal("expected waitForSync to succeed once factory.Start was called against a fake (near-instant) clientset")
 	}
 }

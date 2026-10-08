@@ -766,8 +766,8 @@ func (e *Engine) discoverServiceAccounts(ctx context.Context, graph *Graph, name
 }
 
 func (e *Engine) discoverEndpoints(ctx context.Context, graph *Graph, namespace string) error {
-	var endpoints []corev1.Endpoints
-	if cached, ok := listWithCache[corev1.Endpoints](e, "endpoints", namespace); ok {
+	var endpoints []corev1.Endpoints //nolint:staticcheck // TODO: migrate to EndpointSlice (same as topology/v2)
+	if cached, ok := listWithCache[corev1.Endpoints](e, "endpoints", namespace); ok { //nolint:staticcheck // TODO: migrate to EndpointSlice (same as topology/v2)
 		endpoints = cached
 	} else {
 		result, err := e.client.Clientset.CoreV1().Endpoints(namespace).List(ctx, metav1.ListOptions{})

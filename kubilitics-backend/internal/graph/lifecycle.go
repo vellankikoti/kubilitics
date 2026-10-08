@@ -271,9 +271,24 @@ func (m *EngineLifecycleManager) runSweep() {
 		case <-m.stopSweep:
 			return
 		case <-ticker.C:
-			m.sweepOnce()
+			m.safeSweepOnce()
 		}
 	}
+}
+
+// safeSweepOnce wraps sweepOnce with panic recovery per-tick (not once for
+// the whole goroutine) so a single bad sweep degrades to "skip this tick, log
+// it, try again next interval" instead of permanently killing the ONE
+// centralized idle-engine-cleanup goroutine for the entire fleet — or,
+// unrecovered, crashing the whole backend process (docs/ai/ARCHITECTURE.md:
+// every goroutine needs this).
+func (m *EngineLifecycleManager) safeSweepOnce() {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Default().Error("panic in blast-radius engine lifecycle sweep tick — will retry next interval", "error", r)
+		}
+	}()
+	m.sweepOnce()
 }
 
 func (m *EngineLifecycleManager) sweepOnce() {

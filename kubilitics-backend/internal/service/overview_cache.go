@@ -248,9 +248,23 @@ func (c *OverviewCache) runPodCountReconciliation(clusterID string, stopCh <-cha
 		case <-stopCh:
 			return
 		case <-ticker.C:
-			c.reconcilePodCountsFromStore(clusterID)
+			c.safeReconcilePodCountsFromStore(clusterID)
 		}
 	}
+}
+
+// safeReconcilePodCountsFromStore wraps reconcilePodCountsFromStore with
+// panic recovery per-tick so a single bad reconciliation (e.g. an unexpected
+// store item shape) degrades to "skip this tick, log it, try again next
+// interval" instead of crashing the whole backend process
+// (docs/ai/ARCHITECTURE.md: every goroutine needs this).
+func (c *OverviewCache) safeReconcilePodCountsFromStore(clusterID string) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Default().Error("panic in pod-count reconciliation tick — will retry next interval", "cluster_id", clusterID, "error", r)
+		}
+	}()
+	c.reconcilePodCountsFromStore(clusterID)
 }
 
 // reconcilePodCountsFromStore rebuilds Counts.Pods, the Running/Pending/

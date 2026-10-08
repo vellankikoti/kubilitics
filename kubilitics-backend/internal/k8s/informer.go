@@ -38,12 +38,20 @@ type InformerManager struct {
 	// cache.MetaNamespaceIndexFunc} by default — GetIndexer() exposes that
 	// for O(1) namespace lookups via ByIndex; GetStore() would throw it away.
 	stores map[string]cache.Indexer
-	synced atomic.Bool // true after WaitForCacheSync succeeds
+	synced atomic.Bool // true after the MAIN factory's WaitForCacheSync succeeds
 	// crdFactory is a separate SharedInformerFactory for CustomResourceDefinition:
 	// apiextensions.k8s.io isn't part of kubernetes.Interface, so it needs its own
 	// clientset. nil if that clientset failed to construct — CRDs then keep using
 	// the direct API fallback, same as any other uncached kind.
 	crdFactory apiextensionsinformers.SharedInformerFactory
+	// crdSynced tracks the CRD factory's own sync state, deliberately SEPARATE from
+	// `synced` above. CustomResourceDefinition is cluster-scoped and commonly outside
+	// a restricted/viewer-style ServiceAccount's RBAC (unlike namespaced resources) —
+	// if its sync were ANDed into the same global flag as the other ~34 kinds (as it
+	// was in an earlier version of this code), one cluster lacking CRD watch/list
+	// permission would silently and permanently disable the ENTIRE cache — pods,
+	// deployments, services, everything — not just CRDs. See docs/ai/KNOWN-ISSUES.md.
+	crdSynced atomic.Bool
 }
 
 // NewInformerManager creates a new informer manager
@@ -157,8 +165,14 @@ func (im *InformerManager) Start(ctx context.Context) error {
 	// func(){}`), never an HTTP request, but left the cluster's cache permanently
 	// "still warming up" with no actionable signal and no further retry. Bound the
 	// initial wait, then keep retrying in the background instead of giving up.
-	if im.waitForSync(initialSyncTimeout) {
+	mainSynced, crdSynced := im.waitForSync(initialSyncTimeout)
+	if mainSynced {
 		im.synced.Store(true)
+	}
+	if crdSynced {
+		im.crdSynced.Store(true)
+	}
+	if mainSynced && crdSynced {
 		return nil
 	}
 
@@ -169,8 +183,8 @@ func (im *InformerManager) Start(ctx context.Context) error {
 	default:
 	}
 
-	log.Printf("informer cache did not finish initial sync within %s; resource reads for this cluster will use the slower direct API fallback until it succeeds. Retrying in the background every %s.",
-		initialSyncTimeout, syncRetryInterval)
+	log.Printf("informer cache did not finish initial sync within %s (main synced=%t, CRD synced=%t); affected resource reads for this cluster will use the slower direct API fallback until it succeeds. Retrying in the background every %s.",
+		initialSyncTimeout, mainSynced, crdSynced, syncRetryInterval)
 	go im.retrySyncInBackground()
 	return fmt.Errorf("informer cache sync did not complete within %s; continuing to retry in background", initialSyncTimeout)
 }
@@ -186,8 +200,14 @@ const (
 
 // waitForSync blocks until every registered informer cache reports synced,
 // the manager is stopped, or timeout elapses — whichever happens first.
-// Returns true only if every cache reported synced before giving up.
-func (im *InformerManager) waitForSync(timeout time.Duration) bool {
+// Returns (mainSynced, crdSynced) independently — deliberately NOT ANDed
+// into one bool. CustomResourceDefinition is cluster-scoped and commonly
+// outside a restricted ServiceAccount's RBAC; if its factory's sync were
+// coupled to the main factory's, one cluster lacking CRD permissions would
+// permanently disable caching for pods/deployments/everything else too, not
+// just CRDs. crdSynced is always true when crdFactory is nil (nothing to
+// wait for).
+func (im *InformerManager) waitForSync(timeout time.Duration) (mainSynced, crdSynced bool) {
 	timer := time.NewTimer(timeout)
 	defer timer.Stop()
 
@@ -213,38 +233,52 @@ func (im *InformerManager) waitForSync(timeout time.Duration) bool {
 		close(giveUp)
 	}()
 
-	allSynced := true
+	mainSynced = true
+	crdSynced = im.crdFactory == nil
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	checkSync := func(syncMap map[reflect.Type]bool) {
+	checkSync := func(syncMap map[reflect.Type]bool, ok *bool) {
 		mu.Lock()
 		defer mu.Unlock()
-		for informerType, ok := range syncMap {
-			if !ok {
-				allSynced = false
-				log.Printf("informer cache sync: %s did not sync within the timeout (commonly RBAC — this service account may lack list/watch on that resource; the cache-first perf path stays permanently disabled for this cluster until it does)", informerType)
+		for informerType, synced := range syncMap {
+			if !synced {
+				*ok = false
+				log.Printf("informer cache sync: %s did not sync within the timeout (commonly RBAC — this service account may lack list/watch on that resource; the cache-first perf path stays permanently disabled for this specific kind on this cluster until it does)", informerType)
 			}
 		}
 	}
 
 	// Both factories share stopCh/giveUp, so waiting on them concurrently keeps
 	// the total wait bounded by one timeout instead of two sequential ones.
+	// Every backend goroutine needs defer recover() (docs/ai/ARCHITECTURE.md) —
+	// without it, a panic inside client-go's WaitForCacheSync crashes the
+	// entire backend process, not just this cluster's warm-up.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		checkSync(im.factory.WaitForCacheSync(giveUp))
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Default().Error("panic in informer cache-sync goroutine (main factory)", "error", r)
+			}
+		}()
+		checkSync(im.factory.WaitForCacheSync(giveUp), &mainSynced)
 	}()
 	if im.crdFactory != nil {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			checkSync(im.crdFactory.WaitForCacheSync(giveUp))
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Default().Error("panic in informer cache-sync goroutine (CRD factory)", "error", r)
+				}
+			}()
+			checkSync(im.crdFactory.WaitForCacheSync(giveUp), &crdSynced)
 		}()
 	}
 	wg.Wait()
 
-	return allSynced
+	return mainSynced, crdSynced
 }
 
 // retrySyncInBackground polls (non-blocking) for sync completion every
@@ -281,40 +315,65 @@ func (im *InformerManager) retrySyncInBackground() {
 			tick++
 			// Non-blocking poll: an already-closed stop channel makes
 			// WaitForCacheSync return immediately with current state.
-			syncMap := im.factory.WaitForCacheSync(alreadyClosed)
-			allSynced := true
-			for informerType, ok := range syncMap {
-				if !ok {
-					allSynced = false
-					if tick%diagnosticEvery == 0 {
-						log.Printf("informer cache sync: %s still not synced after retrying in the background — commonly RBAC; the cache-first perf path stays disabled for this cluster until it does", informerType)
-					}
-				}
-			}
-			if im.crdFactory != nil {
-				for informerType, ok := range im.crdFactory.WaitForCacheSync(alreadyClosed) {
+			// main and CRD are tracked and stored independently — see the
+			// comment on crdSynced in the struct definition above for why
+			// they must not be ANDed into one flag.
+			if !im.synced.Load() {
+				mainOK := true
+				for informerType, ok := range im.factory.WaitForCacheSync(alreadyClosed) {
 					if !ok {
-						allSynced = false
+						mainOK = false
 						if tick%diagnosticEvery == 0 {
-							log.Printf("informer cache sync: %s still not synced after retrying in the background — commonly RBAC; the cache-first perf path stays disabled for this cluster until it does", informerType)
+							log.Printf("informer cache sync: %s still not synced after retrying in the background — commonly RBAC; the cache-first perf path stays disabled for this kind on this cluster until it does", informerType)
 						}
 					}
 				}
+				if mainOK {
+					im.synced.Store(true)
+					log.Printf("informer cache (main) finished initial sync after retrying in the background")
+				}
 			}
-			if allSynced {
-				im.synced.Store(true)
-				log.Printf("informer cache finished initial sync after retrying in the background")
+			if im.crdFactory != nil && !im.crdSynced.Load() {
+				crdOK := true
+				for informerType, ok := range im.crdFactory.WaitForCacheSync(alreadyClosed) {
+					if !ok {
+						crdOK = false
+						if tick%diagnosticEvery == 0 {
+							log.Printf("informer cache sync: %s still not synced after retrying in the background — commonly RBAC; the CRD cache stays disabled for this cluster until it does (other resource kinds are unaffected)", informerType)
+						}
+					}
+				}
+				if crdOK {
+					im.crdSynced.Store(true)
+					log.Printf("informer cache (CRD) finished initial sync after retrying in the background")
+				}
+			}
+			if im.synced.Load() && (im.crdFactory == nil || im.crdSynced.Load()) {
 				return
 			}
 		}
 	}
 }
 
-// HasSynced returns true after all informer caches have completed their
-// initial list+watch sync. Before this returns true, ListFromCache will
-// return (nil, false) to force a direct API call.
+// HasSynced returns true after the MAIN factory's informer caches have
+// completed their initial list+watch sync (~34 kinds — everything except
+// CustomResourceDefinition, which syncs via a separate factory/flag; see
+// crdSynced). Before this returns true, ListFromCache will return
+// (nil, false) for those kinds to force a direct API call.
 func (im *InformerManager) HasSynced() bool {
 	return im.synced.Load()
+}
+
+// kindSynced reports whether the specific store key's backing informer has
+// completed its initial sync — CustomResourceDefinition checks crdSynced
+// (its own, separately-tracked factory), everything else checks the main
+// HasSynced(). Deliberately per-kind rather than a single blanket check: see
+// the crdSynced field comment for why that distinction matters.
+func (im *InformerManager) kindSynced(storeKey string) bool {
+	if storeKey == "CustomResourceDefinition" {
+		return im.crdSynced.Load()
+	}
+	return im.HasSynced()
 }
 
 // resourceKindToStoreKey maps the lowercase-plural resource type used in REST URLs
@@ -371,11 +430,6 @@ var resourceKindToStoreKey = map[string]string{
 // Supports optional namespace filtering and basic limit/offset pagination.
 // Label selectors and field selectors are NOT supported — cache miss.
 func (im *InformerManager) ListFromCache(resourceType, namespace string, opts metav1.ListOptions) (*unstructured.UnstructuredList, bool) {
-	// Cannot serve from cache if informers haven't synced yet
-	if !im.HasSynced() {
-		return nil, false
-	}
-
 	// Label/field selectors require server-side filtering — cache miss
 	if opts.LabelSelector != "" || opts.FieldSelector != "" {
 		return nil, false
@@ -389,6 +443,12 @@ func (im *InformerManager) ListFromCache(resourceType, namespace string, opts me
 	// Map resource type to store key
 	storeKey, ok := resourceKindToStoreKey[strings.ToLower(resourceType)]
 	if !ok {
+		return nil, false
+	}
+
+	// Cannot serve from cache if THIS kind's informer hasn't synced yet —
+	// checked per-kind, not via a single blanket flag (see kindSynced).
+	if !im.kindSynced(storeKey) {
 		return nil, false
 	}
 
@@ -486,14 +546,15 @@ type CacheListResult struct {
 // - offset: skip first N items (for page navigation)
 // - limit: max items to return (0 = all)
 func (im *InformerManager) ListFromCacheWithPagination(resourceType, namespace string, search string, sortBy string, sortOrder string, offset int, limit int) (*CacheListResult, bool) {
-	// Cannot serve from cache if informers haven't synced yet
-	if !im.HasSynced() {
-		return nil, false
-	}
-
 	// Map resource type to store key
 	storeKey, ok := resourceKindToStoreKey[strings.ToLower(resourceType)]
 	if !ok {
+		return nil, false
+	}
+
+	// Cannot serve from cache if THIS kind's informer hasn't synced yet —
+	// checked per-kind, not via a single blanket flag (see kindSynced).
+	if !im.kindSynced(storeKey) {
 		return nil, false
 	}
 
