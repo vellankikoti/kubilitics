@@ -10,7 +10,7 @@
  */
 import React from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, AlertCircle } from "lucide-react";
 import k8sIconMap from "@/topology/icons/k8sIconMap";
 import { useResourceCounts } from "@/hooks/useResourceCounts";
 import { useDashboardResourceHealth, type HealthSegment } from "@/hooks/useDashboardResourceHealth";
@@ -126,7 +126,7 @@ function StatusLegend({ segments }: { segments: HealthSegment[] }) {
 
 export const MetricCardsGrid = () => {
   const { counts } = useResourceCounts();
-  const { health } = useDashboardResourceHealth();
+  const { health, isError } = useDashboardResourceHealth();
   const activeProject = useProjectStore((s) => s.activeProject);
   const isProjectScope = !!activeProject;
 
@@ -134,6 +134,12 @@ export const MetricCardsGrid = () => {
 
   return (
     <div className="space-y-5">
+      {isError && (
+        <div className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          Some resource tiles below may be showing stale or incomplete data — one or more health checks failed to load.
+        </div>
+      )}
       {CATEGORIES.map((cat) => (
         <div key={cat.label}>
           {/* Category label */}

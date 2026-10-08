@@ -177,6 +177,8 @@ export interface AnalyzeQuery {
   namespace?: string;
   since?: number;
   until?: number;
+  /** Convenience alternative to since/until — backend converts to `since` when `since` is unset. "1h" | "6h" | "24h" | "7d" */
+  time_range?: string;
   group_by?: string;
   top_n?: number;
 }

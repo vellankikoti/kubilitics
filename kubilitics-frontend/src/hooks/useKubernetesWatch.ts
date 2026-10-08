@@ -125,6 +125,14 @@ export function useKubernetesWatch<T extends KubernetesResource = KubernetesReso
   const onConnectionChangeRef = useRef(onConnectionChange);
   onConnectionChangeRef.current = onConnectionChange;
 
+  // Stable per-hook-instance callback registered in the shared entry's
+  // subscribers Set (see the lifecycle effect below) — created once so
+  // add()/delete() always operate on the same function reference. Always
+  // forwards to the latest onEvent via the ref, so it never goes stale.
+  const subscriberCallbackRef = useRef<(event: WatchEvent) => void>((event) => {
+    onEventRef.current?.(event as WatchEvent<T>);
+  });
+
   const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Build the TanStack Query key that corresponds to useK8sResourceList
@@ -253,8 +261,9 @@ export function useKubernetesWatch<T extends KubernetesResource = KubernetesReso
         // Apply to cache
         applyCacheUpdate(watchEvent);
 
-        // Notify subscribers
-        onEventRef.current?.(watchEvent);
+        // Notify every hook instance sharing this connection (including this
+        // one — it registers itself in entry.subscribers too, see the
+        // lifecycle effect below).
         entry!.subscribers.forEach((cb) => cb(watchEvent as WatchEvent));
       } catch (err) {
         console.warn('[useKubernetesWatch] Failed to parse watch event:', err);
@@ -348,12 +357,27 @@ export function useKubernetesWatch<T extends KubernetesResource = KubernetesReso
 
     connectWs();
 
+    // Register this instance as a subscriber of the shared connection —
+    // whether it just created the WebSocket or is reusing an already-open
+    // one from another hook instance watching the same
+    // (clusterId, resourceType, namespace) tuple. Without this, a second
+    // consumer's onEvent callback would never fire (connectWs's early-return
+    // reuse path doesn't call applyCacheUpdate/onEvent itself), and
+    // subscribers.size would always read 0 on cleanup below, tearing down
+    // the shared connection out from under every other consumer on the
+    // first unmount.
+    if (currentClusterId) {
+      const key = informerKey(currentClusterId, resourceType, namespace);
+      informerRegistry.get(key)?.subscribers.add(subscriberCallbackRef.current);
+    }
+
     return () => {
       // Cleanup: close WS if this is the last subscriber
       if (!currentClusterId) return;
       const key = informerKey(currentClusterId, resourceType, namespace);
       const entry = informerRegistry.get(key);
       if (entry) {
+        entry.subscribers.delete(subscriberCallbackRef.current);
         if (entry.subscribers.size === 0) {
           entry.ws?.close();
           if (entry.reconnectTimer) clearTimeout(entry.reconnectTimer);

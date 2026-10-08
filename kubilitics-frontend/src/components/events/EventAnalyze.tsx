@@ -1,16 +1,14 @@
 /**
  * EventAnalyze — query builder + horizontal bar chart for aggregate analysis.
- * Uses direct fetch() to avoid React Query cluster ID issues.
  */
 import { useState, useCallback, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Play, Loader2, Zap } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { useEventsStore } from '@/stores/eventsStore';
-import type { AnalyzeResult } from '@/services/api/eventsIntelligence';
-import { getBackendBase } from '@/lib/backendUrl';
+import { useAnalyze } from '@/hooks/useEventsIntelligence';
+import type { AnalyzeQuery } from '@/services/api/eventsIntelligence';
 
 /* ─── Presets ────────────────────────────────────────────────────────────── */
 
@@ -54,45 +52,18 @@ export function EventAnalyze() {
   const store = useEventsStore();
   const [groupBy, setGroupBy] = useState('reason');
   const [timeRange, setTimeRange] = useState('24h');
-  const [results, setResults] = useState<AnalyzeResult[] | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // null until the first query is issued (on mount, see below) — keeps useAnalyze disabled
+  // until then, same as the old component's isLoading=false-until-first-run behavior.
+  const [query, setQuery] = useState<AnalyzeQuery | null>(null);
+  const { data: results, isLoading, isError, error: queryError } = useAnalyze(query);
 
-  const runQuery = useCallback(async (gb?: string, tr?: string) => {
-    const effectiveGroupBy = gb ?? groupBy;
-    const effectiveTimeRange = tr ?? timeRange;
-    setIsLoading(true);
-    setError(null);
-    try {
-      const base = getBackendBase();
-      const clustersRes = await fetch(`${base}/api/v1/clusters`);
-      const clusters: Array<{ id: string; status: string }> = await clustersRes.json();
-      const connected = clusters.find((c) => c.status === 'connected');
-      if (!connected) {
-        setResults([]);
-        setIsLoading(false);
-        return;
-      }
-      const res = await fetch(`${base}/api/v1/clusters/${connected.id}/events-intelligence/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          group_by: effectiveGroupBy,
-          time_range: effectiveTimeRange,
-          namespace: store.namespace || undefined,
-          top_n: 20,
-        }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setResults(Array.isArray(data) ? data : []);
-    } catch (err: unknown) {
-      console.error('[EventAnalyze] fetch error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to fetch');
-      setResults([]);
-    } finally {
-      setIsLoading(false);
-    }
+  const runQuery = useCallback((gb?: string, tr?: string) => {
+    setQuery({
+      group_by: gb ?? groupBy,
+      time_range: tr ?? timeRange,
+      namespace: store.namespace || undefined,
+      top_n: 20,
+    });
   }, [groupBy, timeRange, store.namespace]);
 
   // Auto-run default query on mount
@@ -201,10 +172,10 @@ export function EventAnalyze() {
       </Card>
 
       {/* Error state */}
-      {error && (
+      {isError && (
         <Card className="border-none soft-shadow glass-panel">
           <CardContent className="py-4">
-            <p className="text-sm text-destructive">{error}</p>
+            <p className="text-sm text-destructive">{queryError?.message ?? 'Failed to analyze events'}</p>
           </CardContent>
         </Card>
       )}
@@ -297,7 +268,7 @@ export function EventAnalyze() {
       )}
 
       {/* Empty state */}
-      {results && results.length === 0 && !error && (
+      {results && results.length === 0 && !isError && !isLoading && (
         <Card className="border-none soft-shadow glass-panel">
           <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <Zap className="h-10 w-10 mb-3 opacity-30" />

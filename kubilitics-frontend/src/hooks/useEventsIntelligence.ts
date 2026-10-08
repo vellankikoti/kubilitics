@@ -46,7 +46,7 @@ function useBackendContext() {
 }
 
 /** Fetch events with query parameters. */
-export function useEventsQuery(params: EventQueryParams) {
+export function useEventsQuery(params: EventQueryParams, options?: { refetchInterval?: number }) {
   const { clusterId, effectiveBaseUrl, enabled } = useBackendContext();
 
   return useQuery<WideEvent[], Error>({
@@ -56,6 +56,7 @@ export function useEventsQuery(params: EventQueryParams) {
     staleTime: 15_000,
     retry: 2,
     retryDelay: 1_000,
+    refetchInterval: options?.refetchInterval,
   });
 }
 

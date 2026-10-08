@@ -1,59 +1,36 @@
 /**
  * EventStatsBar — bottom stats bar showing key event metrics.
- * Uses direct fetch() to avoid React Query cluster ID issues.
  */
-import { useState, useEffect } from 'react';
-import { Activity, AlertTriangle, HeartPulse, Flame, Loader2 } from 'lucide-react';
+import { Activity, AlertTriangle, HeartPulse, Flame, Loader2, AlertCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { EventStats } from '@/services/api/eventsIntelligence';
-import { getBackendBase } from '@/lib/backendUrl';
+import { useEventStats } from '@/hooks/useEventsIntelligence';
 
 export function EventStatsBar() {
-  const [stats, setStats] = useState<EventStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const base = getBackendBase();
-        const clustersRes = await fetch(`${base}/api/v1/clusters`);
-        const clusters: Array<{ id: string; status: string }> = await clustersRes.json();
-        const connected = clusters.find((c) => c.status === 'connected');
-        if (!connected) {
-          if (!cancelled) { setStats(null); setIsLoading(false); }
-          return;
-        }
-        const res = await fetch(`${base}/api/v1/clusters/${connected.id}/events-intelligence/stats`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (!cancelled) {
-          // Normalize maps
-          data.by_type = data.by_type ?? {};
-          data.by_severity = data.by_severity ?? {};
-          data.by_reason = data.by_reason ?? {};
-          setStats(data);
-          setIsLoading(false);
-        }
-      } catch (err: unknown) {
-        if (!cancelled) {
-          console.error('[EventStatsBar] fetch error:', err);
-          setStats(null);
-          setIsLoading(false);
-        }
-      }
-    }
-    load();
-    const interval = setInterval(load, 30_000); // refresh every 30 seconds
-    return () => { cancelled = true; clearInterval(interval); };
-  }, []);
+  const { data: stats, isLoading, isError, refetch } = useEventStats();
 
   if (isLoading) {
     return (
       <Card className="border-none soft-shadow glass-panel p-3">
         <div className="flex items-center justify-center">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      </Card>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Card className="border-none soft-shadow glass-panel p-3">
+        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+          <span className="flex items-center gap-2">
+            <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+            Couldn&apos;t load event stats.
+          </span>
+          <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => refetch()}>
+            Retry
+          </Button>
         </div>
       </Card>
     );

@@ -1,8 +1,7 @@
 /**
  * IncidentView — incident narrative cards.
- * Uses direct fetch() to avoid React Query cluster ID issues.
  */
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertCircle,
@@ -18,8 +17,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { getBackendBase } from '@/lib/backendUrl';
 import { useEventsStore } from '@/stores/eventsStore';
+import { useIncidents } from '@/hooks/useEventsIntelligence';
 import type { Incident } from '@/services/api/eventsIntelligence';
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
@@ -56,41 +55,7 @@ function formatTime(ts: number): string {
 
 export function IncidentView() {
   const store = useEventsStore();
-  const [incidents, setIncidents] = useState<Incident[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const base = getBackendBase();
-        const clustersRes = await fetch(`${base}/api/v1/clusters`);
-        const clusters: Array<{ id: string; status: string }> = await clustersRes.json();
-        const connected = clusters.find((c) => c.status === 'connected');
-        if (!connected) {
-          if (!cancelled) { setIncidents([]); setIsLoading(false); }
-          return;
-        }
-        const res = await fetch(`${base}/api/v1/clusters/${connected.id}/incidents`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (!cancelled) {
-          setIncidents(Array.isArray(data) ? data : []);
-          setIsLoading(false);
-        }
-      } catch (err: unknown) {
-        if (!cancelled) {
-          console.error('[IncidentView] fetch error:', err);
-          setError(err instanceof Error ? err.message : 'Failed to fetch');
-          setIncidents([]);
-          setIsLoading(false);
-        }
-      }
-    }
-    load();
-    return () => { cancelled = true; };
-  }, []);
+  const { data: incidents, isLoading, isError, error: queryError } = useIncidents();
 
   const viewIncidentEvents = useCallback(
     (incident: Incident) => {
@@ -108,13 +73,13 @@ export function IncidentView() {
     );
   }
 
-  if (error) {
+  if (isError) {
     return (
       <Card className="border-none soft-shadow glass-panel">
         <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
           <AlertCircle className="h-10 w-10 mb-3 opacity-30 text-destructive" />
           <p className="text-sm font-medium text-destructive">Failed to load incidents</p>
-          <p className="text-xs mt-1">{error}</p>
+          <p className="text-xs mt-1">{queryError?.message ?? 'Unknown error'}</p>
         </CardContent>
       </Card>
     );

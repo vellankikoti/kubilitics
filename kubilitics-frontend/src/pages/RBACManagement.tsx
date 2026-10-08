@@ -180,11 +180,18 @@ export default function RBACManagement() {
       const res = await fetch(`${backendBaseUrl}/api/v1/rbac/roles`);
       if (res.ok) {
         const data = await res.json();
-        if (data.roles) {
+        // Array.isArray, not just truthy — a truthy non-array response (e.g. `{}`)
+        // would otherwise throw inside .filter(), caught below with zero feedback,
+        // silently reverting the user's custom roles to built-ins.
+        if (Array.isArray(data.roles)) {
           setRoles([...BUILT_IN_ROLES, ...data.roles.filter((r: RBACRole) => r.type === 'custom')]);
+        } else if (data.roles !== undefined) {
+          console.warn('[RBACManagement] /api/v1/rbac/roles returned a non-array `roles` field:', data.roles);
+          toast.error('Could not load custom roles — unexpected response shape. Showing built-in roles only.');
         }
       }
-    } catch {
+    } catch (err) {
+      console.warn('[RBACManagement] fetchRoles failed, falling back to built-in roles:', err);
       // Use built-in defaults if backend is unavailable
     } finally {
       setIsLoading(false);
