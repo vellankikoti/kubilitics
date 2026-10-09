@@ -71,6 +71,16 @@ import { getRowAnimationClass } from '@/hooks/useResourceLiveUpdates';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
 
 import { useActiveClusterId } from '@/hooks/useActiveClusterId';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 interface NodeResource extends KubernetesResource {
  spec?: {
  unschedulable?: boolean;
@@ -271,6 +281,11 @@ export default function Nodes() {
  const patchNodeResource = usePatchK8sResource('nodes');
 
  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: Node | null; bulk?: boolean }>({ open: false, item: null });
+ // docs/ai/STABILIZATION-PLAN.md Phase 2 item 6: drain previously ran
+ // straight from this dropdown item's onClick with zero confirmation, next
+ // to a Delete item that already had one.
+ const [drainDialog, setDrainDialog] = useState<{ open: boolean; item: Node | null }>({ open: false, item: null });
+ const [isDraining, setIsDraining] = useState(false);
  const multiSelect = useMultiSelect();
  const selectedNodes = multiSelect.selectedIds;
  const setSelectedNodes = (s: Set<string>) => { if (s.size === 0) multiSelect.clearSelection(); else multiSelect.selectAll(Array.from(s)); };
@@ -546,6 +561,7 @@ export default function Nodes() {
    toast.error('Connect to a cluster to drain nodes');
    return;
  }
+ setIsDraining(true);
  toast.info(`Draining node ${item.name}…`);
  try {
    const result = await postNodeDrain(backendBaseUrl, clusterId, item.name, { ignoreDaemonSets: true });
@@ -559,6 +575,9 @@ export default function Nodes() {
    refetch();
  } catch (e) {
    toast.error(e instanceof Error ? e.message : 'Failed to drain node');
+ } finally {
+   setIsDraining(false);
+   setDrainDialog({ open: false, item: null });
  }
  };
 
@@ -899,7 +918,7 @@ export default function Nodes() {
  <DropdownMenuItem onClick={() => navigate(`/pods?node=${encodeURIComponent(node.name)}`)} className="gap-2">View Pods on Node</DropdownMenuItem>
  <DropdownMenuItem onClick={() => handleCordon(node)} className="gap-2">Cordon</DropdownMenuItem>
  <DropdownMenuItem onClick={() => handleCordon(node)} className="gap-2">Uncordon</DropdownMenuItem>
- <DropdownMenuItem onClick={() => handleDrain(node)} className="gap-2">Drain</DropdownMenuItem>
+ <DropdownMenuItem onClick={() => setDrainDialog({ open: true, item: node })} className="gap-2">Drain</DropdownMenuItem>
  <DropdownMenuSeparator />
  <DropdownMenuItem onClick={() => navigate(`/nodes/${node.name}?tab=yaml`)} className="gap-2">Download YAML</DropdownMenuItem>
  <DropdownMenuSeparator />
@@ -927,6 +946,28 @@ export default function Nodes() {
  onConfirm={handleDelete}
  requireNameConfirmation={!deleteDialog.bulk}
  />
+ <AlertDialog open={drainDialog.open} onOpenChange={(open) => setDrainDialog({ open, item: open ? drainDialog.item : null })}>
+   <AlertDialogContent>
+     <AlertDialogHeader>
+       <AlertDialogTitle>Drain node {drainDialog.item?.name}?</AlertDialogTitle>
+       <AlertDialogDescription>
+         This evicts every eligible pod from this node (DaemonSet pods are skipped). Pods
+         without a controller may be left running — use force drain from the API if you need
+         to remove those too. This action cannot be undone.
+       </AlertDialogDescription>
+     </AlertDialogHeader>
+     <AlertDialogFooter>
+       <AlertDialogCancel disabled={isDraining}>Cancel</AlertDialogCancel>
+       <AlertDialogAction
+         onClick={() => drainDialog.item && handleDrain(drainDialog.item)}
+         disabled={isDraining}
+         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+       >
+         {isDraining ? 'Draining…' : 'Drain Node'}
+       </AlertDialogAction>
+     </AlertDialogFooter>
+   </AlertDialogContent>
+ </AlertDialog>
  </PageLayout>
  );
 }

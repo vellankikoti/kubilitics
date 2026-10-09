@@ -347,6 +347,11 @@ export async function postNodeCordon(
 /**
  * POST /api/v1/clusters/{clusterId}/resources/nodes/{name}/drain
  * Cordons then evicts all eligible pods from the node.
+ *
+ * docs/ai/STABILIZATION-PLAN.md Phase 2 item 6: drain is at least as
+ * destructive as delete/apply (both already send this header) — it evicts,
+ * or with force=true hard-deletes, every eligible pod on the node. The
+ * backend now rejects this call without X-Confirm-Destructive: true.
  */
 export async function postNodeDrain(
   baseUrl: string,
@@ -357,7 +362,7 @@ export async function postNodeDrain(
   const path = `clusters/${encodeURIComponent(clusterId)}/resources/nodes/${encodeURIComponent(name)}/drain`;
   return backendRequest<NodeDrainResult>(baseUrl, path, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', [CONFIRM_DESTRUCTIVE_HEADER]: 'true' },
     body: JSON.stringify({
       gracePeriodSeconds: options?.gracePeriodSeconds ?? -1,
       force: options?.force ?? false,

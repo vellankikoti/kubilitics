@@ -8,6 +8,16 @@ import { useAIContextStore } from '@/stores/aiContextStore';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import {
   GenericResourceDetail,
@@ -433,11 +443,20 @@ export default function NodeDetail() {
     }
   }, [isConnected, backendBaseUrl, clusterId, name, isCordoned, triggerFastPolling]);
 
+  // docs/ai/STABILIZATION-PLAN.md Phase 2 item 6: drain previously ran
+  // straight from the button's onClick with zero confirmation — the
+  // backend now also requires X-Confirm-Destructive: true for the same
+  // reason (evicts, or with force=true hard-deletes, every eligible pod
+  // on the node; "a bad drain can cause an outage").
+  const [drainDialogOpen, setDrainDialogOpen] = useState(false);
+  const [isDraining, setIsDraining] = useState(false);
+
   const handleDrain = useCallback(async () => {
     if (!isConnected || !backendBaseUrl || !clusterId || !name) {
       toast.error('Connect to a cluster to drain nodes');
       return;
     }
+    setIsDraining(true);
     toast.info(`Draining node ${name}…`);
     try {
       const result = await postNodeDrain(backendBaseUrl, clusterId, name, { ignoreDaemonSets: true });
@@ -451,6 +470,9 @@ export default function NodeDetail() {
       triggerFastPolling();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Failed to drain node');
+    } finally {
+      setIsDraining(false);
+      setDrainDialogOpen(false);
     }
   }, [isConnected, backendBaseUrl, clusterId, name, triggerFastPolling]);
 
@@ -527,6 +549,7 @@ export default function NodeDetail() {
   ];
 
   return (
+    <>
     <GenericResourceDetail<NodeResource>
       resourceType="nodes"
       kind="Node"
@@ -564,7 +587,7 @@ export default function NodeDetail() {
       }}
       extraHeaderActions={() => [
         { label: isCordoned ? 'Uncordon' : 'Cordon', icon: isCordoned ? Play : Pause, variant: 'outline', onClick: handleCordon, className: 'press-effect' },
-        { label: 'Drain', icon: Shield, variant: 'outline', onClick: handleDrain, className: 'press-effect' },
+        { label: 'Drain', icon: Shield, variant: 'outline', onClick: () => setDrainDialogOpen(true), className: 'press-effect' },
         {
           label: 'Ask AI',
           icon: Sparkles,
@@ -584,7 +607,7 @@ export default function NodeDetail() {
           description: isCordoned ? 'Allow pods to be scheduled on this node' : 'Mark node as unschedulable',
           onClick: handleCordon,
         },
-        { icon: Shield, label: 'Drain Node', description: 'Safely evict all pods from node', onClick: handleDrain },
+        { icon: Shield, label: 'Drain Node', description: 'Safely evict all pods from node', onClick: () => setDrainDialogOpen(true) },
       ]}
       buildStatusCards={(ctx) => {
         const n = ctx.resource;
@@ -620,5 +643,28 @@ export default function NodeDetail() {
         ];
       }}
     />
+    <AlertDialog open={drainDialogOpen} onOpenChange={setDrainDialogOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Drain node {name}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This evicts every eligible pod from this node (DaemonSet pods are skipped). Pods
+            without a controller may be left running — use force drain from the API if you need
+            to remove those too. This action cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isDraining}>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleDrain}
+            disabled={isDraining}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          >
+            {isDraining ? 'Draining…' : 'Drain Node'}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

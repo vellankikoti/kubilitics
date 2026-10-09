@@ -3,6 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	policyv1 "k8s.io/api/policy/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -95,6 +96,17 @@ type DrainNodeResponse struct {
 // DrainNode handles POST /clusters/{clusterId}/nodes/{name}/drain
 // It cordons the node then evicts all eligible pods.
 func (h *Handler) DrainNode(w http.ResponseWriter, r *http.Request) {
+	// docs/ai/STABILIZATION-PLAN.md Phase 2 item 6: drain evicts (or, with
+	// force=true, hard-deletes) every eligible pod on the node — at least as
+	// destructive as DeleteResource/ApplyManifest, both of which already
+	// require this header, but DrainNode previously didn't. "A bad drain can
+	// cause an outage" per the plan's own framing of this file's risk.
+	requestID := logger.FromContext(r.Context())
+	if !strings.EqualFold(r.Header.Get(DestructiveConfirmHeader), "true") {
+		respondErrorWithCode(w, http.StatusBadRequest, ErrCodeInvalidRequest, "Destructive action requires X-Confirm-Destructive: true", requestID)
+		return
+	}
+
 	vars := GetPathVars(r)
 	clusterID := vars["clusterId"]
 	name := vars["name"]
@@ -221,7 +233,6 @@ func (h *Handler) DrainNode(w http.ResponseWriter, r *http.Request) {
 		resp.Evicted = append(resp.Evicted, podKey)
 	}
 
-	requestID := logger.FromContext(r.Context())
 	audit.LogMutation(requestID, clusterID, "drain", "nodes", "", name, "success",
 		"evicted="+joinStrings(resp.Evicted)+", errors="+joinStrings(resp.Errors))
 	respondJSON(w, http.StatusOK, resp)
