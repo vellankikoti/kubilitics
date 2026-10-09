@@ -2,9 +2,13 @@ package rest
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"sync"
 
 	"github.com/gorilla/mux"
 	"github.com/kubilitics/kubilitics-backend/internal/auth"
@@ -18,6 +22,15 @@ type OIDCHandler struct {
 	provider *oidc.Provider
 	cfg      *config.Config
 	repo     *repository.SQLiteRepository
+
+	// nonceMu guards nonceStore. The OIDC nonce is tracked independently from
+	// the provider's internal state store so that the ID token's "nonce"
+	// claim can be checked against the value this SP actually sent, which
+	// prevents a captured/replayed ID token (signed by the real IdP, for a
+	// different login attempt) from being accepted here.
+	// See: https://openid.net/specs/openid-connect-core-1_0.html#NonceNotes
+	nonceMu    sync.Mutex
+	nonceStore map[string]string // state -> nonce
 }
 
 // NewOIDCHandler creates a new OIDC handler
@@ -32,10 +45,21 @@ func NewOIDCHandler(cfg *config.Config, repo *repository.SQLiteRepository) (*OID
 	}
 
 	return &OIDCHandler{
-		provider: provider,
-		cfg:      cfg,
-		repo:     repo,
+		provider:   provider,
+		cfg:        cfg,
+		repo:       repo,
+		nonceStore: make(map[string]string),
 	}, nil
+}
+
+// generateNonce returns a random, URL-safe nonce value used for OIDC ID
+// token replay protection (see NonceNotes in the OIDC Core spec).
+func generateNonce() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.URLEncoding.EncodeToString(b), nil
 }
 
 // RegisterRoutes registers OIDC routes
@@ -60,7 +84,24 @@ func (h *OIDCHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	nonce, err := generateNonce()
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to generate nonce")
+		return
+	}
+	h.nonceMu.Lock()
+	h.nonceStore[state] = nonce
+	h.nonceMu.Unlock()
+
 	authURL := h.provider.AuthCodeURL(state)
+	// Attach the nonce to the authorization request so the IdP echoes it back
+	// in the ID token; verified in Callback below.
+	if parsed, parseErr := url.Parse(authURL); parseErr == nil {
+		q := parsed.Query()
+		q.Set("nonce", nonce)
+		parsed.RawQuery = q.Encode()
+		authURL = parsed.String()
+	}
 	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
@@ -73,6 +114,15 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	// Validate state
 	state := r.URL.Query().Get("state")
+
+	// Pop the nonce we stored for this state before consuming the state via
+	// ValidateState (which deletes it from the provider's store), so a given
+	// state/nonce pair can only ever be used once.
+	h.nonceMu.Lock()
+	expectedNonce, haveNonce := h.nonceStore[state]
+	delete(h.nonceStore, state)
+	h.nonceMu.Unlock()
+
 	if !h.provider.ValidateState(state) {
 		respondError(w, http.StatusBadRequest, "Invalid state parameter")
 		return
@@ -106,6 +156,19 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	// Verify the nonce echoed back in the ID token matches the one we sent,
+	// preventing a previously-issued, validly-signed ID token from a
+	// different login attempt from being replayed against this callback.
+	if !haveNonce {
+		respondError(w, http.StatusBadRequest, "Missing nonce for session")
+		return
+	}
+	actualNonce, _ := claims["nonce"].(string)
+	if actualNonce == "" || actualNonce != expectedNonce {
+		respondError(w, http.StatusBadRequest, "Invalid nonce: possible ID token replay")
+		return
+	}
+
 	// Extract subject for user ID
 	sub := idToken.Subject
 	if sub == "" {

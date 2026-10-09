@@ -2,6 +2,7 @@ package rest
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -69,16 +70,6 @@ func (h *SAMLHandler) Login(w http.ResponseWriter, r *http.Request) {
 		relayState = "/"
 	}
 
-	// Generate AuthnRequest ID
-	requestID, err := h.provider.GenerateAuthnRequestID()
-	if err != nil {
-		respondError(w, http.StatusInternalServerError, "Failed to generate request ID")
-		return
-	}
-
-	// Store request for validation
-	h.provider.StoreAuthnRequest(requestID, relayState)
-
 	// Use SAML SP to create AuthnRequest and redirect
 	sp := h.provider.GetServiceProvider()
 	
@@ -99,8 +90,17 @@ func (h *SAMLHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	
 	// Create AuthnRequest
-	authnRequest, _ := sp.ServiceProvider.MakeAuthenticationRequest(idpSSOURL, saml.HTTPRedirectBinding, saml.HTTPPostBinding)
-	
+	authnRequest, err := sp.ServiceProvider.MakeAuthenticationRequest(idpSSOURL, saml.HTTPRedirectBinding, saml.HTTPPostBinding)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to create AuthnRequest: "+err.Error())
+		return
+	}
+
+	// Store the real AuthnRequest ID (the one actually embedded in the
+	// request sent to the IdP) so the ACS handler can verify the IdP
+	// response's InResponseTo against a request this SP actually issued.
+	h.provider.StoreAuthnRequest(authnRequest.ID, relayState)
+
 	// Redirect to IdP
 	redirectURL, err := authnRequest.Redirect(relayState, &sp.ServiceProvider)
 	if err != nil {
@@ -125,8 +125,53 @@ func (h *SAMLHandler) AssertionConsumerService(w http.ResponseWriter, r *http.Re
 	ctx := r.Context()
 	sp := h.provider.GetServiceProvider()
 
-	// Parse SAML response - ParseResponse returns the assertion directly
-	assertion, err := sp.ServiceProvider.ParseResponse(r, []string{""}) // Empty list means accept any request ID
+	// The crewjam/saml library reads the SAMLResponse field from req.PostForm
+	// directly rather than calling ParseForm itself, so without this call the
+	// form body is never actually read and ParseResponse always fails/rejects.
+	if err := r.ParseForm(); err != nil {
+		respondError(w, http.StatusBadRequest, "Failed to parse SAML response form: "+err.Error())
+		return
+	}
+
+	rawResponse := r.PostForm.Get("SAMLResponse")
+	if rawResponse == "" {
+		respondError(w, http.StatusBadRequest, "Missing SAMLResponse")
+		return
+	}
+	decoded, err := base64.StdEncoding.DecodeString(rawResponse)
+	if err != nil {
+		respondError(w, http.StatusBadRequest, "Failed to decode SAML response: "+err.Error())
+		return
+	}
+
+	// Bind this response to a request this SP actually issued. Without this,
+	// ParseResponse was previously called with []string{""} as the set of
+	// acceptable request IDs, which (since sp.ServiceProvider.AllowIDPInitiated
+	// is false) only matched responses with an *empty* InResponseTo and never
+	// validated against anything this SP had sent — i.e. the AuthnRequest
+	// tracking in Login/StoreAuthnRequest was dead code, and a forged or
+	// replayed SAML response could not be distinguished from a legitimate one
+	// by request-binding alone.
+	var envelope struct {
+		InResponseTo string `xml:"InResponseTo,attr"`
+	}
+	if err := xml.Unmarshal(decoded, &envelope); err != nil {
+		respondError(w, http.StatusBadRequest, "Failed to parse SAML response envelope: "+err.Error())
+		return
+	}
+	if envelope.InResponseTo == "" {
+		respondError(w, http.StatusBadRequest, "SAML response is missing InResponseTo; unsolicited responses are not accepted")
+		return
+	}
+	if _, ok := h.provider.GetAuthnRequest(envelope.InResponseTo); !ok {
+		respondError(w, http.StatusBadRequest, "SAML response does not match a known authentication request")
+		return
+	}
+
+	// Parse SAML response - ParseResponse returns the assertion directly.
+	// Restrict acceptance to the specific AuthnRequest ID we issued and
+	// validated above.
+	assertion, err := sp.ServiceProvider.ParseResponse(r, []string{envelope.InResponseTo})
 	if err != nil {
 		respondError(w, http.StatusBadRequest, "Failed to parse SAML response: "+err.Error())
 		return
