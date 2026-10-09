@@ -41,12 +41,13 @@ import { useK8sResourceList, useDeleteK8sResource, usePatchK8sResource, calculat
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { toast } from '@/components/ui/sonner';
 import { ResourceCreator, DEFAULT_YAMLS } from '@/components/editor';
-import { ResourceExportDropdown, ResourceCommandBar, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, ListPagination, PAGE_SIZE_OPTIONS, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, NamespaceBadge, ResourceListTableToolbar, StatusPill } from '@/components/list';
+import { ResourceExportDropdown, ResourceCommandBar, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, ListPagination, PAGE_SIZE_OPTIONS, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, NamespaceBadge, ResourceListTableToolbar, StatusPill, NamespaceFilter } from '@/components/list';
 import { DeleteConfirmDialog, BulkActionBar, executeBulkOperation } from '@/components/resources';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
 import { ResizableTableProvider, ResizableTableHead, ResizableTableCell, type ResizableColumnConfig } from '@/components/ui/resizable-table';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useNamespaceFilter } from '@/hooks/useNamespaceFilter';
 
 interface K8sEndpointSlice extends KubernetesResource {
  addressType?: string;
@@ -91,7 +92,9 @@ const ENDPOINTSLICES_COLUMNS_FOR_VISIBILITY = [
 export default function EndpointSlices() {
  const navigate = useNavigate();
  const [searchQuery, setSearchQuery] = useState('');
- const [selectedNamespace, setSelectedNamespace] = useState<string>('all');
+ // Standard list-page namespace-filter pattern (src/hooks/useNamespaceFilter.ts) —
+ // multi-select, URL-persisted so it survives navigating away and back.
+ const [selectedNamespaces, setSelectedNamespaces] = useNamespaceFilter();
  const multiSelect = useMultiSelect();
  const selectedItems = multiSelect.selectedIds;
  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: EndpointSlice | null; bulk?: boolean }>({ open: false, item: null });
@@ -137,17 +140,17 @@ export default function EndpointSlices() {
  }), [endpointslices]);
 
  const namespaces = useMemo(() => {
- return ['all', ...Array.from(new Set(endpointslices.map(es => es.namespace)))];
+ return Array.from(new Set(endpointslices.map(es => es.namespace))).sort();
  }, [endpointslices]);
 
  const itemsAfterSearchAndNs = useMemo(() => {
  return endpointslices.filter(es => {
  const matchesSearch = es.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
  es.namespace.toLowerCase().includes(searchQuery.toLowerCase());
- const matchesNamespace = selectedNamespace === 'all' || es.namespace === selectedNamespace;
+ const matchesNamespace = selectedNamespaces.size === 0 || selectedNamespaces.has(es.namespace);
  return matchesSearch && matchesNamespace;
  });
- }, [endpointslices, searchQuery, selectedNamespace]);
+ }, [endpointslices, searchQuery, selectedNamespaces]);
 
  const endpointSlicesTableConfig: ColumnConfig<EndpointSlice>[] = useMemo(() => [
  { columnId: 'name', getValue: (es) => es.name, sortable: true, filterable: false },
@@ -344,24 +347,12 @@ ports: []
  globalFilterBar={
  <ResourceCommandBar
  scope={
- <div className="w-full min-w-0">
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button variant="outline" className="w-full min-w-0 h-10 gap-2 justify-between truncate rounded-lg border border-border bg-background font-medium shadow-sm hover:bg-muted/50 hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20">
- <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
- <span className="truncate">{selectedNamespace === 'all' ? 'All Namespaces' : selectedNamespace}</span>
- <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="start">
- {namespaces.map((ns) => (
- <DropdownMenuItem key={ns} onClick={() => setSelectedNamespace(ns)} className={cn(selectedNamespace === ns && 'bg-accent')}>
- {ns === 'all' ? 'All Namespaces' : ns}
- </DropdownMenuItem>
- ))}
- </DropdownMenuContent>
- </DropdownMenu>
- </div>
+ <NamespaceFilter
+ namespaces={namespaces}
+ selected={selectedNamespaces}
+ onSelectionChange={setSelectedNamespaces}
+ triggerVariant="bar"
+ />
  }
  search={
  <div className="relative w-full min-w-0">

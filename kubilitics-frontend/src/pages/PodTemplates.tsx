@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import {
- Search, RefreshCw, MoreHorizontal, Loader2, Layers, ChevronDown, CheckSquare, Trash2, FileText, Filter,
+ Search, RefreshCw, MoreHorizontal, Loader2, Layers, ChevronDown, CheckSquare, Trash2, FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,9 +29,11 @@ import {
  CopyNameDropdownItem,
  NamespaceBadge,
  ResourceListTableToolbar,
+ NamespaceFilter,
 } from '@/components/list';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useNamespaceFilter } from '@/hooks/useNamespaceFilter';
 import { usePaginatedResourceList, useDeleteK8sResource, useCreateK8sResource, usePatchK8sResource, calculateAge, type KubernetesResource } from '@/hooks/useKubernetes';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { DeleteConfirmDialog, BulkActionBar, executeBulkOperation } from '@/components/resources';
@@ -94,7 +96,9 @@ export default function PodTemplates() {
  const selectedItems = multiSelect.selectedIds;
  const patchResource = usePatchK8sResource('podtemplates');
  const [searchQuery, setSearchQuery] = useState('');
- const [selectedNamespace, setSelectedNamespace] = useState<string>('all');
+ // Standard list-page namespace-filter pattern (src/hooks/useNamespaceFilter.ts) —
+ // multi-select, URL-persisted so it survives navigating away and back.
+ const [selectedNamespaces, setSelectedNamespaces] = useNamespaceFilter();
  const [showTableFilters, setShowTableFilters] = useState(false);
  const [pageSize, setPageSize] = useState(10);
  const [pageIndex, setPageIndex] = useState(0);
@@ -105,8 +109,8 @@ export default function PodTemplates() {
  const allItems = (data?.allItems ?? []) as K8sPodTemplate[];
  const items: PodTemplate[] = useMemo(() => (isConnected ? allItems.map(mapPodTemplate) : []), [isConnected, allItems]);
 
- const namespaces = useMemo(() => ['all', ...Array.from(new Set(items.map((i) => i.namespace))).sort()], [items]);
- const itemsAfterNs = useMemo(() => (selectedNamespace === 'all' ? items : items.filter((i) => i.namespace === selectedNamespace)), [items, selectedNamespace]);
+ const namespaces = useMemo(() => Array.from(new Set(items.map((i) => i.namespace))).sort(), [items]);
+ const itemsAfterNs = useMemo(() => (selectedNamespaces.size === 0 ? items : items.filter((i) => selectedNamespaces.has(i.namespace))), [items, selectedNamespaces]);
 
  const itemsAfterSearch = useMemo(
  () => itemsAfterNs.filter((i) =>
@@ -308,24 +312,12 @@ template:
  globalFilterBar={
  <ResourceCommandBar
  scope={
- <div className="w-full min-w-0">
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button variant="outline" className="w-full min-w-0 justify-between h-10 gap-2 rounded-lg border border-border bg-background font-medium shadow-sm hover:bg-muted/50 hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20">
- <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
- <span className="truncate">{selectedNamespace === 'all' ? 'All Namespaces' : selectedNamespace}</span>
- <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="start" className="w-48">
- {namespaces.map((ns) => (
- <DropdownMenuItem key={ns} onClick={() => setSelectedNamespace(ns)} className={cn(selectedNamespace === ns && 'bg-accent')}>
- {ns === 'all' ? 'All Namespaces' : ns}
- </DropdownMenuItem>
- ))}
- </DropdownMenuContent>
- </DropdownMenu>
- </div>
+ <NamespaceFilter
+ namespaces={namespaces}
+ selected={selectedNamespaces}
+ onSelectionChange={setSelectedNamespaces}
+ triggerVariant="bar"
+ />
  }
  search={
  <div className="relative w-full min-w-0">
@@ -403,9 +395,9 @@ template:
  <TableEmptyState
  icon={<Layers className="h-8 w-8" />}
  title="No Pod Templates found"
- subtitle={searchQuery || hasActiveFilters || selectedNamespace !== 'all' ? 'Clear filters to see resources.' : 'PodTemplates define reusable pod specs. Used by Jobs, ReplicationControllers, and other workload controllers.'}
- hasActiveFilters={!!(searchQuery || hasActiveFilters || selectedNamespace !== 'all')}
- onClearFilters={() => { setSearchQuery(''); setSelectedNamespace('all'); clearAllFilters(); }}
+ subtitle={searchQuery || hasActiveFilters || selectedNamespaces.size > 0 ? 'Clear filters to see resources.' : 'PodTemplates define reusable pod specs. Used by Jobs, ReplicationControllers, and other workload controllers.'}
+ hasActiveFilters={!!(searchQuery || hasActiveFilters || selectedNamespaces.size > 0)}
+ onClearFilters={() => { setSearchQuery(''); setSelectedNamespaces(new Set()); clearAllFilters(); }}
  />
  </TableCell>
  </TableRow>

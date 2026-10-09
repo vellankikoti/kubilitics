@@ -20,9 +20,11 @@ import {
  ResourceCommandBar, ResourceExportDropdown, ListViewSegmentedControl, ListPagination, PAGE_SIZE_OPTIONS,
  ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, AgeCell, TableEmptyState, TableErrorState, ListPageLoadingShell,
  CopyNameDropdownItem, NamespaceBadge, resourceTableRowClassName, ROW_MOTION, StatusPill, ResourceListTableToolbar,
+ NamespaceFilter,
 } from '@/components/list';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useNamespaceFilter } from '@/hooks/useNamespaceFilter';
 import type { StatusPillVariant } from '@/components/list';
 import { ResourceCreator, DEFAULT_YAMLS } from '@/components/editor';
 import { toast } from '@/components/ui/sonner';
@@ -117,7 +119,7 @@ type ListView = 'flat' | 'byNamespace';
 export default function VolumeSnapshots() {
  const navigate = useNavigate();
  const [searchQuery, setSearchQuery] = useState('');
- const [selectedNamespace, setSelectedNamespace] = useState<string>('all');
+ const [selectedNamespaces, setSelectedNamespaces] = useNamespaceFilter();
  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: VolumeSnapshot | null; bulk?: boolean }>({ open: false, item: null });
  const [showCreateWizard, setShowCreateWizard] = useState(false);
  const [listView, setListView] = useState<ListView>('flat');
@@ -144,16 +146,16 @@ export default function VolumeSnapshots() {
  failed: items.filter((i) => i.status === 'Failed').length,
  }), [items]);
 
- const namespaces = useMemo(() => ['all', ...Array.from(new Set(items.map((i) => i.namespace))).sort()], [items]);
+ const namespaces = useMemo(() => Array.from(new Set(items.map((i) => i.namespace))).sort(), [items]);
 
  const itemsAfterSearchAndNs = useMemo(() =>
  items.filter((item) => {
  const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
  item.namespace.toLowerCase().includes(searchQuery.toLowerCase()) ||
  item.sourcePVC.toLowerCase().includes(searchQuery.toLowerCase());
- const matchesNs = selectedNamespace === 'all' || item.namespace === selectedNamespace;
+ const matchesNs = selectedNamespaces.size === 0 || selectedNamespaces.has(item.namespace);
  return matchesSearch && matchesNs;
- }), [items, searchQuery, selectedNamespace]);
+ }), [items, searchQuery, selectedNamespaces]);
 
  const vsColumnConfig: ColumnConfig<VolumeSnapshot>[] = useMemo(() => [
  { columnId: 'name', getValue: (i) => i.name, sortable: true, filterable: false },
@@ -401,24 +403,12 @@ spec:
  globalFilterBar={
  <ResourceCommandBar
  scope={
- <div className="w-full min-w-0">
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button variant="outline" className="w-full min-w-0 justify-between h-10 gap-2 rounded-lg border border-border bg-background font-medium shadow-sm hover:bg-muted/50 hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20">
- <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
- <span className="truncate">{selectedNamespace === 'all' ? 'All Namespaces' : selectedNamespace}</span>
- <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="start" className="w-48">
- {namespaces.map((ns) => (
- <DropdownMenuItem key={ns} onClick={() => setSelectedNamespace(ns)} className={cn(selectedNamespace === ns && 'bg-accent')}>
- {ns === 'all' ? 'All Namespaces' : ns}
- </DropdownMenuItem>
- ))}
- </DropdownMenuContent>
- </DropdownMenu>
- </div>
+ <NamespaceFilter
+ namespaces={namespaces}
+ selected={selectedNamespaces}
+ onSelectionChange={setSelectedNamespaces}
+ triggerVariant="bar"
+ />
  }
  search={
  <div className="relative w-full min-w-0">

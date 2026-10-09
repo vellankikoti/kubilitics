@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search,
- Filter,
  RefreshCw,
  MoreHorizontal,
  Database,
@@ -43,10 +42,11 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { Link, useNavigate } from 'react-router-dom';
-import { ResourceCommandBar, ResourceExportDropdown, ListViewSegmentedControl, ListPagination, PAGE_SIZE_OPTIONS, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, StatusPill, type StatusPillVariant, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, TableErrorState, ListPageLoadingShell, NamespaceBadge, ResourceListTableToolbar } from '@/components/list';
+import { ResourceCommandBar, ResourceExportDropdown, ListViewSegmentedControl, ListPagination, PAGE_SIZE_OPTIONS, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, StatusPill, type StatusPillVariant, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, TableErrorState, ListPageLoadingShell, NamespaceBadge, ResourceListTableToolbar, NamespaceFilter } from '@/components/list';
 import { StorageIcon } from '@/components/icons/KubernetesIcons';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useNamespaceFilter } from '@/hooks/useNamespaceFilter';
 import { usePaginatedResourceList, useDeleteK8sResource, usePatchK8sResource, calculateAge, type KubernetesResource } from '@/hooks/useKubernetes';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
@@ -162,7 +162,9 @@ export default function PersistentVolumeClaims() {
  const setSelectedItems = (s: Set<string>) => { if (s.size === 0) multiSelect.clearSelection(); else multiSelect.selectAll(Array.from(s)); };
  const [showCreateWizard, setShowCreateWizard] = useState(false);
  const [searchQuery, setSearchQuery] = useState('');
- const [selectedNamespace, setSelectedNamespace] = useState<string>('all');
+ // Standard list-page namespace-filter pattern (src/hooks/useNamespaceFilter.ts) —
+ // multi-select, URL-persisted so it survives navigating away and back.
+ const [selectedNamespaces, setSelectedNamespaces] = useNamespaceFilter();
  const [listView, setListView] = useState<ListView>('flat');
  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
  const [showTableFilters, setShowTableFilters] = useState(false);
@@ -183,17 +185,17 @@ export default function PersistentVolumeClaims() {
  };
  }, [isConnected, allItems]);
 
- const namespaces = useMemo(() => ['all', ...Array.from(new Set(items.map((i) => i.namespace)))], [items]);
+ const namespaces = useMemo(() => Array.from(new Set(items.map((i) => i.namespace))).sort(), [items]);
 
  const itemsAfterSearchAndNs = useMemo(() => {
  return items.filter((item) => {
  const matchesSearch =
  item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
  item.namespace.toLowerCase().includes(searchQuery.toLowerCase());
- const matchesNamespace = selectedNamespace === 'all' || item.namespace === selectedNamespace;
+ const matchesNamespace = selectedNamespaces.size === 0 || selectedNamespaces.has(item.namespace);
  return matchesSearch && matchesNamespace;
  });
- }, [items, searchQuery, selectedNamespace]);
+ }, [items, searchQuery, selectedNamespaces]);
 
  const tableConfig: ColumnConfig<PVC>[] = useMemo(
  () => [
@@ -533,24 +535,12 @@ export default function PersistentVolumeClaims() {
  globalFilterBar={
  <ResourceCommandBar
  scope={
- <div className="w-full min-w-0">
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button variant="outline" className="w-full min-w-0 justify-between h-10 gap-2 rounded-lg border border-border bg-background font-medium shadow-sm hover:bg-muted/50 hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20">
- <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
- <span className="truncate">{selectedNamespace === 'all' ? 'All Namespaces' : selectedNamespace}</span>
- <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="start" className="w-48">
- {namespaces.map((ns) => (
- <DropdownMenuItem key={ns} onClick={() => setSelectedNamespace(ns)} className={cn(selectedNamespace === ns && 'bg-accent')}>
- {ns === 'all' ? 'All Namespaces' : ns}
- </DropdownMenuItem>
- ))}
- </DropdownMenuContent>
- </DropdownMenu>
- </div>
+ <NamespaceFilter
+ namespaces={namespaces}
+ selected={selectedNamespaces}
+ onSelectionChange={setSelectedNamespaces}
+ triggerVariant="bar"
+ />
  }
  search={
  <div className="relative w-full min-w-0">

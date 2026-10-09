@@ -674,7 +674,7 @@ spec:
  />
  }
  hasActiveFilters={hasActiveFilters}
- onClearAllFilters={() => { clearAllFilters(); setSearchQuery(''); setSelectedNamespace('all'); setPageIndex(0); }}
+ onClearAllFilters={() => { clearAllFilters(); setSearchQuery(''); setSelectedNamespaces(new Set()); setPageIndex(0); }}
  showTableFilters={showTableFilters}
  onToggleTableFilters={() => setShowTableFilters((v) => !v)}
  columns={DEPLOYMENTS_COLUMNS_FOR_VISIBILITY}

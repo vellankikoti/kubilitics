@@ -50,12 +50,14 @@ import {
  TableEmptyState, ListPageLoadingShell, TableErrorState,
  CopyNameDropdownItem,
  NamespaceBadge,
+ NamespaceFilter,
  ResourceListTableToolbar,
  TableFilterCell,
  StatusPill,
 } from '@/components/list';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useNamespaceFilter } from '@/hooks/useNamespaceFilter';
 
 interface LimitRangeItem {
  type: string;
@@ -153,7 +155,9 @@ export default function LimitRanges() {
  const patchLR = usePatchK8sResource('limitranges');
  const [showCreator, setShowCreator] = useState(false);
  const [searchQuery, setSearchQuery] = useState('');
- const [selectedNamespace, setSelectedNamespace] = useState<string>('all');
+ // Standard list-page namespace-filter pattern (src/hooks/useNamespaceFilter.ts) —
+ // multi-select, URL-persisted so it survives navigating away and back.
+ const [selectedNamespaces, setSelectedNamespaces] = useNamespaceFilter();
  const [listView, setListView] = useState<'flat' | 'byNamespace'>('flat');
  const [showTableFilters, setShowTableFilters] = useState(false);
  const [pageSize, setPageSize] = useState(10);
@@ -162,8 +166,8 @@ export default function LimitRanges() {
  const allItems = useMemo(() => (data?.allItems ?? []) as LimitRangeResource[], [data?.allItems]);
  const items: LimitRangeRow[] = useMemo(() => (isConnected ? allItems.map(transformLimitRange) : []), [isConnected, allItems]);
 
- const namespaces = useMemo(() => ['all', ...Array.from(new Set(items.map((i) => i.namespace)))], [items]);
- const itemsAfterNs = useMemo(() => (selectedNamespace === 'all' ? items : items.filter((i) => i.namespace === selectedNamespace)), [items, selectedNamespace]);
+ const namespaces = useMemo(() => Array.from(new Set(items.map((i) => i.namespace))).sort(), [items]);
+ const itemsAfterNs = useMemo(() => (selectedNamespaces.size === 0 ? items : items.filter((i) => selectedNamespaces.has(i.namespace))), [items, selectedNamespaces]);
 
  const tableConfig: ColumnConfig<LimitRangeRow>[] = useMemo(() => [
  { columnId: 'name', getValue: (i) => i.name, sortable: true, filterable: false },
@@ -360,24 +364,12 @@ export default function LimitRanges() {
  globalFilterBar={
  <ResourceCommandBar
  scope={
- <div className="w-full min-w-0">
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button variant="outline" className="w-full min-w-0 justify-between h-10 gap-2 rounded-lg border border-border bg-background font-medium shadow-sm hover:bg-muted/50 hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20">
- <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
- <span className="truncate">{selectedNamespace === 'all' ? 'All Namespaces' : selectedNamespace}</span>
- <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="start" className="w-48">
- {namespaces.map((ns) => (
- <DropdownMenuItem key={ns} onClick={() => setSelectedNamespace(ns)} className={cn(selectedNamespace === ns && 'bg-accent')}>
- {ns === 'all' ? 'All Namespaces' : ns}
- </DropdownMenuItem>
- ))}
- </DropdownMenuContent>
- </DropdownMenu>
- </div>
+ <NamespaceFilter
+ namespaces={namespaces}
+ selected={selectedNamespaces}
+ onSelectionChange={setSelectedNamespaces}
+ triggerVariant="bar"
+ />
  }
  search={
  <div className="relative w-full min-w-0">

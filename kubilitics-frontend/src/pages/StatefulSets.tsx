@@ -16,8 +16,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useK8sResourceList, useDeleteK8sResource, usePatchK8sResource, useCreateK8sResource, calculateAge, type KubernetesResource } from '@/hooks/useKubernetes';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { DeleteConfirmDialog, ScaleDialog, RolloutActionsDialog, MetricBar, parseCpu, parseMemory, calculatePodResourceMax } from '@/components/resources';
-import { ResourceExportDropdown, ListViewSegmentedControl, ListPagination, PAGE_SIZE_OPTIONS, ResourceCommandBar, resourceTableRowClassName, ROW_MOTION, StatusPill, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, AgeCell, TableEmptyState, TableErrorState, ListPageLoadingShell, NamespaceBadge, ResourceListTableToolbar, BulkActionToolbar } from '@/components/list';
+import { ResourceExportDropdown, ListViewSegmentedControl, ListPagination, PAGE_SIZE_OPTIONS, ResourceCommandBar, resourceTableRowClassName, ROW_MOTION, StatusPill, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, AgeCell, TableEmptyState, TableErrorState, ListPageLoadingShell, NamespaceBadge, ResourceListTableToolbar, BulkActionToolbar, NamespaceFilter } from '@/components/list';
 import type { StatusPillVariant } from '@/components/list';
+import { useNamespaceFilter } from '@/hooks/useNamespaceFilter';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useWorkloadMetricsMap } from '@/hooks/useWorkloadMetricsMap';
@@ -150,7 +151,14 @@ type ListView = 'flat' | 'byNamespace';
 export default function StatefulSets() {
  const navigate = useNavigate();
  const [searchQuery, setSearchQuery] = useState('');
- const [selectedNamespace, setSelectedNamespace] = useState<string>('all');
+ // Standard list-page namespace-filter pattern (src/hooks/useNamespaceFilter.ts) —
+ // multi-select, URL-persisted so it survives navigating away and back.
+ const [selectedNamespaces, setSelectedNamespaces] = useNamespaceFilter();
+ // Scoped only when exactly one namespace is selected — the PVC fetch below is
+ // server-side namespace-scoped and can only target one namespace at a time;
+ // with 0 (all) or 2+ selected it falls back to fetching all namespaces' PVCs,
+ // same as the previous 'all' behavior.
+ const singleSelectedNamespace = selectedNamespaces.size === 1 ? Array.from(selectedNamespaces)[0] : undefined;
  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: StatefulSet | null; bulk?: boolean }>({ open: false, item: null });
  const [scaleDialog, setScaleDialog] = useState<{ open: boolean; item: StatefulSet | null }>({ open: false, item: null });
  const [rolloutDialog, setRolloutDialog] = useState<{ open: boolean; item: StatefulSet | null }>({ open: false, item: null });
@@ -174,7 +182,7 @@ export default function StatefulSets() {
 
  const { data: pvcList } = useK8sResourceList<KubernetesResource & { metadata?: { name?: string; namespace?: string }; status?: { phase?: string }; spec?: Record<string, unknown> }>(
  'persistentvolumeclaims',
- selectedNamespace === 'all' ? undefined : selectedNamespace,
+ singleSelectedNamespace,
  { limit: 5000, enabled: isConnected }
  );
  const actualPvcCountByKey = useMemo(() => {
@@ -220,7 +228,7 @@ export default function StatefulSets() {
  const desired = r.spec?.replicas ?? 0;
  const stsName = r.metadata?.name ?? '';
  const ns = r.metadata?.namespace ?? 'default';
- if (selectedNamespace !== 'all' && ns !== selectedNamespace) continue;
+ if (selectedNamespaces.size > 0 && !selectedNamespaces.has(ns)) continue;
  if (vct.length === 0) {
  bound += 1;
  continue;
@@ -239,7 +247,7 @@ export default function StatefulSets() {
  if (allBound) bound += 1;
  }
  return bound;
- }, [rawItems, pvcList?.items, selectedNamespace]);
+ }, [rawItems, pvcList?.items, selectedNamespaces]);
 
  const stats = useMemo(() => ({
  total: items.length,
@@ -248,15 +256,15 @@ export default function StatefulSets() {
  degraded: items.filter(i => i.status === 'Degraded').length,
  pvcBound: pvcBoundCount,
  }), [items, pvcBoundCount]);
- const namespaces = useMemo(() => ['all', ...Array.from(new Set(items.map(i => i.namespace)))], [items]);
+ const namespaces = useMemo(() => Array.from(new Set(items.map(i => i.namespace))).sort(), [items]);
 
  const itemsAfterSearchAndNs = useMemo(() => {
  return items.filter((item) => {
  const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || item.namespace.toLowerCase().includes(searchQuery.toLowerCase());
- const matchesNamespace = selectedNamespace === 'all' || item.namespace === selectedNamespace;
+ const matchesNamespace = selectedNamespaces.size === 0 || selectedNamespaces.has(item.namespace);
  return matchesSearch && matchesNamespace;
  });
- }, [items, searchQuery, selectedNamespace]);
+ }, [items, searchQuery, selectedNamespaces]);
 
  const statefulSetsTableConfig: ColumnConfig<StatefulSet>[] = useMemo(() => {
  const parseReady = (ready: string): number => {
@@ -517,7 +525,7 @@ spec:
  <ListPageStatCard label="Healthy" value={stats.healthy} icon={CheckCircle2} iconColor="text-emerald-600" valueClassName="text-emerald-600" selected={columnFilters.status?.size === 1 && columnFilters.status.has('Healthy')} onClick={() => setColumnFilter('status', new Set(['Healthy']))} className={cn(columnFilters.status?.size === 1 && columnFilters.status.has('Healthy') && 'ring-2 ring-emerald-500')} isLoading={isLoading} />
  <ListPageStatCard label="Progressing" value={stats.progressing} icon={Clock} iconColor="text-amber-600" valueClassName="text-amber-600" selected={columnFilters.status?.size === 1 && columnFilters.status.has('Progressing')} onClick={() => setColumnFilter('status', new Set(['Progressing']))} className={cn(columnFilters.status?.size === 1 && columnFilters.status.has('Progressing') && 'ring-2 ring-amber-500')} isLoading={isLoading} />
  <ListPageStatCard label="Degraded" value={stats.degraded} icon={XCircle} iconColor="text-rose-600" valueClassName="text-rose-600" selected={columnFilters.status?.size === 1 && columnFilters.status.has('Degraded')} onClick={() => setColumnFilter('status', new Set(['Degraded']))} className={cn(columnFilters.status?.size === 1 && columnFilters.status.has('Degraded') && 'ring-2 ring-rose-500')} isLoading={isLoading} />
- <ListPageStatCard label="PVC Bound" value={selectedNamespace === 'all' ? '—' : stats.pvcBound} icon={HardDrive} iconColor="text-cyan-500" valueClassName="text-cyan-600" isLoading={isLoading} />
+ <ListPageStatCard label="PVC Bound" value={!singleSelectedNamespace ? '—' : stats.pvcBound} icon={HardDrive} iconColor="text-cyan-500" valueClassName="text-cyan-600" isLoading={isLoading} />
  </div>
 
  <BulkActionBar
@@ -535,24 +543,12 @@ spec:
  globalFilterBar={
  <ResourceCommandBar
  scope={
- <div className="w-full min-w-0">
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button variant="outline" className="w-full min-w-0 justify-between h-10 gap-2 rounded-lg border border-border bg-background font-medium shadow-sm hover:bg-muted/50 hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20">
- <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
- <span className="truncate">{selectedNamespace === 'all' ? 'All Namespaces' : selectedNamespace}</span>
- <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="start" className="w-48">
- {namespaces.map((ns) => (
- <DropdownMenuItem key={ns} onClick={() => setSelectedNamespace(ns)} className={cn(selectedNamespace === ns && 'bg-accent')}>
- {ns === 'all' ? 'All Namespaces' : ns}
- </DropdownMenuItem>
- ))}
- </DropdownMenuContent>
- </DropdownMenu>
- </div>
+ <NamespaceFilter
+ namespaces={namespaces}
+ selected={selectedNamespaces}
+ onSelectionChange={setSelectedNamespaces}
+ triggerVariant="bar"
+ />
  }
  search={
  <div className="relative w-full min-w-0">

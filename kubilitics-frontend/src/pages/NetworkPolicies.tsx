@@ -1,9 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { 
- Search, 
- Filter,
- RefreshCw, 
+ Search,
+ RefreshCw,
  MoreHorizontal,
  Download,
  Shield,
@@ -43,9 +42,10 @@ import { useK8sResourceList, useDeleteK8sResource, usePatchK8sResource, calculat
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { DeleteConfirmDialog, BulkActionBar, executeBulkOperation } from '@/components/resources';
 import { NetworkPolicyWizard } from '@/components/wizards';
-import { ResourceExportDropdown, ResourceCommandBar, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, ListPagination, PAGE_SIZE_OPTIONS, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, NamespaceBadge, ResourceListTableToolbar, StatusPill } from '@/components/list';
+import { ResourceExportDropdown, ResourceCommandBar, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, ListPagination, PAGE_SIZE_OPTIONS, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, NamespaceBadge, ResourceListTableToolbar, StatusPill, NamespaceFilter } from '@/components/list';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useNamespaceFilter } from '@/hooks/useNamespaceFilter';
 import { toast } from '@/components/ui/sonner';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
 
@@ -108,7 +108,9 @@ function podMatchesSelector(podLabels: Record<string, string> | undefined, match
 export default function NetworkPolicies() {
  const navigate = useNavigate();
  const [searchQuery, setSearchQuery] = useState('');
- const [selectedNamespace, setSelectedNamespace] = useState<string>('all');
+ // Standard list-page namespace-filter pattern (src/hooks/useNamespaceFilter.ts) —
+ // multi-select, URL-persisted so it survives navigating away and back.
+ const [selectedNamespaces, setSelectedNamespaces] = useNamespaceFilter();
  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: NetworkPolicy | null; bulk?: boolean }>({ open: false, item: null });
  const multiSelect = useMultiSelect();
  const selectedItems = multiSelect.selectedIds;
@@ -172,7 +174,7 @@ export default function NetworkPolicies() {
  const npList = (data?.items ?? []) as K8sNetworkPolicy[];
  if (npList.length > 0 && podsByNamespace.size > 0) {
  podsByNamespace.forEach((pods, ns) => {
- if (selectedNamespace !== 'all' && selectedNamespace !== ns) return;
+ if (selectedNamespaces.size > 0 && !selectedNamespaces.has(ns)) return;
  const policiesInNs = npList.filter((np) => (np.metadata?.namespace ?? 'default') === ns);
  pods.forEach((p) => {
  const covered = policiesInNs.some((np) => podMatchesSelector(p.labels, np.spec?.podSelector?.matchLabels));
@@ -191,10 +193,10 @@ export default function NetworkPolicies() {
  ).length,
  unprotectedPods,
  };
- }, [networkpolicies, data?.items, podsByNamespace, selectedNamespace]);
+ }, [networkpolicies, data?.items, podsByNamespace, selectedNamespaces]);
 
  const namespaces = useMemo(() => {
- return ['all', ...Array.from(new Set(networkpolicies.map(np => np.namespace)))];
+ return Array.from(new Set(networkpolicies.map(np => np.namespace))).sort();
  }, [networkpolicies]);
 
  const itemsAfterSearchAndNs = useMemo(() => {
@@ -202,10 +204,10 @@ export default function NetworkPolicies() {
  const matchesSearch = np.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
  np.namespace.toLowerCase().includes(searchQuery.toLowerCase()) ||
  np.podSelector.toLowerCase().includes(searchQuery.toLowerCase());
- const matchesNamespace = selectedNamespace === 'all' || np.namespace === selectedNamespace;
+ const matchesNamespace = selectedNamespaces.size === 0 || selectedNamespaces.has(np.namespace);
  return matchesSearch && matchesNamespace;
  });
- }, [networkpolicies, searchQuery, selectedNamespace]);
+ }, [networkpolicies, searchQuery, selectedNamespaces]);
 
  const policyTypeValue = (np: NetworkPolicy) =>
  np.policyTypes.includes('Ingress') && np.policyTypes.includes('Egress') ? 'Both' : np.policyTypes.includes('Ingress') ? 'Ingress' : 'Egress';
@@ -405,24 +407,12 @@ spec:
  globalFilterBar={
  <ResourceCommandBar
  scope={
- <div className="w-full min-w-0">
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button variant="outline" className="w-full min-w-0 h-10 gap-2 justify-between truncate rounded-lg border border-border bg-background font-medium shadow-sm hover:bg-muted/50 hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20">
- <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
- <span className="truncate">{selectedNamespace === 'all' ? 'All Namespaces' : selectedNamespace}</span>
- <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="start">
- {namespaces.map((ns) => (
- <DropdownMenuItem key={ns} onClick={() => setSelectedNamespace(ns)} className={cn(selectedNamespace === ns && 'bg-accent')}>
- {ns === 'all' ? 'All Namespaces' : ns}
- </DropdownMenuItem>
- ))}
- </DropdownMenuContent>
- </DropdownMenu>
- </div>
+ <NamespaceFilter
+ namespaces={namespaces}
+ selected={selectedNamespaces}
+ onSelectionChange={setSelectedNamespaces}
+ triggerVariant="bar"
+ />
  }
  search={
  <div className="relative w-full min-w-0">

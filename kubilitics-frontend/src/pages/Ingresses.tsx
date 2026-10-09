@@ -52,10 +52,11 @@ import { useK8sResourceList, useDeleteK8sResource, usePatchK8sResource, calculat
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { DeleteConfirmDialog, BulkActionBar, executeBulkOperation } from '@/components/resources';
 import { IngressWizard } from '@/components/wizards';
-import { ResourceExportDropdown, ResourceCommandBar, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, NamespaceBadge, ResourceListTableToolbar } from '@/components/list';
+import { ResourceExportDropdown, ResourceCommandBar, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, NamespaceBadge, NamespaceFilter, ResourceListTableToolbar } from '@/components/list';
 import { IngressIcon } from '@/components/icons/KubernetesIcons';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useNamespaceFilter } from '@/hooks/useNamespaceFilter';
 import { toast } from '@/components/ui/sonner';
 import { openExternal } from '@/lib/tauri';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
@@ -135,7 +136,9 @@ export default function Ingresses() {
  const [searchParams] = useSearchParams();
  const filterByClass = searchParams.get('class') ?? '';
  const [searchQuery, setSearchQuery] = useState('');
- const [selectedNamespace, setSelectedNamespace] = useState<string>('all');
+ // Standard list-page namespace-filter pattern (src/hooks/useNamespaceFilter.ts) —
+ // multi-select, URL-persisted so it survives navigating away and back.
+ const [selectedNamespaces, setSelectedNamespaces] = useNamespaceFilter();
  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: Ingress | null; bulk?: boolean }>({ open: false, item: null });
  const [showCreateWizard, setShowCreateWizard] = useState(false);
  const multiSelect = useMultiSelect();
@@ -187,7 +190,7 @@ export default function Ingresses() {
  }), [ingresses]);
 
  const namespaces = useMemo(() => {
- return ['all', ...Array.from(new Set(ingresses.map(i => i.namespace)))];
+ return Array.from(new Set(ingresses.map(i => i.namespace))).sort();
  }, [ingresses]);
 
  const itemsAfterSearchAndNs = useMemo(() => {
@@ -195,11 +198,11 @@ export default function Ingresses() {
  const matchesSearch = ing.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
  ing.namespace.toLowerCase().includes(searchQuery.toLowerCase()) ||
  ing.hosts.toLowerCase().includes(searchQuery.toLowerCase());
- const matchesNamespace = selectedNamespace === 'all' || ing.namespace === selectedNamespace;
+ const matchesNamespace = selectedNamespaces.size === 0 || selectedNamespaces.has(ing.namespace);
  const matchesClass = !filterByClass || ing.class === filterByClass;
  return matchesSearch && matchesNamespace && matchesClass;
  });
- }, [ingresses, searchQuery, selectedNamespace, filterByClass]);
+ }, [ingresses, searchQuery, selectedNamespaces, filterByClass]);
 
  const ingressesTableConfig: ColumnConfig<Ingress>[] = useMemo(() => [
  { columnId: 'name', getValue: (i) => i.name, sortable: true, filterable: false },
@@ -449,24 +452,12 @@ spec:
  globalFilterBar={
  <ResourceCommandBar
  scope={
- <div className="w-full min-w-0">
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button variant="outline" className="w-full min-w-0 h-10 gap-2 justify-between truncate rounded-lg border border-border bg-background font-medium shadow-sm hover:bg-muted/50 hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20">
- <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
- <span className="truncate">{selectedNamespace === 'all' ? 'All Namespaces' : selectedNamespace}</span>
- <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="start">
- {namespaces.map((ns) => (
- <DropdownMenuItem key={ns} onClick={() => setSelectedNamespace(ns)} className={cn(selectedNamespace === ns && 'bg-accent')}>
- {ns === 'all' ? 'All Namespaces' : ns}
- </DropdownMenuItem>
- ))}
- </DropdownMenuContent>
- </DropdownMenu>
- </div>
+ <NamespaceFilter
+ namespaces={namespaces}
+ selected={selectedNamespaces}
+ onSelectionChange={setSelectedNamespaces}
+ triggerVariant="bar"
+ />
  }
  search={
  <div className="relative w-full min-w-0">

@@ -1,9 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { 
- Search, 
- Filter,
- RefreshCw, 
+ Search,
+ RefreshCw,
  MoreHorizontal,
  Download,
  Network,
@@ -41,7 +40,8 @@ import { useK8sResourceList, useDeleteK8sResource, usePatchK8sResource, calculat
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { toast } from '@/components/ui/sonner';
 import { ResourceCreator, DEFAULT_YAMLS } from '@/components/editor';
-import { ResourceExportDropdown, ResourceCommandBar, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, ListPagination, PAGE_SIZE_OPTIONS, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, NamespaceBadge, ResourceListTableToolbar, StatusPill } from '@/components/list';
+import { ResourceExportDropdown, ResourceCommandBar, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, ListPagination, PAGE_SIZE_OPTIONS, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, NamespaceBadge, ResourceListTableToolbar, StatusPill, NamespaceFilter } from '@/components/list';
+import { useNamespaceFilter } from '@/hooks/useNamespaceFilter';
 import { DeleteConfirmDialog, BulkActionBar, executeBulkOperation } from '@/components/resources';
 import { ResizableTableProvider, ResizableTableHead, ResizableTableCell, type ResizableColumnConfig } from '@/components/ui/resizable-table';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
@@ -93,7 +93,9 @@ const ENDPOINTS_COLUMNS_FOR_VISIBILITY = [
 export default function Endpoints() {
  const navigate = useNavigate();
  const [searchQuery, setSearchQuery] = useState('');
- const [selectedNamespace, setSelectedNamespace] = useState<string>('all');
+ // Standard list-page namespace-filter pattern (src/hooks/useNamespaceFilter.ts) —
+ // multi-select, URL-persisted so it survives navigating away and back.
+ const [selectedNamespaces, setSelectedNamespaces] = useNamespaceFilter();
  const multiSelect = useMultiSelect();
  const selectedItems = multiSelect.selectedIds;
  const setSelectedItems = (s: Set<string>) => { if (s.size === 0) multiSelect.clearSelection(); else multiSelect.selectAll(Array.from(s)); };
@@ -152,7 +154,7 @@ export default function Endpoints() {
  }), [endpoints]);
 
  const namespaces = useMemo(() => {
- return ['all', ...Array.from(new Set(endpoints.map(e => e.namespace)))];
+ return Array.from(new Set(endpoints.map(e => e.namespace))).sort();
  }, [endpoints]);
 
  const itemsAfterSearchAndNs = useMemo(() => {
@@ -160,10 +162,10 @@ export default function Endpoints() {
  const matchesSearch = ep.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
  ep.namespace.toLowerCase().includes(searchQuery.toLowerCase()) ||
  ep.endpoints.includes(searchQuery);
- const matchesNamespace = selectedNamespace === 'all' || ep.namespace === selectedNamespace;
+ const matchesNamespace = selectedNamespaces.size === 0 || selectedNamespaces.has(ep.namespace);
  return matchesSearch && matchesNamespace;
  });
- }, [endpoints, searchQuery, selectedNamespace]);
+ }, [endpoints, searchQuery, selectedNamespaces]);
 
  const endpointsTableConfig: ColumnConfig<Endpoint>[] = useMemo(() => [
  { columnId: 'name', getValue: (e) => e.name, sortable: true, filterable: false },
@@ -333,24 +335,12 @@ subsets: []
  globalFilterBar={
  <ResourceCommandBar
  scope={
- <div className="w-full min-w-0">
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button variant="outline" className="w-full min-w-0 h-10 gap-2 justify-between truncate rounded-lg border border-border bg-background font-medium shadow-sm hover:bg-muted/50 hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20">
- <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
- <span className="truncate">{selectedNamespace === 'all' ? 'All Namespaces' : selectedNamespace}</span>
- <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="start">
- {namespaces.map((ns) => (
- <DropdownMenuItem key={ns} onClick={() => setSelectedNamespace(ns)} className={cn(selectedNamespace === ns && 'bg-accent')}>
- {ns === 'all' ? 'All Namespaces' : ns}
- </DropdownMenuItem>
- ))}
- </DropdownMenuContent>
- </DropdownMenu>
- </div>
+ <NamespaceFilter
+ namespaces={namespaces}
+ selected={selectedNamespaces}
+ onSelectionChange={setSelectedNamespaces}
+ triggerVariant="bar"
+ />
  }
  search={
  <div className="relative w-full min-w-0">

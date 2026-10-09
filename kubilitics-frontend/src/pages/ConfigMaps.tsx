@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import {
  Search,
- Filter,
  RefreshCw,
  MoreHorizontal,
  FileJson,
@@ -43,10 +42,11 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useQueries } from '@tanstack/react-query';
-import { ResourceCommandBar, ResourceExportDropdown, ListViewSegmentedControl, ListPagination, PAGE_SIZE_OPTIONS, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, ResourceListTableToolbar, NamespaceBadge, StatusPill, ListSearchInput } from '@/components/list';
+import { ResourceCommandBar, ResourceExportDropdown, ListViewSegmentedControl, ListPagination, PAGE_SIZE_OPTIONS, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, resourceTableRowClassName, ROW_MOTION, AgeCell, TableEmptyState, ListPageLoadingShell, TableErrorState, CopyNameDropdownItem, ResourceListTableToolbar, NamespaceBadge, StatusPill, ListSearchInput, NamespaceFilter } from '@/components/list';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useNamespaceFilter } from '@/hooks/useNamespaceFilter';
 import { buildAutoWidthColumns } from '@/lib/tableSizing';
 import { ConfigMapIcon } from '@/components/icons/KubernetesIcons';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
@@ -156,7 +156,9 @@ export default function ConfigMaps() {
  const [cloneInitialYaml, setCloneInitialYaml] = useState<string | null>(null);
  const [searchQuery, setSearchQuery] = useState('');
  const debouncedSearch = useDebouncedValue(searchQuery, 250);
- const [selectedNamespace, setSelectedNamespace] = useState<string>('all');
+ // Standard list-page namespace-filter pattern (src/hooks/useNamespaceFilter.ts) —
+ // multi-select, URL-persisted so it survives navigating away and back.
+ const [selectedNamespaces, setSelectedNamespaces] = useNamespaceFilter();
  const [listView, setListView] = useState<ListView>('flat');
  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
  const [showTableFilters, setShowTableFilters] = useState(false);
@@ -212,17 +214,7 @@ export default function ConfigMaps() {
  unused: Math.max(0, stats.total - inUseCount),
  }), [stats, inUseCount]);
 
- const namespaces = useMemo(() => ['all', ...Array.from(new Set(items.map((i) => i.namespace)))], [items]);
-
- const [searchParams] = useSearchParams();
-
- // Seed namespace filter from ?namespace=<ns> when navigated from Namespace views.
- useEffect(() => {
- const nsFromQuery = searchParams.get('namespace');
- if (!nsFromQuery) return;
- if (selectedNamespace !== 'all') return;
- setSelectedNamespace(nsFromQuery);
- }, [searchParams, selectedNamespace]);
+ const namespaces = useMemo(() => Array.from(new Set(items.map((i) => i.namespace))).sort(), [items]);
 
  const handleClone = useCallback((item: ConfigMap) => {
  const raw = (allItems as K8sConfigMap[]).find((cm) => cm.metadata?.name === item.name && (cm.metadata?.namespace || 'default') === item.namespace);
@@ -248,10 +240,10 @@ export default function ConfigMaps() {
  const matchesSearch = !q ||
  item.name.toLowerCase().includes(q) ||
  item.namespace.toLowerCase().includes(q);
- const matchesNamespace = selectedNamespace === 'all' || item.namespace === selectedNamespace;
+ const matchesNamespace = selectedNamespaces.size === 0 || selectedNamespaces.has(item.namespace);
  return matchesSearch && matchesNamespace;
  });
- }, [items, debouncedSearch, selectedNamespace]);
+ }, [items, debouncedSearch, selectedNamespaces]);
 
  const tableConfig: ColumnConfig<ConfigMap>[] = useMemo(
  () => [
@@ -582,31 +574,12 @@ data: {}
  globalFilterBar={
  <ResourceCommandBar
  scope={
- <div className="w-full min-w-0">
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button
- variant="outline"
- className="w-full min-w-0 justify-between h-10 gap-2 rounded-lg border border-border bg-background font-medium shadow-sm hover:bg-muted/50 hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20"
- >
- <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
- <span className="truncate">{selectedNamespace === 'all' ? 'All Namespaces' : selectedNamespace}</span>
- <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="start" className="w-48">
- {namespaces.map((ns) => (
- <DropdownMenuItem
- key={ns}
- onClick={() => setSelectedNamespace(ns)}
- className={cn(selectedNamespace === ns && 'bg-accent')}
- >
- {ns === 'all' ? 'All Namespaces' : ns}
- </DropdownMenuItem>
- ))}
- </DropdownMenuContent>
- </DropdownMenu>
- </div>
+ <NamespaceFilter
+ namespaces={namespaces}
+ selected={selectedNamespaces}
+ onSelectionChange={setSelectedNamespaces}
+ triggerVariant="bar"
+ />
  }
  search={
  <ListSearchInput

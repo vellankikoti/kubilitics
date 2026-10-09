@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { 
- Search, Filter, RefreshCw, MoreHorizontal, CheckCircle2, XCircle, Clock, Loader2, WifiOff,
+ Search, RefreshCw, MoreHorizontal, CheckCircle2, XCircle, Clock, Loader2, WifiOff,
  ChevronDown, ChevronRight, CheckSquare, Trash2, Scale, Layers, Plus, FileText, List, GitBranch, EyeOff,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,10 +16,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useK8sResourceList, useServerPaginatedResourceList, useDeleteK8sResource, usePatchK8sResource, useCreateK8sResource, calculateAge, type KubernetesResource } from '@/hooks/useKubernetes';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { DeleteConfirmDialog, ScaleDialog, MetricBar, parseCpu, parseMemory, calculatePodResourceMax } from '@/components/resources';
-import { ResourceExportDropdown, ListViewSegmentedControl, ListPagination, PAGE_SIZE_OPTIONS, ResourceCommandBar, resourceTableRowClassName, ROW_MOTION, StatusPill, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, AgeCell, TableEmptyState, TableErrorState, ListPageLoadingShell, NamespaceBadge, ResourceListTableToolbar } from '@/components/list';
+import { ResourceExportDropdown, ListViewSegmentedControl, ListPagination, PAGE_SIZE_OPTIONS, ResourceCommandBar, resourceTableRowClassName, ROW_MOTION, StatusPill, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, AgeCell, TableEmptyState, TableErrorState, ListPageLoadingShell, NamespaceBadge, ResourceListTableToolbar, NamespaceFilter } from '@/components/list';
 import type { StatusPillVariant } from '@/components/list';
 import { useTableFiltersAndSort, mapClientSortToServerSort, type ColumnConfig, type ServerSortField } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useNamespaceFilter } from '@/hooks/useNamespaceFilter';
 import { useWorkloadMetricsMap } from '@/hooks/useWorkloadMetricsMap';
 import { ResourceCreator, DEFAULT_YAMLS } from '@/components/editor';
 import { toast } from '@/components/ui/sonner';
@@ -117,7 +118,13 @@ type ListView = 'flat' | 'byNamespace' | 'byOwner';
 export default function ReplicaSets() {
  const navigate = useNavigate();
  const [searchQuery, setSearchQuery] = useState('');
- const [selectedNamespace, setSelectedNamespace] = useState<string>('all');
+ // Standard list-page namespace-filter pattern (src/hooks/useNamespaceFilter.ts) —
+ // multi-select, URL-persisted so it survives navigating away and back.
+ const [selectedNamespaces, setSelectedNamespaces] = useNamespaceFilter();
+ // The server-paginated path only accepts a single namespace to scope its
+ // query to — with 0 (all) or 2+ selected there's no single namespace to
+ // scope to, same as the previous 'all' behavior.
+ const singleSelectedNamespace = selectedNamespaces.size === 1 ? Array.from(selectedNamespaces)[0] : undefined;
  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: ReplicaSet | null; bulk?: boolean }>({ open: false, item: null });
  const [scaleDialog, setScaleDialog] = useState<{ open: boolean; item: ReplicaSet | null }>({ open: false, item: null });
  const [listView, setListView] = useState<ListView>('flat');
@@ -151,7 +158,7 @@ export default function ReplicaSets() {
    pagination: serverPagination,
    total: serverTotal,
    isBackendAvailable,
- } = useServerPaginatedResourceList<ReplicaSetResource>('replicasets', selectedNamespace !== 'all' ? selectedNamespace : undefined, {
+ } = useServerPaginatedResourceList<ReplicaSetResource>('replicasets', singleSelectedNamespace, {
    pageSize,
    search: searchQuery || undefined,
    sortBy: serverSort.sortBy,
@@ -187,7 +194,7 @@ export default function ReplicaSets() {
  scaledToZero: items.filter(i => i.desired === 0).length,
  mismatched: items.filter(i => i.ready !== i.desired).length,
  }), [items, isBackendAvailable, serverTotal]);
- const namespaces = useMemo(() => ['all', ...Array.from(new Set(items.map(i => i.namespace)))], [items]);
+ const namespaces = useMemo(() => Array.from(new Set(items.map(i => i.namespace))).sort(), [items]);
 
  const itemsAfterSearchAndNs = useMemo(() => {
  if (isBackendAvailable) {
@@ -196,11 +203,11 @@ export default function ReplicaSets() {
  }
  return items.filter((item) => {
  const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) || item.namespace.toLowerCase().includes(searchQuery.toLowerCase());
- const matchesNamespace = selectedNamespace === 'all' || item.namespace === selectedNamespace;
+ const matchesNamespace = selectedNamespaces.size === 0 || selectedNamespaces.has(item.namespace);
  const matchesActive = !activeOnly || item.desired > 0;
  return matchesSearch && matchesNamespace && matchesActive;
  });
- }, [isBackendAvailable, items, searchQuery, selectedNamespace, activeOnly]);
+ }, [isBackendAvailable, items, searchQuery, selectedNamespaces, activeOnly]);
 
  const replicaSetsTableConfig: ColumnConfig<ReplicaSet>[] = useMemo(() => [
  { columnId: 'name', getValue: (i) => i.name, sortable: true, filterable: true },
@@ -466,24 +473,12 @@ spec:
  globalFilterBar={
  <ResourceCommandBar
  scope={
- <div className="w-full min-w-0">
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button variant="outline" className="w-full min-w-0 h-10 gap-2 justify-between truncate rounded-lg border border-border bg-background font-medium shadow-sm hover:bg-muted/50 hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20">
- <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
- <span className="truncate">{selectedNamespace === 'all' ? 'All Namespaces' : selectedNamespace}</span>
- <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="end" className="w-48">
- {namespaces.map((ns) => (
- <DropdownMenuItem key={ns} onClick={() => setSelectedNamespace(ns)} className={cn(selectedNamespace === ns && 'bg-accent')}>
- {ns === 'all' ? 'All Namespaces' : ns}
- </DropdownMenuItem>
- ))}
- </DropdownMenuContent>
- </DropdownMenu>
- </div>
+ <NamespaceFilter
+ namespaces={namespaces}
+ selected={selectedNamespaces}
+ onSelectionChange={setSelectedNamespaces}
+ triggerVariant="bar"
+ />
  }
  search={
  <div className="relative w-full min-w-0">

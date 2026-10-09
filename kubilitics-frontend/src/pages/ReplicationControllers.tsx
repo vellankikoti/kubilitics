@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { PageLayout } from '@/components/layout/PageLayout';
 import {
  RefreshCw, MoreHorizontal, CheckCircle2, XCircle, Clock, Loader2, WifiOff, Plus,
- Trash2, FileText, Search, Filter, Layers, ChevronDown, ChevronRight, AlertTriangle,
+ Trash2, FileText, Search, Layers, ChevronDown, ChevronRight, AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,11 +23,12 @@ import {
  StatusPill, resourceTableRowClassName, ROW_MOTION, ListPagination, ListPageStatCard,
  TableColumnHeaderWithFilterAndSort, TableFilterCell, PAGE_SIZE_OPTIONS,
  AgeCell, TableEmptyState, TableErrorState, ListPageLoadingShell,
- NamespaceBadge, CopyNameDropdownItem, ResourceListTableToolbar,
+ NamespaceBadge, CopyNameDropdownItem, ResourceListTableToolbar, NamespaceFilter,
  type StatusPillVariant,
 } from '@/components/list';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
+import { useNamespaceFilter } from '@/hooks/useNamespaceFilter';
 import { ResourceCreator, DEFAULT_YAMLS } from '@/components/editor';
 import { toast } from '@/components/ui/sonner';
 import { useMultiSelect } from '@/hooks/useMultiSelect';
@@ -128,7 +129,9 @@ type ListView = 'flat' | 'byNamespace';
 export default function ReplicationControllers() {
  const navigate = useNavigate();
  const [searchQuery, setSearchQuery] = useState('');
- const [selectedNamespace, setSelectedNamespace] = useState<string>('all');
+ // Standard list-page namespace-filter pattern (src/hooks/useNamespaceFilter.ts) —
+ // multi-select, URL-persisted so it survives navigating away and back.
+ const [selectedNamespaces, setSelectedNamespaces] = useNamespaceFilter();
  const [showTableFilters, setShowTableFilters] = useState(false);
  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: ReplicationController | null; bulk?: boolean }>({ open: false, item: null });
  const [showCreateWizard, setShowCreateWizard] = useState(false);
@@ -157,15 +160,15 @@ export default function ReplicationControllers() {
  scaledToZero: items.filter((i) => i.status === 'Scaled-to-Zero').length,
  }), [items]);
 
- const namespaces = useMemo(() => ['all', ...Array.from(new Set(items.map((i) => i.namespace))).sort()], [items]);
+ const namespaces = useMemo(() => Array.from(new Set(items.map((i) => i.namespace))).sort(), [items]);
 
  const itemsAfterSearchAndNs = useMemo(() =>
  items.filter((item) => {
  const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
  item.namespace.toLowerCase().includes(searchQuery.toLowerCase());
- const matchesNs = selectedNamespace === 'all' || item.namespace === selectedNamespace;
+ const matchesNs = selectedNamespaces.size === 0 || selectedNamespaces.has(item.namespace);
  return matchesSearch && matchesNs;
- }), [items, searchQuery, selectedNamespace]);
+ }), [items, searchQuery, selectedNamespaces]);
 
  const rcColumnConfig: ColumnConfig<ReplicationController>[] = useMemo(() => [
  { columnId: 'name', getValue: (i) => i.name, sortable: true, filterable: false },
@@ -428,24 +431,12 @@ spec:
  globalFilterBar={
  <ResourceCommandBar
  scope={
- <div className="w-full min-w-0">
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button variant="outline" className="w-full min-w-0 justify-between h-10 gap-2 rounded-lg border border-border bg-background font-medium shadow-sm hover:bg-muted/50 hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20">
- <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
- <span className="truncate">{selectedNamespace === 'all' ? 'All Namespaces' : selectedNamespace}</span>
- <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="start" className="w-48">
- {namespaces.map((ns) => (
- <DropdownMenuItem key={ns} onClick={() => setSelectedNamespace(ns)} className={cn(selectedNamespace === ns && 'bg-accent')}>
- {ns === 'all' ? 'All Namespaces' : ns}
- </DropdownMenuItem>
- ))}
- </DropdownMenuContent>
- </DropdownMenu>
- </div>
+ <NamespaceFilter
+ namespaces={namespaces}
+ selected={selectedNamespaces}
+ onSelectionChange={setSelectedNamespaces}
+ triggerVariant="bar"
+ />
  }
  search={
  <div className="relative w-full min-w-0">
