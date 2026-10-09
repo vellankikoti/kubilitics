@@ -70,6 +70,26 @@ func setupTestRepoForAuth(t *testing.T) *repository.SQLiteRepository {
 			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
 			UNIQUE(user_id, cluster_id)
 		);
+		-- Mirrors migrations/018_mfa_totp.sql, added for Phase 2 MFA login
+		-- test coverage (docs/ai/STABILIZATION-PLAN.md).
+		CREATE TABLE IF NOT EXISTS mfa_totp_secrets (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL UNIQUE,
+			secret TEXT NOT NULL,
+			enabled BOOLEAN NOT NULL DEFAULT FALSE,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			verified_at TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		);
+		CREATE TABLE IF NOT EXISTS mfa_backup_codes (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL,
+			code_hash TEXT NOT NULL,
+			used BOOLEAN NOT NULL DEFAULT FALSE,
+			used_at TIMESTAMP,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		);
 	`
 	if err := repo.RunMigrations(migrationSQL); err != nil {
 		t.Fatalf("Failed to run migrations: %v", err)
