@@ -273,10 +273,13 @@ export default function Deployments() {
  // selected there's no single namespace to scope this side-query to, same as
  // the previous 'all' behavior.
  const singleSelectedNamespace = selectedNamespaces.size === 1 ? Array.from(selectedNamespaces)[0] : undefined;
+ // Debounced so rapid checkbox-clicking across namespaces doesn't fire one
+ // events fetch per namespace touched — only the namespace the user settles on.
+ const debouncedSingleSelectedNamespace = useDebouncedValue(singleSelectedNamespace, 300);
  const eventsForScaleCount = useQuery({
- queryKey: ['backend', 'events', clusterId, singleSelectedNamespace],
- queryFn: () => getEvents(backendBaseUrl!, clusterId!, { namespace: singleSelectedNamespace, limit: 300 }),
- enabled: !!(isBackendConfigured && clusterId && singleSelectedNamespace),
+ queryKey: ['backend', 'events', clusterId, debouncedSingleSelectedNamespace],
+ queryFn: () => getEvents(backendBaseUrl!, clusterId!, { namespace: debouncedSingleSelectedNamespace, limit: 300 }),
+ enabled: !!(isBackendConfigured && clusterId && debouncedSingleSelectedNamespace),
  staleTime: 60_000,
  });
  const scaleEvents24h = useMemo(() => {

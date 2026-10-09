@@ -19,6 +19,7 @@ import { DeleteConfirmDialog, ScaleDialog, RolloutActionsDialog, MetricBar, pars
 import { ResourceExportDropdown, ListViewSegmentedControl, ListPagination, PAGE_SIZE_OPTIONS, ResourceCommandBar, resourceTableRowClassName, ROW_MOTION, StatusPill, ListPageStatCard, ListPageHeader, TableColumnHeaderWithFilterAndSort, TableFilterCell, AgeCell, TableEmptyState, TableErrorState, ListPageLoadingShell, NamespaceBadge, ResourceListTableToolbar, BulkActionToolbar, NamespaceFilter } from '@/components/list';
 import type { StatusPillVariant } from '@/components/list';
 import { useNamespaceFilter } from '@/hooks/useNamespaceFilter';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useTableFiltersAndSort, type ColumnConfig } from '@/hooks/useTableFiltersAndSort';
 import { useColumnVisibility } from '@/hooks/useColumnVisibility';
 import { useWorkloadMetricsMap } from '@/hooks/useWorkloadMetricsMap';
@@ -159,6 +160,9 @@ export default function StatefulSets() {
  // with 0 (all) or 2+ selected it falls back to fetching all namespaces' PVCs,
  // same as the previous 'all' behavior.
  const singleSelectedNamespace = selectedNamespaces.size === 1 ? Array.from(selectedNamespaces)[0] : undefined;
+ // Debounced so rapid checkbox-clicking across namespaces doesn't fire one
+ // PVC fetch per namespace touched — only the namespace the user settles on.
+ const debouncedSingleSelectedNamespace = useDebouncedValue(singleSelectedNamespace, 300);
  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: StatefulSet | null; bulk?: boolean }>({ open: false, item: null });
  const [scaleDialog, setScaleDialog] = useState<{ open: boolean; item: StatefulSet | null }>({ open: false, item: null });
  const [rolloutDialog, setRolloutDialog] = useState<{ open: boolean; item: StatefulSet | null }>({ open: false, item: null });
@@ -182,7 +186,7 @@ export default function StatefulSets() {
 
  const { data: pvcList } = useK8sResourceList<KubernetesResource & { metadata?: { name?: string; namespace?: string }; status?: { phase?: string }; spec?: Record<string, unknown> }>(
  'persistentvolumeclaims',
- singleSelectedNamespace,
+ debouncedSingleSelectedNamespace,
  { limit: 5000, enabled: isConnected }
  );
  const actualPvcCountByKey = useMemo(() => {
