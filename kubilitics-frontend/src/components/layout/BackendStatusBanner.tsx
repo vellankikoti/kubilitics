@@ -11,7 +11,7 @@
  *
  * This is the ONLY banner for "backend unreachable". OfflineIndicator handles browser-offline only.
  */
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle, RefreshCw, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useBackendConfigStore } from '@/stores/backendConfigStore';
@@ -19,6 +19,8 @@ import { resetBackendCircuit } from '@/services/backendApiClient';
 import { cn } from '@/lib/utils';
 import { useOfflineMode } from '@/hooks/useOfflineMode';
 import { useBackendCircuitOpen } from '@/hooks/useBackendCircuitOpen';
+import { isTauri } from '@/lib/tauri';
+import { toast } from '@/components/ui/sonner';
 
 export function BackendStatusBanner({ className }: { className?: string }) {
   const isConfigured = useBackendConfigStore((s) => s.isBackendConfigured());
@@ -26,11 +28,20 @@ export function BackendStatusBanner({ className }: { className?: string }) {
   const circuitOpen = useBackendCircuitOpen();
   const [dismissed, setDismissed] = useState(false);
   const [retrying, setRetrying] = useState(false);
+  // docs/ai/STABILIZATION-PLAN.md Phase 1.2: plain retry (reset circuit +
+  // refetch) only helps when the backend process is still alive but slow.
+  // If the process itself is dead, every click fails forever — the only
+  // real fix (invoke('restart_sidecar')) previously lived only on the
+  // Settings page, which a user looking at a dead-backend banner has no
+  // reason to find. Track consecutive failed plain retries so this banner
+  // can escalate on its own.
+  const [plainRetryFailures, setPlainRetryFailures] = useState(0);
 
   // Auto-reset dismissed state when backend comes back online
   useEffect(() => {
     if (backendReachable) {
       setDismissed(false);
+      setPlainRetryFailures(0);
     }
   }, [backendReachable]);
 
@@ -48,8 +59,35 @@ export function BackendStatusBanner({ className }: { className?: string }) {
     setDismissed(true);
   };
 
+  // Reconnect being clicked again while this banner is still visible proves
+  // the previous attempt(s) didn't fix it — the banner auto-hides via the
+  // effect above the instant backendReachable flips true. After 2 plain
+  // retries have failed, escalate to a real process restart instead of
+  // retrying the same no-op forever.
+  const RECONNECT_ESCALATION_THRESHOLD = 2;
+
   const handleRetry = () => {
     setRetrying(true);
+    const attempt = plainRetryFailures + 1;
+    setPlainRetryFailures(attempt);
+
+    if (attempt > RECONNECT_ESCALATION_THRESHOLD && isTauri()) {
+      (async () => {
+        try {
+          const { invoke } = await import('@tauri-apps/api/core');
+          await invoke('restart_sidecar');
+          toast.success('Backend engine restarted');
+        } catch (error) {
+          toast.error(`Failed to restart backend engine: ${error}`);
+        } finally {
+          resetBackendCircuit();
+          retryNow();
+          setTimeout(() => setRetrying(false), 2000);
+        }
+      })();
+      return;
+    }
+
     resetBackendCircuit();
     retryNow();
     // Reset retrying state after a brief delay so the spinner shows

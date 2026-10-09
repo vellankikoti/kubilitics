@@ -264,6 +264,11 @@ impl BackendManager {
             "message": "Restarting backend engine…"
         }));
         self.start_backend_process().await?;
+        // docs/ai/STABILIZATION-PLAN.md Phase 1.1: a successful manual restart
+        // (e.g. the Settings page's "Restart Engine" button or a future
+        // "Reconnect" banner wiring — see Phase 1.2) must also clear the
+        // lifetime counter, same reasoning as the health-monitor's own reset.
+        *self.restart_count.lock().unwrap() = 0;
         let _ = self.app_handle.emit("backend-status", serde_json::json!({
             "status": "ready",
             "message": "Backend engine ready"
@@ -511,6 +516,15 @@ impl BackendManager {
                             eprintln!("Failed to restart backend: {}", e);
                         } else {
                             println!("Backend restarted successfully (attempt {})", count);
+                            // docs/ai/STABILIZATION-PLAN.md Phase 1.1: restart_count was
+                            // cumulative for the entire app session and never reset on a
+                            // successful restart, so after 3 lifetime crashes — even if
+                            // each one was individually recovered from, hours or days
+                            // apart — auto-recovery permanently disabled itself. A
+                            // successful restart means the backend is healthy again;
+                            // the counter should reflect consecutive failures, not a
+                            // lifetime total.
+                            *this.restart_count.lock().unwrap() = 0;
                             let _ = this.app_handle.emit("backend-status", serde_json::json!({
                                 "status": "ready",
                                 "message": "Backend engine ready"
