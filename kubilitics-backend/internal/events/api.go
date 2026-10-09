@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/kubilitics/kubilitics-backend/internal/api/middleware"
+	"github.com/kubilitics/kubilitics-backend/internal/auth"
+	"github.com/kubilitics/kubilitics-backend/internal/repository"
 )
 
 // OTelStore defines the interface for querying OTel trace data.
@@ -87,44 +90,81 @@ func (h *EventsHandler) SetChainCache(cc *ChainCache) {
 	h.chainCache = cc
 }
 
+// wrapWithRBAC mirrors internal/api/rest.Handler.wrapWithRBAC exactly (same
+// auth-disabled no-op behavior, same per-cluster permission resolution via
+// RequireRole) — duplicated here rather than imported to avoid a package
+// layering issue (rest imports events, not the other way around). Kept this
+// is a separate function, not a method, since EventsHandler has no cfg/repo
+// fields of its own; SetupEventsRoutes takes them as parameters instead.
+func wrapWithRBAC(authMode string, repo *repository.SQLiteRepository, handler http.HandlerFunc, minRole string) http.Handler {
+	if authMode == "" || authMode == "disabled" || repo == nil {
+		return http.HandlerFunc(handler)
+	}
+	switch minRole {
+	case auth.RoleAdmin:
+		return middleware.RequireAdmin(repo)(http.HandlerFunc(handler))
+	case auth.RoleOperator:
+		return middleware.RequireOperator(repo)(http.HandlerFunc(handler))
+	case auth.RoleViewer:
+		return middleware.RequireViewer(repo)(http.HandlerFunc(handler))
+	default:
+		return http.HandlerFunc(handler)
+	}
+}
+
 // SetupEventsRoutes registers all Events Intelligence routes on the given router.
 // The router should already be scoped to /api/v1/clusters/{clusterId}.
-func SetupEventsRoutes(router *mux.Router, h *EventsHandler) {
+//
+// SECURITY (docs/ai/STABILIZATION-PLAN.md Phase 0.2): these routes previously
+// had ZERO RBAC — any authenticated user, any role, could read (and in
+// DismissInsight's case, mutate) another user's cluster data. Every route is
+// now wrapped the same way internal/api/rest.SetupRoutes wraps its own
+// routes, which this package's routes were never passed through since
+// they're registered on a sibling code path, not inside that function.
+func SetupEventsRoutes(router *mux.Router, h *EventsHandler, authMode string, repo *repository.SQLiteRepository) {
+	wrap := func(handler http.HandlerFunc, minRole string) http.Handler {
+		return wrapWithRBAC(authMode, repo, handler, minRole)
+	}
+
 	// Events
-	router.HandleFunc("/clusters/{clusterId}/events-intelligence/stream", h.StreamEvents).Methods("GET")
-	router.HandleFunc("/clusters/{clusterId}/events-intelligence/query", h.QueryEvents).Methods("GET")
-	router.HandleFunc("/clusters/{clusterId}/events-intelligence/analyze", h.AnalyzeEvents).Methods("POST")
-	router.HandleFunc("/clusters/{clusterId}/events-intelligence/stats", h.GetStats).Methods("GET")
-	router.HandleFunc("/clusters/{clusterId}/events-intelligence/{eventId}", h.GetEvent).Methods("GET")
-	router.HandleFunc("/clusters/{clusterId}/events-intelligence/{eventId}/chain", h.GetCausalChain).Methods("GET")
-	router.HandleFunc("/clusters/{clusterId}/events-intelligence/{eventId}/relationships", h.GetRelationships).Methods("GET")
-	router.HandleFunc("/clusters/{clusterId}/events-intelligence/{eventId}/traces", h.GetLinkedTraces).Methods("GET")
+	router.Handle("/clusters/{clusterId}/events-intelligence/stream", wrap(h.StreamEvents, auth.RoleViewer)).Methods("GET")
+	router.Handle("/clusters/{clusterId}/events-intelligence/query", wrap(h.QueryEvents, auth.RoleViewer)).Methods("GET")
+	// AnalyzeEvents is POST only to carry a complex query body — it's a read
+	// (aggregates existing events), not a mutation, so Viewer is correct.
+	router.Handle("/clusters/{clusterId}/events-intelligence/analyze", wrap(h.AnalyzeEvents, auth.RoleViewer)).Methods("POST")
+	router.Handle("/clusters/{clusterId}/events-intelligence/stats", wrap(h.GetStats, auth.RoleViewer)).Methods("GET")
+	router.Handle("/clusters/{clusterId}/events-intelligence/{eventId}", wrap(h.GetEvent, auth.RoleViewer)).Methods("GET")
+	router.Handle("/clusters/{clusterId}/events-intelligence/{eventId}/chain", wrap(h.GetCausalChain, auth.RoleViewer)).Methods("GET")
+	router.Handle("/clusters/{clusterId}/events-intelligence/{eventId}/relationships", wrap(h.GetRelationships, auth.RoleViewer)).Methods("GET")
+	router.Handle("/clusters/{clusterId}/events-intelligence/{eventId}/traces", wrap(h.GetLinkedTraces, auth.RoleViewer)).Methods("GET")
 
 	// Resource traces
-	router.HandleFunc("/clusters/{clusterId}/resource-traces", h.GetResourceTraces).Methods("GET")
+	router.Handle("/clusters/{clusterId}/resource-traces", wrap(h.GetResourceTraces, auth.RoleViewer)).Methods("GET")
 
 	// Changes
-	router.HandleFunc("/clusters/{clusterId}/changes/recent", h.GetRecentChanges).Methods("GET")
+	router.Handle("/clusters/{clusterId}/changes/recent", wrap(h.GetRecentChanges, auth.RoleViewer)).Methods("GET")
 
 	// Incidents
-	router.HandleFunc("/clusters/{clusterId}/incidents", h.ListIncidents).Methods("GET")
-	router.HandleFunc("/clusters/{clusterId}/incidents/{incidentId}", h.GetIncident).Methods("GET")
-	router.HandleFunc("/clusters/{clusterId}/incidents/{incidentId}/events", h.GetIncidentEvents).Methods("GET")
+	router.Handle("/clusters/{clusterId}/incidents", wrap(h.ListIncidents, auth.RoleViewer)).Methods("GET")
+	router.Handle("/clusters/{clusterId}/incidents/{incidentId}", wrap(h.GetIncident, auth.RoleViewer)).Methods("GET")
+	router.Handle("/clusters/{clusterId}/incidents/{incidentId}/events", wrap(h.GetIncidentEvents, auth.RoleViewer)).Methods("GET")
 
 	// Insights
-	router.HandleFunc("/clusters/{clusterId}/insights/active", h.GetActiveInsights).Methods("GET")
-	router.HandleFunc("/clusters/{clusterId}/insights/{insightId}/dismiss", h.DismissInsight).Methods("POST")
-	router.HandleFunc("/clusters/{clusterId}/insights/{insightId}/causal-chain", h.GetInsightCausalChain).Methods("GET")
+	router.Handle("/clusters/{clusterId}/insights/active", wrap(h.GetActiveInsights, auth.RoleViewer)).Methods("GET")
+	// DismissInsight actually mutates stored insight state — Operator, not Viewer.
+	router.Handle("/clusters/{clusterId}/insights/{insightId}/dismiss", wrap(h.DismissInsight, auth.RoleOperator)).Methods("POST")
+	router.Handle("/clusters/{clusterId}/insights/{insightId}/causal-chain", wrap(h.GetInsightCausalChain, auth.RoleViewer)).Methods("GET")
 
 	// Time-travel
-	router.HandleFunc("/clusters/{clusterId}/state/at", h.GetStateAt).Methods("GET")
+	router.Handle("/clusters/{clusterId}/state/at", wrap(h.GetStateAt, auth.RoleViewer)).Methods("GET")
 
 	// Log persistence & cross-pod search
-	router.HandleFunc("/clusters/{clusterId}/logs/search", h.SearchLogs).Methods("GET")
-	router.HandleFunc("/clusters/{clusterId}/logs/aggregate", h.AggregateLogs).Methods("GET")
+	router.Handle("/clusters/{clusterId}/logs/search", wrap(h.SearchLogs, auth.RoleViewer)).Methods("GET")
+	router.Handle("/clusters/{clusterId}/logs/aggregate", wrap(h.AggregateLogs, auth.RoleViewer)).Methods("GET")
 
-	// System-wide health (not cluster-scoped)
-	router.HandleFunc("/system/events-health", h.GetSystemHealth).Methods("GET")
+	// System-wide health (not cluster-scoped) — no clusterId means RequireRole's
+	// per-cluster check is a no-op, but still require authentication.
+	router.Handle("/system/events-health", wrap(h.GetSystemHealth, auth.RoleViewer)).Methods("GET")
 }
 
 // ---------------------------------------------------------------------------

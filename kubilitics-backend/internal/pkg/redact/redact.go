@@ -1,6 +1,8 @@
 // Package redact provides helpers to avoid exposing secret values in API responses or logs (C3.2).
 package redact
 
+import "strings"
+
 const redactedValue = "***REDACTED***"
 
 // SecretData redacts Kubernetes Secret .data and .stringData values in obj (in place).
@@ -22,9 +24,15 @@ func SecretData(obj map[string]interface{}) {
 }
 
 // IsSecretKind returns true if kind (e.g. "Secret", "secrets") indicates a Kubernetes Secret.
+//
+// Deliberately case-insensitive: the kind-resolution paths that actually fetch data
+// (informer.go's resourceKindToStoreKey lookup, discovery.go's ResolveGVR fallback)
+// are both case-insensitive, so an exact-string match here (the original
+// implementation) let a request for e.g. "SECRETS" resolve real Secret data while
+// silently skipping redaction — a real, exploitable unredacted-Secret-data bypass.
 func IsSecretKind(kind string) bool {
-	switch kind {
-	case "Secret", "secret", "Secrets", "secrets":
+	switch strings.ToLower(kind) {
+	case "secret", "secrets":
 		return true
 	}
 	return false

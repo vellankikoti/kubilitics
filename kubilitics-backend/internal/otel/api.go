@@ -11,6 +11,9 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/kubilitics/kubilitics-backend/internal/api/middleware"
+	"github.com/kubilitics/kubilitics-backend/internal/auth"
+	"github.com/kubilitics/kubilitics-backend/internal/repository"
 )
 
 // OTelHandler provides HTTP handlers for OTel trace ingestion and queries.
@@ -24,19 +27,51 @@ func NewOTelHandler(receiver *Receiver, store *Store) *OTelHandler {
 	return &OTelHandler{receiver: receiver, store: store}
 }
 
+// wrapWithRBAC mirrors internal/api/rest.Handler.wrapWithRBAC exactly — see
+// the identical helper in internal/events/api.go for why this is duplicated
+// rather than imported (package layering: rest imports otel, not vice versa).
+func wrapWithRBAC(authMode string, repo *repository.SQLiteRepository, handler http.HandlerFunc, minRole string) http.Handler {
+	if authMode == "" || authMode == "disabled" || repo == nil {
+		return http.HandlerFunc(handler)
+	}
+	switch minRole {
+	case auth.RoleAdmin:
+		return middleware.RequireAdmin(repo)(http.HandlerFunc(handler))
+	case auth.RoleOperator:
+		return middleware.RequireOperator(repo)(http.HandlerFunc(handler))
+	case auth.RoleViewer:
+		return middleware.RequireViewer(repo)(http.HandlerFunc(handler))
+	default:
+		return http.HandlerFunc(handler)
+	}
+}
+
 // SetupOTelRoutes registers OTel-related routes on the given router.
 // The router is expected to be the /api/v1 subrouter.
-func SetupOTelRoutes(router *mux.Router, handler *OTelHandler) {
-	// OTLP receiver: POST /api/v1/traces (on subrouter)
+//
+// SECURITY (docs/ai/STABILIZATION-PLAN.md Phase 0.2): the trace QUERY routes
+// previously had zero RBAC — any authenticated user, any role, could read
+// another user's cluster's traces. Now wrapped the same way
+// internal/api/rest.SetupRoutes wraps its own routes. The /traces POST
+// receiver is deliberately left unwrapped: it's an OTLP ingestion endpoint
+// called by OTel collectors/SDKs running in the monitored cluster, not by a
+// logged-in user's browser session — those callers have no bearer token to
+// present, same reasoning as a Prometheus remote-write endpoint.
+func SetupOTelRoutes(router *mux.Router, handler *OTelHandler, authMode string, repo *repository.SQLiteRepository) {
+	wrap := func(h http.HandlerFunc, minRole string) http.Handler {
+		return wrapWithRBAC(authMode, repo, h, minRole)
+	}
+
+	// OTLP receiver: POST /api/v1/traces (on subrouter) — intentionally unauthenticated, see doc comment above.
 	router.HandleFunc("/traces", handler.ReceiveTraces).Methods("POST")
 
 	// Trace query APIs (cluster-scoped)
-	router.HandleFunc("/clusters/{clusterId}/traces", handler.ListTraces).Methods("GET")
-	router.HandleFunc("/clusters/{clusterId}/traces/services", handler.GetServiceMap).Methods("GET")
-	router.HandleFunc("/clusters/{clusterId}/traces/{traceId}", handler.GetTrace).Methods("GET")
+	router.Handle("/clusters/{clusterId}/traces", wrap(handler.ListTraces, auth.RoleViewer)).Methods("GET")
+	router.Handle("/clusters/{clusterId}/traces/services", wrap(handler.GetServiceMap, auth.RoleViewer)).Methods("GET")
+	router.Handle("/clusters/{clusterId}/traces/{traceId}", wrap(handler.GetTrace, auth.RoleViewer)).Methods("GET")
 
 	// Resource-specific traces (matches by k8s_pod_name, k8s_deployment, or service_name)
-	router.HandleFunc("/clusters/{clusterId}/resource-traces", handler.GetResourceTraces).Methods("GET")
+	router.Handle("/clusters/{clusterId}/resource-traces", wrap(handler.GetResourceTraces, auth.RoleViewer)).Methods("GET")
 }
 
 // SetupOTLPStandardRoute registers the OTLP standard endpoint POST /v1/traces

@@ -930,7 +930,7 @@ func main() {
 	otelStore := otel.NewStore(otelDB)
 	otelReceiver := otel.NewReceiver(otelStore, "")
 	otelHandler := otel.NewOTelHandler(otelReceiver, otelStore)
-	otel.SetupOTelRoutes(apiRouter, otelHandler)
+	otel.SetupOTelRoutes(apiRouter, otelHandler, cfg.AuthMode, repo)
 	otel.SetupOTLPStandardRoute(router, otelHandler) // Standard OTLP endpoint: POST /v1/traces
 
 	// Start span pruning goroutine (7 day retention)
@@ -985,7 +985,7 @@ func main() {
 	// Register on main router with full /api/v1 prefix (not apiRouter subrouter)
 	// because the main router's NotFoundHandler at line ~720 catches unmatched paths
 	// before the subrouter gets a chance to match.
-	events.SetupEventsRoutes(apiRouter, eventsHandler)
+	events.SetupEventsRoutes(apiRouter, eventsHandler, cfg.AuthMode, repo)
 
 	// Wire events pipeline lifecycle into cluster add/remove/reconnect handlers.
 	handler.SetLifecycleHook(pipelineManager)
