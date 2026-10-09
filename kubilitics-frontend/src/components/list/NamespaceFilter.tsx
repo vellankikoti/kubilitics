@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
-import { Filter, ChevronDown, X } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Filter, ChevronDown, X, Search, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import {
   Popover,
   PopoverContent,
@@ -54,9 +55,16 @@ export function NamespaceFilter({
   triggerClassName,
   className,
 }: NamespaceFilterProps) {
-  const groups = useMemo(() => groupByProject(namespaces), [namespaces]);
+  const [query, setQuery] = useState('');
   const userNs = useMemo(() => namespaces.filter((n) => !isSystemNamespace(n)), [namespaces]);
   const systemNs = useMemo(() => namespaces.filter(isSystemNamespace), [namespaces]);
+
+  const filteredNamespaces = useMemo(() => {
+    if (!query.trim()) return namespaces;
+    const q = query.trim().toLowerCase();
+    return namespaces.filter((ns) => ns.toLowerCase().includes(q));
+  }, [namespaces, query]);
+  const groups = useMemo(() => groupByProject(filteredNamespaces), [filteredNamespaces]);
 
   const toggle = (ns: string) => {
     const next = new Set(selected);
@@ -67,6 +75,7 @@ export function NamespaceFilter({
 
   const selectOnlyUser = () => onSelectionChange(new Set(userNs));
   const selectOnlySystem = () => onSelectionChange(new Set(systemNs));
+  const selectAll = () => onSelectionChange(new Set(namespaces));
   const clearSelection = () => onSelectionChange(new Set());
 
   const isChip = triggerVariant === 'chip';
@@ -78,11 +87,73 @@ export function NamespaceFilter({
         ? Array.from(selected)[0]
         : (isChip ? `${selected.size} ns` : `${selected.size} namespaces`);
 
+  const popoverBody = (
+    <PopoverContent align="start" className="w-72 p-0" sideOffset={4}>
+      <div className="p-2 border-b border-border space-y-2">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search namespaces..."
+            className="h-8 pl-7 text-sm"
+            autoFocus
+          />
+        </div>
+        <p className="text-xs font-medium text-muted-foreground">Quick select</p>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={selectAll} disabled={namespaces.length === 0}>
+            <CheckCheck className="h-3.5 w-3.5" />
+            Select All
+          </Button>
+          <Button variant="outline" size="sm" onClick={selectOnlyUser} disabled={userNs.length === 0}>
+            Only User Namespaces
+          </Button>
+          <Button variant="outline" size="sm" onClick={selectOnlySystem} disabled={systemNs.length === 0}>
+            Only System Namespaces
+          </Button>
+          <Button variant="ghost" size="sm" onClick={clearSelection} disabled={selected.size === 0}>
+            Clear
+          </Button>
+        </div>
+      </div>
+      <ScrollArea className="h-[280px]">
+        <div className="p-2 space-y-3">
+          {groups.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              No namespaces match &quot;{query}&quot;
+            </p>
+          ) : (
+            groups.map(({ project, namespaces: list }) => (
+              <div key={project}>
+                <p className="text-xs font-semibold text-muted-foreground mb-1.5">{project}</p>
+                <div className="space-y-1">
+                  {list.map((ns) => (
+                    <label
+                      key={ns}
+                      className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted/50"
+                    >
+                      <Checkbox
+                        checked={selected.has(ns)}
+                        onCheckedChange={() => toggle(ns)}
+                      />
+                      <span className="text-sm">{ns}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </ScrollArea>
+    </PopoverContent>
+  );
+
   return (
     <div className={cn('flex flex-wrap items-center gap-2', isBar && 'w-full min-w-0', className)}>
       {isBar ? (
         <div className="w-full min-w-0">
-          <Popover>
+          <Popover onOpenChange={(open) => { if (!open) setQuery(''); }}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
@@ -99,49 +170,11 @@ export function NamespaceFilter({
                 <ChevronDown className={cn('h-4 w-4 shrink-0 text-muted-foreground', isChip && 'h-3.5 w-3.5')} />
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-72 p-0" sideOffset={4}>
-              <div className="p-2 border-b border-border space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">Quick select</p>
-                <div className="flex flex-wrap gap-2">
-                  <Button variant="outline" size="sm" onClick={selectOnlyUser} disabled={userNs.length === 0}>
-                    Only User Namespaces
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={selectOnlySystem} disabled={systemNs.length === 0}>
-                    Only System Namespaces
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={clearSelection}>
-                    Clear
-                  </Button>
-                </div>
-              </div>
-              <ScrollArea className="h-[280px]">
-                <div className="p-2 space-y-3">
-                  {groups.map(({ project, namespaces: list }) => (
-                    <div key={project}>
-                      <p className="text-xs font-semibold text-muted-foreground mb-1.5">{project}</p>
-                      <div className="space-y-1">
-                        {list.map((ns) => (
-                          <label
-                            key={ns}
-                            className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted/50"
-                          >
-                            <Checkbox
-                              checked={selected.has(ns)}
-                              onCheckedChange={() => toggle(ns)}
-                            />
-                            <span className="text-sm">{ns}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-            </PopoverContent>
+            {popoverBody}
           </Popover>
         </div>
       ) : (
-      <Popover>
+      <Popover onOpenChange={(open) => { if (!open) setQuery(''); }}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
@@ -157,45 +190,7 @@ export function NamespaceFilter({
             <ChevronDown className={cn('h-4 w-4 opacity-50 shrink-0', isChip && 'h-3.5 w-3.5')} />
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-72 p-0" sideOffset={4}>
-          <div className="p-2 border-b border-border space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">Quick select</p>
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" size="sm" onClick={selectOnlyUser} disabled={userNs.length === 0}>
-                Only User Namespaces
-              </Button>
-              <Button variant="outline" size="sm" onClick={selectOnlySystem} disabled={systemNs.length === 0}>
-                Only System Namespaces
-              </Button>
-              <Button variant="ghost" size="sm" onClick={clearSelection}>
-                Clear
-              </Button>
-            </div>
-          </div>
-          <ScrollArea className="h-[280px]">
-            <div className="p-2 space-y-3">
-              {groups.map(({ project, namespaces: list }) => (
-                <div key={project}>
-                  <p className="text-xs font-semibold text-muted-foreground mb-1.5">{project}</p>
-                  <div className="space-y-1">
-                    {list.map((ns) => (
-                      <label
-                        key={ns}
-                        className="flex items-center gap-2 cursor-pointer rounded px-2 py-1.5 hover:bg-muted/50"
-                      >
-                        <Checkbox
-                          checked={selected.has(ns)}
-                          onCheckedChange={() => toggle(ns)}
-                        />
-                        <span className="text-sm">{ns}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </PopoverContent>
+        {popoverBody}
       </Popover>
       )}
       {selected.size > 0 && !isChip && !isBar && (

@@ -241,7 +241,19 @@ export default function Pods() {
  const [searchParams, setSearchParams] = useSearchParams();
  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') ?? '');
  const debouncedSearch = useDebouncedValue(searchQuery, 250);
- const [selectedNamespaces, setSelectedNamespaces] = useState<Set<string>>(new Set());
+ // Seed from URL on mount so the namespace filter survives navigating away
+ // (e.g. opening a pod's detail page) and back — previously this reset to
+ // "All Namespaces" on every remount, showing all pods again. `ns` is our
+ // own round-trip param (comma-separated, multi-select); `namespace`
+ // (singular) is the legacy external-link param used by many other pages
+ // linking into Pods — still honored as a one-time seed for backward compat.
+ const [selectedNamespaces, setSelectedNamespaces] = useState<Set<string>>(() => {
+   const nsParam = searchParams.get('ns');
+   if (nsParam) return new Set(nsParam.split(',').filter(Boolean));
+   const legacyNamespace = searchParams.get('namespace');
+   if (legacyNamespace) return new Set([legacyNamespace]);
+   return new Set();
+ });
  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; pod: Pod | null; bulk?: boolean }>({ open: false, pod: null });
  const [portForwardDialog, setPortForwardDialog] = useState<{ open: boolean; pod: Pod | null }>({ open: false, pod: null });
  const [showCreateWizard, setShowCreateWizard] = useState(false);
@@ -260,17 +272,21 @@ export default function Pods() {
  // Status phase filter — drives server-side fieldSelector so pagination works with status cards
  const [statusPhaseFilter, setStatusPhaseFilter] = useState<string | null>(() => searchParams.get('status'));
 
- // Persist search + status filter to URL so navigating away/back preserves them
+ // Persist search + status + namespace filter to URL so navigating away/back preserves them
  useEffect(() => {
  const next = new URLSearchParams(searchParams);
  if (searchQuery) next.set('q', searchQuery); else next.delete('q');
  if (statusPhaseFilter) next.set('status', statusPhaseFilter); else next.delete('status');
+ if (selectedNamespaces.size > 0) next.set('ns', Array.from(selectedNamespaces).join(',')); else next.delete('ns');
+ // Legacy singular param is only a one-time seed (consumed into initial state above) —
+ // drop it once we're managing the filter ourselves, so the URL doesn't carry both.
+ next.delete('namespace');
  // Avoid rewriting history if nothing changed
  if (next.toString() !== searchParams.toString()) {
  setSearchParams(next, { replace: true });
  }
  // eslint-disable-next-line react-hooks/exhaustive-deps
- }, [searchQuery, statusPhaseFilter]);
+ }, [searchQuery, statusPhaseFilter, selectedNamespaces]);
 
  const { isConnected } = useConnectionStatus();
 
@@ -350,15 +366,6 @@ export default function Pods() {
  if (allNamespaces && allNamespaces.length > 0) return allNamespaces.sort();
  return Array.from(new Set(fullPods.map(p => p.namespace))).sort();
  }, [allNamespaces, fullPods]);
-
- // Seed namespace filter from ?namespace=<ns> on initial load so views
- // navigated from Namespace detail are scoped correctly.
- useEffect(() => {
- const nsFromQuery = searchParams.get('namespace');
- if (!nsFromQuery) return;
- if (selectedNamespaces.size > 0) return;
- setSelectedNamespaces(new Set([nsFromQuery]));
- }, [searchParams, selectedNamespaces.size]);
 
  // Calculate resource max values from pod spec (for CPU/Memory bars)
  const podResourceMaxMap = useMemo(() => {
