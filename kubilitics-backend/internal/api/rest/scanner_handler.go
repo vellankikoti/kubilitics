@@ -8,30 +8,64 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/kubilitics/kubilitics-backend/internal/api/middleware"
 	"github.com/kubilitics/kubilitics-backend/internal/auth"
+	"github.com/kubilitics/kubilitics-backend/internal/repository"
 	"github.com/kubilitics/kubilitics-backend/internal/service"
 )
 
 // ScannerHandler handles /api/v1/scanner/* endpoints.
 type ScannerHandler struct {
-	svc service.ScannerService
+	svc      service.ScannerService
+	authMode string
+	repo     *repository.SQLiteRepository
 }
 
 // NewScannerHandler creates a new scanner handler.
-func NewScannerHandler(svc service.ScannerService) *ScannerHandler {
-	return &ScannerHandler{svc: svc}
+func NewScannerHandler(svc service.ScannerService, authMode string, repo *repository.SQLiteRepository) *ScannerHandler {
+	return &ScannerHandler{svc: svc, authMode: authMode, repo: repo}
+}
+
+// wrapWithRBAC mirrors internal/api/rest.Handler.wrapWithRBAC exactly — see
+// the identical helper in internal/events/api.go for why this is duplicated
+// rather than imported (package layering).
+func (h *ScannerHandler) wrapWithRBAC(handler http.HandlerFunc, minRole string) http.Handler {
+	if h.authMode == "" || h.authMode == "disabled" || h.repo == nil {
+		return http.HandlerFunc(handler)
+	}
+	switch minRole {
+	case auth.RoleAdmin:
+		return middleware.RequireAdmin(h.repo)(http.HandlerFunc(handler))
+	case auth.RoleOperator:
+		return middleware.RequireOperator(h.repo)(http.HandlerFunc(handler))
+	case auth.RoleViewer:
+		return middleware.RequireViewer(h.repo)(http.HandlerFunc(handler))
+	default:
+		return http.HandlerFunc(handler)
+	}
 }
 
 // RegisterRoutes registers scanner routes on the API router.
+//
+// SECURITY (docs/ai/STABILIZATION-PLAN.md Phase 0.4): StartScan's own inline
+// admin check (`claims != nil && claims.Role != "admin" ...`) skipped the
+// check entirely when claims was nil — i.e. in optional-auth mode, a fully
+// unauthenticated caller could trigger an arbitrary filesystem/image/helm
+// scan. Every route here is now wrapped with the same RequireRole pattern
+// used throughout handler.go, which denies-by-default on nil claims (see
+// middleware.RequireRole) instead of only acting when claims happen to be
+// present. The other 7 routes had no RBAC at all; scan results/findings can
+// contain vulnerability paths and secrets-adjacent data, so they're now
+// gated at Viewer — consistent with every other read endpoint in the app.
 func (h *ScannerHandler) RegisterRoutes(router *mux.Router) {
-	router.HandleFunc("/scanner/runs", h.StartScan).Methods("POST")
-	router.HandleFunc("/scanner/runs", h.ListRuns).Methods("GET")
-	router.HandleFunc("/scanner/runs/{runId}", h.GetRun).Methods("GET")
-	router.HandleFunc("/scanner/runs/{runId}/findings", h.ListRunFindings).Methods("GET")
-	router.HandleFunc("/scanner/runs/{runId}/report", h.GetReport).Methods("GET")
-	router.HandleFunc("/scanner/findings", h.ListAllFindings).Methods("GET")
-	router.HandleFunc("/scanner/stats", h.GetStats).Methods("GET")
-	router.HandleFunc("/scanner/tools", h.ListTools).Methods("GET")
+	router.Handle("/scanner/runs", h.wrapWithRBAC(h.StartScan, auth.RoleAdmin)).Methods("POST")
+	router.Handle("/scanner/runs", h.wrapWithRBAC(h.ListRuns, auth.RoleViewer)).Methods("GET")
+	router.Handle("/scanner/runs/{runId}", h.wrapWithRBAC(h.GetRun, auth.RoleViewer)).Methods("GET")
+	router.Handle("/scanner/runs/{runId}/findings", h.wrapWithRBAC(h.ListRunFindings, auth.RoleViewer)).Methods("GET")
+	router.Handle("/scanner/runs/{runId}/report", h.wrapWithRBAC(h.GetReport, auth.RoleViewer)).Methods("GET")
+	router.Handle("/scanner/findings", h.wrapWithRBAC(h.ListAllFindings, auth.RoleViewer)).Methods("GET")
+	router.Handle("/scanner/stats", h.wrapWithRBAC(h.GetStats, auth.RoleViewer)).Methods("GET")
+	router.Handle("/scanner/tools", h.wrapWithRBAC(h.ListTools, auth.RoleViewer)).Methods("GET")
 }
 
 // allowedTargetTypes restricts scan target types.
@@ -56,15 +90,11 @@ type startScanRequest struct {
 }
 
 // StartScan handles POST /scanner/runs — starts a new scan asynchronously.
-// Requires admin role to prevent arbitrary filesystem scanning.
+// Admin role is enforced by the RequireAdmin wrapper in RegisterRoutes, not
+// here — an inline claims-nil check previously lived in this function and
+// silently did nothing when claims was nil (docs/ai/STABILIZATION-PLAN.md
+// Phase 0.4), which the shared RequireRole middleware does not get wrong.
 func (h *ScannerHandler) StartScan(w http.ResponseWriter, r *http.Request) {
-	// Require admin for scan triggering (prevents path traversal abuse)
-	claims := auth.ClaimsFromContext(r.Context())
-	if claims != nil && claims.Role != "admin" && claims.Role != "" {
-		respondError(w, http.StatusForbidden, "Admin access required to trigger scans")
-		return
-	}
-
 	var req startScanRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		respondError(w, http.StatusBadRequest, "Invalid request body")
@@ -97,8 +127,21 @@ func (h *ScannerHandler) StartScan(w http.ResponseWriter, r *http.Request) {
 			respondError(w, http.StatusBadRequest, "Invalid path")
 			return
 		}
-		for _, blocked := range []string{"/etc", "/var", "/root", "/home", "/proc", "/sys", "/dev"} {
-			if strings.HasPrefix(abs, blocked) {
+		// docs/ai/STABILIZATION-PLAN.md Phase 0.4 flagged this blocklist as
+		// not covering macOS user home dirs (/Users/*). Deliberately NOT
+		// added here: the only real caller (ScanDashboard.tsx via
+		// scannerApi.ts) always passes target_path="." for a self-scan of
+		// the backend's own working directory, which during local
+		// development is itself under /Users/<name>/... on macOS — a
+		// blanket /Users block would silently break that, the feature's
+		// only current use. A real fix needs an explicit allowlist of
+		// legitimate scan roots (the plan's own suggested direction), which
+		// needs product input on what those roots are; tracking as a
+		// follow-up rather than guessing. Added /private and /boot (no
+		// known legitimate caller needs them) and fixed a prefix-boundary
+		// gap: HasPrefix(abs, "/home") also matched "/homebrew-data".
+		for _, blocked := range []string{"/etc", "/var", "/root", "/home", "/proc", "/sys", "/dev", "/private", "/boot"} {
+			if abs == blocked || strings.HasPrefix(abs, blocked+"/") {
 				respondError(w, http.StatusForbidden, "Scanning system directories is not allowed")
 				return
 			}

@@ -744,7 +744,7 @@ func main() {
 
 	// Scanner handler (DevSecOps scanning engine)
 	scannerSvc := service.NewScannerService(repo, log)
-	scannerHandler := rest.NewScannerHandler(scannerSvc)
+	scannerHandler := rest.NewScannerHandler(scannerSvc, cfg.AuthMode, repo)
 
 	// AI gRPC client is constructed below (after apiRouter exists), but declared
 	// here at function scope so the shutdown handler can see it.

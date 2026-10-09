@@ -18,15 +18,9 @@ func NewScheduleHandler(scheduler *reports.Scheduler) *ScheduleHandler {
 	return &ScheduleHandler{scheduler: scheduler}
 }
 
-// RegisterRoutes registers report schedule CRUD routes on the API router.
-func (h *ScheduleHandler) RegisterRoutes(router *mux.Router) {
-	router.HandleFunc("/clusters/{clusterId}/reports/schedules", h.CreateSchedule).Methods("POST")
-	router.HandleFunc("/clusters/{clusterId}/reports/schedules", h.ListSchedules).Methods("GET")
-	router.HandleFunc("/clusters/{clusterId}/reports/schedules/{scheduleId}", h.GetSchedule).Methods("GET")
-	router.HandleFunc("/clusters/{clusterId}/reports/schedules/{scheduleId}", h.UpdateSchedule).Methods("PUT")
-	router.HandleFunc("/clusters/{clusterId}/reports/schedules/{scheduleId}", h.DeleteSchedule).Methods("DELETE")
-	router.HandleFunc("/clusters/{clusterId}/reports/schedules/{scheduleId}/run", h.RunNow).Methods("POST")
-}
+// Routes are registered by Handler.SetupRoutes (handler.go), RBAC-wrapped,
+// guarded by a scheduleHandler-nil check — not self-registered here. See
+// docs/ai/STABILIZATION-PLAN.md Phase 0.5.
 
 // CreateSchedule handles POST /clusters/{clusterId}/reports/schedules.
 func (h *ScheduleHandler) CreateSchedule(w http.ResponseWriter, r *http.Request) {

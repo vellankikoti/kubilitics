@@ -521,6 +521,22 @@ func SetupRoutes(router *mux.Router, h *Handler) {
 		router.Handle("/clusters/{clusterId}/deployments/{namespace}/{deployment}/instrumentation-status", h.wrapWithRBAC(h.tracingHandler.GetInstrumentationStatus, auth.RoleViewer)).Methods("GET")
 	}
 
+	// Report schedules — SECURITY (docs/ai/STABILIZATION-PLAN.md Phase 0.5):
+	// ScheduleHandler previously had its own self-registering RegisterRoutes
+	// method with zero RBAC, called from nowhere (SetScheduleHandler is also
+	// never called from main.go today, so this block is dormant — same
+	// nil-guard pattern as tracingHandler above). Registered here, RBAC-wrapped,
+	// so wiring a Scheduler instance into main.go in the future is the only
+	// remaining step, not also an instant unauthenticated-mutation gap.
+	if h.scheduleHandler != nil {
+		router.Handle("/clusters/{clusterId}/reports/schedules", h.wrapWithRBAC(h.scheduleHandler.CreateSchedule, auth.RoleOperator)).Methods("POST")
+		router.Handle("/clusters/{clusterId}/reports/schedules", h.wrapWithRBAC(h.scheduleHandler.ListSchedules, auth.RoleViewer)).Methods("GET")
+		router.Handle("/clusters/{clusterId}/reports/schedules/{scheduleId}", h.wrapWithRBAC(h.scheduleHandler.GetSchedule, auth.RoleViewer)).Methods("GET")
+		router.Handle("/clusters/{clusterId}/reports/schedules/{scheduleId}", h.wrapWithRBAC(h.scheduleHandler.UpdateSchedule, auth.RoleOperator)).Methods("PUT")
+		router.Handle("/clusters/{clusterId}/reports/schedules/{scheduleId}", h.wrapWithRBAC(h.scheduleHandler.DeleteSchedule, auth.RoleOperator)).Methods("DELETE")
+		router.Handle("/clusters/{clusterId}/reports/schedules/{scheduleId}/run", h.wrapWithRBAC(h.scheduleHandler.RunNow, auth.RoleOperator)).Methods("POST")
+	}
+
 	// Architectural Auto-Pilot (Pillar 4)
 	router.Handle("/clusters/{clusterId}/autopilot/findings", h.wrapWithRBAC(h.GetAutoPilotFindings, auth.RoleViewer)).Methods("GET")
 	router.Handle("/clusters/{clusterId}/autopilot/actions", h.wrapWithRBAC(h.GetAutoPilotActions, auth.RoleViewer)).Methods("GET")
@@ -685,9 +701,15 @@ func SetupRoutes(router *mux.Router, h *Handler) {
 	// kcli TUI/session state for frontend sync
 	router.Handle("/clusters/{clusterId}/kcli/tui/state", h.wrapWithRBAC(h.GetKCLITUIState, auth.RoleViewer)).Methods("GET")
 
-	// File transfer (browse/download/upload files in pod containers)
-	router.Handle("/clusters/{clusterId}/resources/{namespace}/{pod}/ls", h.wrapWithRBAC(h.ListContainerFiles, auth.RoleViewer)).Methods("POST")
-	router.Handle("/clusters/{clusterId}/resources/{namespace}/{pod}/download", h.wrapWithRBAC(h.DownloadContainerFile, auth.RoleViewer)).Methods("GET")
+	// File transfer (browse/download/upload files in pod containers).
+	// SECURITY (docs/ai/STABILIZATION-PLAN.md Phase 0.3): ls/download were
+	// RoleViewer while exec/shell require RoleOperator, but this browser can
+	// cat any in-container path — including /var/run/secrets/.../token or a
+	// Secret-backed mounted volume — letting a Viewer read live SA tokens or
+	// Secret content that the typed Secret API would redact. Raised to match
+	// exec's tier.
+	router.Handle("/clusters/{clusterId}/resources/{namespace}/{pod}/ls", h.wrapWithRBAC(h.ListContainerFiles, auth.RoleOperator)).Methods("POST")
+	router.Handle("/clusters/{clusterId}/resources/{namespace}/{pod}/download", h.wrapWithRBAC(h.DownloadContainerFile, auth.RoleOperator)).Methods("GET")
 	router.Handle("/clusters/{clusterId}/resources/{namespace}/{pod}/upload", h.wrapWithRBAC(h.UploadContainerFile, auth.RoleOperator)).Methods("POST")
 
 	// Download kubeconfig for a cluster - BE-AUTHZ-001: viewer can read kubeconfig
