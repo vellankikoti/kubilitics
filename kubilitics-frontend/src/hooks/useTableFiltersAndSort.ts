@@ -234,20 +234,27 @@ export function useTableFiltersAndSort<T>(
     [columns],
   );
 
+  // docs/ai/STABILIZATION-PLAN.md Phase 2: the same non-array guard applied
+  // in filteredAndSortedItems below was missing here — a caller passing a
+  // not-yet-loaded or malformed `items` value crashed in this memo (on
+  // `items.map`) before ever reaching the guarded one, since React runs
+  // hooks top-to-bottom and this one is declared first.
+  const safeItems = useMemo(() => (Array.isArray(items) ? items : []), [items]);
+
   const distinctValuesByColumn = useMemo(() => {
     const out: Record<string, string[]> = {};
     for (const col of filterableColumns) {
-      const values = [...new Set(items.map((item) => String(col.getValue(item)).trim()).filter(Boolean))].sort();
+      const values = [...new Set(safeItems.map((item) => String(col.getValue(item)).trim()).filter(Boolean))].sort();
       out[col.columnId] = values;
     }
     return out;
-  }, [items, filterableColumns]);
+  }, [safeItems, filterableColumns]);
 
   const valueCountsByColumn = useMemo(() => {
     const out: Record<string, Array<{ value: string; count: number }>> = {};
     for (const col of filterableColumns) {
       const countMap = new Map<string, number>();
-      for (const item of items) {
+      for (const item of safeItems) {
         const v = String(col.getValue(item)).trim();
         if (v) countMap.set(v, (countMap.get(v) ?? 0) + 1);
       }
@@ -256,15 +263,16 @@ export function useTableFiltersAndSort<T>(
         .sort((a, b) => a.value.localeCompare(b.value, undefined, { numeric: true }));
     }
     return out;
-  }, [items, filterableColumns]);
+  }, [safeItems, filterableColumns]);
 
   const filteredAndSortedItems = useMemo(() => {
     // `items` is typed as T[], but callers occasionally pass a value derived
     // from an API response that wasn't actually an array (e.g. a malformed
-    // or not-yet-loaded payload) — guard here once rather than trust every
-    // call site, since the crash this produces downstream ("X is not
+    // or not-yet-loaded payload) — guarded once via safeItems above (shared
+    // with distinctValuesByColumn/valueCountsByColumn) rather than trusting
+    // every call site, since the crash this produces downstream ("X is not
     // iterable" at the spread below) gives no indication of which caller.
-    let result = Array.isArray(items) ? items : [];
+    let result = safeItems;
 
     for (const col of columns) {
       if (!col.filterable) continue;
@@ -288,7 +296,7 @@ export function useTableFiltersAndSort<T>(
     }
 
     return result;
-  }, [items, columns, columnFiltersState, sortKey, sortOrder]);
+  }, [safeItems, columns, columnFiltersState, sortKey, sortOrder]);
 
   const hasActiveFilters = useMemo(() => {
     return Object.values(columnFiltersState).some((s) => s && s.size > 0);
