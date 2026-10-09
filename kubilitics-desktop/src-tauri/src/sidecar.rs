@@ -720,6 +720,14 @@ pub struct BrainManager {
     /// Resolved gRPC port — equals BRAIN_GRPC_PORT (50061) in the common case;
     /// a different OS-assigned port when 50061 was already in use.
     resolved_grpc_port: Arc<Mutex<u16>>,
+    /// docs/ai/STABILIZATION-PLAN.md Phase 1.3: only BackendManager had a
+    /// health-monitor loop; if the brain crashed post-start, nothing
+    /// detected or restarted it — chat stayed broken until a manual restart
+    /// or full app relaunch. These two fields mirror BackendManager's own
+    /// (restart_count, is_running) exactly, including the Phase 1.1 fix
+    /// (reset to 0 on a successful restart, not cumulative for the session).
+    restart_count: Arc<Mutex<u32>>,
+    is_running: Arc<Mutex<bool>>,
 }
 
 impl BrainManager {
@@ -730,6 +738,8 @@ impl BrainManager {
             brain_process: Arc::new(Mutex::new(None)),
             resolved_http_port: Arc::new(Mutex::new(BRAIN_HTTP_PORT)),
             resolved_grpc_port: Arc::new(Mutex::new(BRAIN_GRPC_PORT)),
+            restart_count: Arc::new(Mutex::new(0)),
+            is_running: Arc::new(Mutex::new(false)),
         }
     }
 
@@ -827,12 +837,17 @@ impl BrainManager {
         let (rx, child) = cmd.spawn()?;
         drain_sidecar_output(rx, "brain");
         *self.brain_process.lock().unwrap() = Some(child);
+        *self.is_running.lock().unwrap() = true;
         println!("kubilitics-ai-server started on http://localhost:{} (gRPC :{})", http_port, grpc_port);
 
         // Wait for /health.
         match self.wait_for_ready().await {
             Ok(()) => {
                 *self.is_ready.lock().unwrap() = true;
+                // Phase 1.1-style reset: a successful (re)start means the
+                // brain is healthy again — the restart counter tracks
+                // consecutive failures, not a lifetime total.
+                *self.restart_count.lock().unwrap() = 0;
                 let _ = self.app_handle.emit("brain-status", serde_json::json!({
                     "status": "ready",
                     "message": "AI engine ready"
@@ -869,7 +884,52 @@ impl BrainManager {
         Err(format!("brain did not become ready within {}s", BRAIN_READY_TIMEOUT_SECS).into())
     }
 
+    /// docs/ai/STABILIZATION-PLAN.md Phase 1.3 — mirrors
+    /// BackendManager::start_health_monitor exactly, including the
+    /// restart-count/is_running semantics. Spawned exactly once from
+    /// start_brain(), not from start()/restart(), since restart() itself
+    /// calls start() (config-change reload) and a monitor spawned there
+    /// would duplicate on every reload.
+    fn start_health_monitor(this: Arc<Self>) {
+        tokio::spawn(async move {
+            loop {
+                sleep(Duration::from_secs(HEALTH_CHECK_INTERVAL_SECS)).await;
+
+                let running = {
+                    let guard = this.is_running.lock().unwrap();
+                    *guard
+                };
+                if !running {
+                    continue;
+                }
+
+                if !BackendManager::check_health(this.port()).await {
+                    println!("Brain health check failed. Attempting restart...");
+
+                    let count = {
+                        let mut guard = this.restart_count.lock().unwrap();
+                        *guard += 1;
+                        *guard
+                    };
+
+                    if count <= MAX_RESTART_ATTEMPTS {
+                        if let Err(e) = Arc::clone(&this).start().await {
+                            eprintln!("Failed to restart brain: {}", e);
+                        } else {
+                            println!("Brain restarted successfully (attempt {})", count);
+                        }
+                    } else {
+                        eprintln!("Max restart attempts reached. Brain will not restart.");
+                        let mut guard = this.is_running.lock().unwrap();
+                        *guard = false;
+                    }
+                }
+            }
+        });
+    }
+
     pub async fn stop(&self) {
+        *self.is_running.lock().unwrap() = false;
         if let Some(child) = self.brain_process.lock().unwrap().take() {
             let _ = child.kill();
             println!("kubilitics-ai-server stopped");
@@ -931,6 +991,9 @@ pub fn start_brain(app_handle: &AppHandle) -> Result<Arc<BrainManager>, Box<dyn 
             eprintln!("Failed to start brain: {}", e);
         }
     });
+    // Phase 1.3: started exactly once here, not inside start()/restart() —
+    // see the doc comment on start_health_monitor for why.
+    BrainManager::start_health_monitor(manager.clone());
     Ok(manager)
 }
 
