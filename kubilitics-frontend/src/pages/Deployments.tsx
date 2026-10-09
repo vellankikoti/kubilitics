@@ -20,7 +20,7 @@ import { ResizableTableProvider, ResizableTableHead, ResizableTableCell, type Re
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useK8sResourceList, useDeleteK8sResource, useCreateK8sResource, usePatchK8sResource, calculateAge, type KubernetesResource } from '@/hooks/useKubernetes';
 import { useConnectionStatus } from '@/hooks/useConnectionStatus';
 import { useBackendConfigStore, getEffectiveBackendBaseUrl } from '@/stores/backendConfigStore';
@@ -30,7 +30,8 @@ import { useAIContextStore } from '@/stores/aiContextStore';
 import { Sparkles } from 'lucide-react';
 import { applyManifest, CONFIRM_DESTRUCTIVE_HEADER, getDeploymentRolloutHistory, getEvents, postDeploymentRollback } from '@/services/backendApiClient';
 import { DeleteConfirmDialog, ScaleDialog, RolloutActionsDialog, MetricBar, parseCpu, parseMemory, calculatePodResourceMax, BulkActionBar, executeBulkOperation } from '@/components/resources';
-import { ResourceCommandBar, ResourceExportDropdown, ListViewSegmentedControl } from '@/components/list';
+import { ResourceCommandBar, ResourceExportDropdown, ListViewSegmentedControl, NamespaceFilter } from '@/components/list';
+import { useNamespaceFilter } from '@/hooks/useNamespaceFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ResourceCreator, DEFAULT_YAMLS } from '@/components/editor';
 import { useQuery } from '@tanstack/react-query';
@@ -215,10 +216,11 @@ type ListView = 'flat' | 'byNamespace' | 'byStrategy';
 
 export default function Deployments() {
  const navigate = useNavigate();
- const [searchParams] = useSearchParams();
  const [searchQuery, setSearchQuery] = useState('');
  const debouncedSearch = useDebouncedValue(searchQuery, 250);
- const [selectedNamespace, setSelectedNamespace] = useState<string>('all');
+ // Standard list-page namespace-filter pattern (src/hooks/useNamespaceFilter.ts) —
+ // multi-select, URL-persisted so it survives navigating away and back.
+ const [selectedNamespaces, setSelectedNamespaces] = useNamespaceFilter();
  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; item: Deployment | null; bulk?: boolean }>({ open: false, item: null });
  const [scaleDialog, setScaleDialog] = useState<{ open: boolean; item: Deployment | null }>({ open: false, item: null });
  const [rolloutDialog, setRolloutDialog] = useState<{ open: boolean; item: Deployment | null }>({ open: false, item: null });
@@ -267,10 +269,14 @@ export default function Deployments() {
  }));
  }, [rolloutHistoryQuery.data?.revisions, rolloutDialogItem?.revision]);
 
+ // Scoped only when exactly one namespace is selected — with 0 (all) or 2+
+ // selected there's no single namespace to scope this side-query to, same as
+ // the previous 'all' behavior.
+ const singleSelectedNamespace = selectedNamespaces.size === 1 ? Array.from(selectedNamespaces)[0] : undefined;
  const eventsForScaleCount = useQuery({
- queryKey: ['backend', 'events', clusterId, selectedNamespace],
- queryFn: () => getEvents(backendBaseUrl!, clusterId!, { namespace: selectedNamespace === 'all' ? undefined : selectedNamespace, limit: 300 }),
- enabled: !!(isBackendConfigured && clusterId && selectedNamespace !== 'all'),
+ queryKey: ['backend', 'events', clusterId, singleSelectedNamespace],
+ queryFn: () => getEvents(backendBaseUrl!, clusterId!, { namespace: singleSelectedNamespace, limit: 300 }),
+ enabled: !!(isBackendConfigured && clusterId && singleSelectedNamespace),
  staleTime: 60_000,
  });
  const scaleEvents24h = useMemo(() => {
@@ -291,27 +297,19 @@ export default function Deployments() {
  degraded: items.filter((i) => i.status === 'Degraded').length,
  paused: items.filter((i) => i.status === 'Paused').length,
  rollingUpdates: items.filter((i) => i.status === 'Progressing').length,
- scaleEvents24h: selectedNamespace === 'all' ? 0 : scaleEvents24h,
- }), [items, selectedNamespace, scaleEvents24h]);
+ scaleEvents24h: singleSelectedNamespace ? scaleEvents24h : 0,
+ }), [items, singleSelectedNamespace, scaleEvents24h]);
 
- const namespaces = useMemo(() => ['all', ...Array.from(new Set(items.map(i => i.namespace)))], [items]);
-
- // Seed namespace filter from ?namespace=<ns> when navigated from Namespace detail.
- useEffect(() => {
- const nsFromQuery = searchParams.get('namespace');
- if (!nsFromQuery) return;
- if (selectedNamespace !== 'all') return;
- setSelectedNamespace(nsFromQuery);
- }, [searchParams, selectedNamespace]);
+ const namespaces = useMemo(() => Array.from(new Set(items.map(i => i.namespace))).sort(), [items]);
 
  const itemsAfterSearchAndNs = useMemo(() => {
  return items.filter((item) => {
  const q = debouncedSearch.toLowerCase();
  const matchesSearch = !q || item.name.toLowerCase().includes(q) || item.namespace.toLowerCase().includes(q);
- const matchesNamespace = selectedNamespace === 'all' || item.namespace === selectedNamespace;
+ const matchesNamespace = selectedNamespaces.size === 0 || selectedNamespaces.has(item.namespace);
  return matchesSearch && matchesNamespace;
  });
- }, [items, debouncedSearch, selectedNamespace]);
+ }, [items, debouncedSearch, selectedNamespaces]);
 
  const deploymentsTableConfig: ColumnConfig<Deployment>[] = useMemo(() => {
  const parseReady = (ready: string): number => {
@@ -383,7 +381,7 @@ export default function Deployments() {
  // Reset to first page when namespace/search filter changes
  useEffect(() => {
  setPageIndex(0);
- }, [selectedNamespace, debouncedSearch]);
+ }, [selectedNamespaces, debouncedSearch]);
 
  const handlePageSizeChange = (size: number) => {
  setPageSize(size);
@@ -644,28 +642,12 @@ spec:
  globalFilterBar={
  <ResourceCommandBar
  scope={
- <div className="w-full min-w-0">
- <DropdownMenu>
- <DropdownMenuTrigger asChild>
- <Button variant="outline" className="w-full min-w-0 justify-between h-10 gap-2 rounded-lg border border-border bg-background font-medium shadow-sm hover:bg-muted/50 hover:border-primary/30 focus-visible:ring-2 focus-visible:ring-primary/20">
- <Filter className="h-4 w-4 shrink-0 text-muted-foreground" />
- <span className="truncate">{selectedNamespace === 'all' ? 'All Namespaces' : selectedNamespace}</span>
- <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
- </Button>
- </DropdownMenuTrigger>
- <DropdownMenuContent align="start" className="w-48">
- {namespaces.map((ns) => (
- <DropdownMenuItem
- key={ns}
- onClick={() => setSelectedNamespace(ns)}
- className={cn(selectedNamespace === ns && 'bg-accent')}
- >
- {ns === 'all' ? 'All Namespaces' : ns}
- </DropdownMenuItem>
- ))}
- </DropdownMenuContent>
- </DropdownMenu>
- </div>
+ <NamespaceFilter
+ namespaces={namespaces}
+ selected={selectedNamespaces}
+ onSelectionChange={setSelectedNamespaces}
+ triggerVariant="bar"
+ />
  }
  search={
  <ListSearchInput
