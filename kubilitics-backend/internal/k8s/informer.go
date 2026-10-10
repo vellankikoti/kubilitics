@@ -18,8 +18,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	vpaclientset "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/clientset/versioned"
+	vpainformers "k8s.io/autoscaler/vertical-pod-autoscaler/pkg/client/informers/externalversions"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/tools/cache"
+	kubeaggregatorclientset "k8s.io/kube-aggregator/pkg/client/clientset_generated/clientset"
+	kubeaggregatorinformers "k8s.io/kube-aggregator/pkg/client/informers/externalversions"
 )
 
 // ResourceEventHandler handles resource events
@@ -52,6 +56,108 @@ type InformerManager struct {
 	// permission would silently and permanently disable the ENTIRE cache — pods,
 	// deployments, services, everything — not just CRDs. See docs/ai/KNOWN-ISSUES.md.
 	crdSynced atomic.Bool
+
+	// apiServiceFactory is a separate SharedInformerFactory for APIService:
+	// apiregistration.k8s.io isn't part of kubernetes.Interface either, same
+	// reasoning as crdFactory above. nil if client.Config is nil or the
+	// clientset failed to construct — APIService then falls back to the
+	// direct API, same as any other uncached kind.
+	apiServiceFactory kubeaggregatorinformers.SharedInformerFactory
+	// vpaFactory is a separate SharedInformerFactory for VerticalPodAutoscaler:
+	// autoscaling.k8s.io has no typed client in client-go — it needs the VPA
+	// project's own generated clientset. Same nil-safety reasoning as
+	// apiServiceFactory above.
+	vpaFactory vpainformers.SharedInformerFactory
+	// draFactory is a SEPARATE SharedInformerFactory (built from the SAME
+	// client.Clientset as the main factory — resource.k8s.io informers are
+	// already part of kubernetes.Interface, no new dependency needed) for
+	// ResourceSlice/DeviceClass. It must stay separate from im.factory: DRA
+	// is version-skewed across Kubernetes releases (v1alpha3/v1beta1/
+	// v1beta2/v1 GA) and plenty of clusters don't serve it at all, so if its
+	// informers were registered on the main factory, a cluster that doesn't
+	// serve draVersion would permanently fail ONE informer's sync forever —
+	// which, before this separation, ANDed into mainSynced and would have
+	// silently disabled the cache-first path for pods/deployments/every
+	// other kind too. Nil if discoverDRAVersion found no servable version.
+	// See docs/ai/KNOWN-ISSUES.md.
+	draFactory informers.SharedInformerFactory
+	// draVersion is the resource.k8s.io version discoverDRAVersion picked
+	// for this cluster ("v1", "v1beta2", or "v1beta1"); empty if draFactory
+	// is nil.
+	draVersion string
+	// auxFactories generalizes the crdFactory/crdSynced pattern above for
+	// every aux factory ADDED AFTER CRD (APIService, VPA now; DRA follows the
+	// same shape later) — each tracked with its own independent sync flag,
+	// routed to by kindSynced via auxByKind, so a kind's RBAC gap can only
+	// ever disable ITS OWN aux factory's cache-first path. CRD itself keeps
+	// its original hand-written fields above rather than being migrated
+	// into this slice, to avoid touching its already-hardened, separately
+	// regression-tested isolation behavior (informer_coverage_gap_test.go).
+	auxFactories []*auxInformerFactory
+	auxByKind    map[string]*auxInformerFactory
+}
+
+// syncableFactory is the subset of a generated SharedInformerFactory's
+// interface needed to start it and track its own sync state — satisfied by
+// every k8s.io code-generated informers package (kube-aggregator today; VPA
+// and the DRA client later), letting auxInformerFactory share one
+// implementation instead of hand-duplicating crdFactory/crdSynced per kind.
+type syncableFactory interface {
+	Start(stopCh <-chan struct{})
+	WaitForCacheSync(stopCh <-chan struct{}) map[reflect.Type]bool
+}
+
+// auxInformerFactory is a secondary informer factory for an API group that
+// isn't part of kubernetes.Interface, backing one or more store keys with
+// its own independent sync flag (see the crdSynced field comment for why
+// that independence matters).
+type auxInformerFactory struct {
+	name    string // for logging, e.g. "APIService"
+	factory syncableFactory
+	synced  atomic.Bool
+	kinds   map[string]bool // storeKeys backed by this factory
+}
+
+// draCandidateVersions are the resource.k8s.io versions this backend knows
+// typed informers for, in decreasing order of GA-ness. DRA has moved
+// v1alpha2 -> v1alpha3 -> v1beta1 -> v1beta2 -> v1 (GA) across Kubernetes
+// releases; v1alpha3 no longer carries ResourceSlice/DeviceClass in this
+// client-go version (narrowed to DeviceTaintRule only), so it's excluded
+// here — a cluster that old simply won't match any candidate and falls
+// back to the direct API, same as before this change.
+var draCandidateVersions = []string{"v1", "v1beta2", "v1beta1"}
+
+// discoverDRAVersion returns the first candidate version the connected
+// cluster's API server actually serves BOTH ResourceSlice and DeviceClass
+// under, or ("", false) if none match (DRA disabled entirely, or served
+// only under a version this backend doesn't have a typed informer for).
+// Hardcoding one version (e.g. always v1) would make the informer for any
+// cluster not yet on that exact version fail to sync forever — see the
+// draFactory field comment for why that must never be allowed to leak into
+// other kinds' sync state, and docs/ai/KNOWN-ISSUES.md for the history.
+func discoverDRAVersion(client *Client) (string, bool) {
+	if client == nil || client.Clientset == nil {
+		return "", false
+	}
+	for _, v := range draCandidateVersions {
+		list, err := client.Clientset.Discovery().ServerResourcesForGroupVersion("resource.k8s.io/" + v)
+		if err != nil || list == nil {
+			continue // not served under this version (or discovery failed) — try the next
+		}
+		hasSlices, hasClasses := false, false
+		for _, r := range list.APIResources {
+			switch r.Name {
+			case "resourceslices":
+				hasSlices = true
+			case "deviceclasses":
+				hasClasses = true
+			}
+		}
+		if hasSlices && hasClasses {
+			return v, true
+		}
+	}
+	return "", false
 }
 
 // NewInformerManager creates a new informer manager
@@ -64,11 +170,12 @@ func NewInformerManager(client *Client) *InformerManager {
 	factory := informers.NewSharedInformerFactory(client.Clientset, 5*time.Minute)
 
 	im := &InformerManager{
-		client:   client,
-		factory:  factory,
-		stopCh:   make(chan struct{}),
-		handlers: make(map[string]ResourceEventHandler),
-		stores:   make(map[string]cache.Indexer),
+		client:    client,
+		factory:   factory,
+		stopCh:    make(chan struct{}),
+		handlers:  make(map[string]ResourceEventHandler),
+		stores:    make(map[string]cache.Indexer),
+		auxByKind: make(map[string]*auxInformerFactory),
 	}
 
 	// client.Config is nil for test-only clients (NewClientForTest) — apiextensionsclientset.NewForConfig
@@ -79,6 +186,28 @@ func NewInformerManager(client *Client) *InformerManager {
 		} else {
 			log.Printf("informer manager: CustomResourceDefinition caching disabled (apiextensions clientset: %v); CRD reads will use the direct API fallback", err)
 		}
+
+		if asClient, err := kubeaggregatorclientset.NewForConfig(client.Config); err == nil {
+			im.apiServiceFactory = kubeaggregatorinformers.NewSharedInformerFactory(asClient, 5*time.Minute)
+		} else {
+			log.Printf("informer manager: APIService caching disabled (kube-aggregator clientset: %v); APIService reads will use the direct API fallback", err)
+		}
+
+		if vpaClient, err := vpaclientset.NewForConfig(client.Config); err == nil {
+			im.vpaFactory = vpainformers.NewSharedInformerFactory(vpaClient, 5*time.Minute)
+		} else {
+			log.Printf("informer manager: VerticalPodAutoscaler caching disabled (VPA clientset: %v); VPA reads will use the direct API fallback", err)
+		}
+	}
+
+	// ResourceSlice/DeviceClass (DRA): negotiate the version this specific
+	// cluster actually serves rather than hardcoding one — see draVersion's
+	// field comment and discoverDRAVersion below.
+	if version, ok := discoverDRAVersion(client); ok {
+		im.draVersion = version
+		im.draFactory = informers.NewSharedInformerFactory(client.Clientset, 5*time.Minute)
+	} else {
+		log.Printf("informer manager: ResourceSlice/DeviceClass caching disabled (cluster does not serve resource.k8s.io under v1, v1beta2, or v1beta1); DRA reads will use the direct API fallback")
 	}
 
 	return im
@@ -151,10 +280,71 @@ func (im *InformerManager) Start(ctx context.Context) error {
 		im.setupInformer("CustomResourceDefinition", im.crdFactory.Apiextensions().V1().CustomResourceDefinitions().Informer())
 	}
 
+	// APIService uses its own clientset/factory (apiregistration.k8s.io isn't
+	// part of kubernetes.Interface, same reasoning as CRD above), registered
+	// via the generic auxFactories mechanism rather than duplicating
+	// crdFactory's hand-written fields. See docs/ai/KNOWN-ISSUES.md.
+	if im.apiServiceFactory != nil {
+		im.setupInformer("APIService", im.apiServiceFactory.Apiregistration().V1().APIServices().Informer())
+		aux := &auxInformerFactory{name: "APIService", factory: im.apiServiceFactory, kinds: map[string]bool{"APIService": true}}
+		im.auxFactories = append(im.auxFactories, aux)
+		im.auxByKind["APIService"] = aux
+	}
+
+	// VerticalPodAutoscaler uses its own clientset/factory (autoscaling.k8s.io
+	// has no typed client in client-go). Many clusters never install the VPA
+	// CRDs at all — in that case this informer simply never syncs (the API
+	// group/resource doesn't exist to watch), which the independent sync flag
+	// handles correctly: VPA cache-first reads stay permanently disabled on
+	// that cluster while every other kind is unaffected. See
+	// docs/ai/KNOWN-ISSUES.md.
+	if im.vpaFactory != nil {
+		im.setupInformer("VerticalPodAutoscaler", im.vpaFactory.Autoscaling().V1().VerticalPodAutoscalers().Informer())
+		aux := &auxInformerFactory{name: "VerticalPodAutoscaler", factory: im.vpaFactory, kinds: map[string]bool{"VerticalPodAutoscaler": true}}
+		im.auxFactories = append(im.auxFactories, aux)
+		im.auxByKind["VerticalPodAutoscaler"] = aux
+	}
+
+	// ResourceSlice/DeviceClass (DRA) — draFactory is only non-nil when
+	// discoverDRAVersion (in NewInformerManager) found a version this
+	// cluster actually serves both resources under. Deliberately a
+	// SEPARATE SharedInformerFactory from im.factory even though
+	// resource.k8s.io informers live in the same client-go package — see
+	// the draFactory field comment for why.
+	if im.draFactory != nil {
+		var sliceInformer, classInformer cache.SharedIndexInformer
+		switch im.draVersion {
+		case "v1":
+			sliceInformer = im.draFactory.Resource().V1().ResourceSlices().Informer()
+			classInformer = im.draFactory.Resource().V1().DeviceClasses().Informer()
+		case "v1beta2":
+			sliceInformer = im.draFactory.Resource().V1beta2().ResourceSlices().Informer()
+			classInformer = im.draFactory.Resource().V1beta2().DeviceClasses().Informer()
+		case "v1beta1":
+			sliceInformer = im.draFactory.Resource().V1beta1().ResourceSlices().Informer()
+			classInformer = im.draFactory.Resource().V1beta1().DeviceClasses().Informer()
+		}
+		if sliceInformer != nil && classInformer != nil {
+			im.setupInformer("ResourceSlice", sliceInformer)
+			im.setupInformer("DeviceClass", classInformer)
+			aux := &auxInformerFactory{
+				name:    "DRA(" + im.draVersion + ")",
+				factory: im.draFactory,
+				kinds:   map[string]bool{"ResourceSlice": true, "DeviceClass": true},
+			}
+			im.auxFactories = append(im.auxFactories, aux)
+			im.auxByKind["ResourceSlice"] = aux
+			im.auxByKind["DeviceClass"] = aux
+		}
+	}
+
 	// Start all informers
 	im.factory.Start(im.stopCh)
 	if im.crdFactory != nil {
 		im.crdFactory.Start(im.stopCh)
+	}
+	for _, aux := range im.auxFactories {
+		aux.factory.Start(im.stopCh)
 	}
 
 	// LOADING-5 (docs/PRODUCTION-RELIABILITY-AUDIT.md): WaitForCacheSync(im.stopCh)
@@ -276,6 +466,28 @@ func (im *InformerManager) waitForSync(timeout time.Duration) (mainSynced, crdSy
 			checkSync(im.crdFactory.WaitForCacheSync(giveUp), &crdSynced)
 		}()
 	}
+	// Each aux factory (APIService today; VPA/DRA later) is waited on the
+	// same way as CRD above, but stores its result directly into its own
+	// atomic.Bool rather than this function's return tuple — kindSynced
+	// reads it directly via auxByKind, so a slow/RBAC-denied aux factory
+	// never blocks or is conflated with mainSynced/crdSynced.
+	for _, aux := range im.auxFactories {
+		aux := aux
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			defer func() {
+				if r := recover(); r != nil {
+					slog.Default().Error("panic in informer cache-sync goroutine ("+aux.name+" factory)", "error", r)
+				}
+			}()
+			ok := true
+			checkSync(aux.factory.WaitForCacheSync(giveUp), &ok)
+			if ok {
+				aux.synced.Store(true)
+			}
+		}()
+	}
 	wg.Wait()
 
 	return mainSynced, crdSynced
@@ -348,7 +560,33 @@ func (im *InformerManager) retrySyncInBackground() {
 					log.Printf("informer cache (CRD) finished initial sync after retrying in the background")
 				}
 			}
-			if im.synced.Load() && (im.crdFactory == nil || im.crdSynced.Load()) {
+			for _, aux := range im.auxFactories {
+				if aux.synced.Load() {
+					continue
+				}
+				ok := true
+				for informerType, synced := range aux.factory.WaitForCacheSync(alreadyClosed) {
+					if !synced {
+						ok = false
+						if tick%diagnosticEvery == 0 {
+							log.Printf("informer cache sync: %s still not synced after retrying in the background — commonly RBAC; the %s cache stays disabled for this cluster until it does (other resource kinds are unaffected)", informerType, aux.name)
+						}
+					}
+				}
+				if ok {
+					aux.synced.Store(true)
+					log.Printf("informer cache (%s) finished initial sync after retrying in the background", aux.name)
+				}
+			}
+
+			allAuxSynced := true
+			for _, aux := range im.auxFactories {
+				if !aux.synced.Load() {
+					allAuxSynced = false
+					break
+				}
+			}
+			if im.synced.Load() && (im.crdFactory == nil || im.crdSynced.Load()) && allAuxSynced {
 				return
 			}
 		}
@@ -372,6 +610,9 @@ func (im *InformerManager) HasSynced() bool {
 func (im *InformerManager) kindSynced(storeKey string) bool {
 	if storeKey == "CustomResourceDefinition" {
 		return im.crdSynced.Load()
+	}
+	if aux, ok := im.auxByKind[storeKey]; ok {
+		return aux.synced.Load()
 	}
 	return im.HasSynced()
 }
@@ -417,6 +658,19 @@ var resourceKindToStoreKey = map[string]string{
 	"mutatingwebhookconfigurations":   "MutatingWebhookConfiguration",
 	"validatingwebhookconfigurations": "ValidatingWebhookConfiguration",
 	"customresourcedefinitions":       "CustomResourceDefinition",
+
+	// APIService: separate kube-aggregator clientset/factory, same reasoning
+	// as CustomResourceDefinition above — see auxFactories in informer.go.
+	"apiservices": "APIService",
+
+	// VerticalPodAutoscaler: separate VPA-project clientset/factory, same
+	// auxFactories mechanism — see informer.go.
+	"verticalpodautoscalers": "VerticalPodAutoscaler",
+
+	// ResourceSlice/DeviceClass (DRA): separate version-negotiated factory
+	// (draFactory), same auxFactories mechanism — see informer.go.
+	"resourceslices": "ResourceSlice",
+	"deviceclasses":  "DeviceClass",
 }
 
 // ListFromCache reads resources from the in-memory informer cache.
