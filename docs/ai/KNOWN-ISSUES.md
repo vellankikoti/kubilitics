@@ -55,6 +55,43 @@ cache or another aux kind. Regression tests:
 
 ## Fixed, for reference (don't re-investigate)
 
+- Cluster detection/sync reliability (Headlamp comparison pass, 2026-10-10)
+  — three root causes behind "cluster detection is unreliable and
+  confusing," found by comparing Kubilitics' presence architecture against
+  Headlamp's and verifying every claim against the actual code:
+  1. `clusterSwitch.ts`'s invalidation bus (9 Zustand stores subscribed,
+     fully tested) was never actually triggered — `emitClusterSwitch()`
+     had zero production call sites, only test-file ones. Every
+     cache-holding store silently kept the previous cluster's data after a
+     switch. Fixed by emitting from inside
+     `clusterPresenceStore.setActiveByLogicalIdentity()`, the one choke
+     point every switch call site (`ClusterPickerPage`, `Header`,
+     `useAutoConnect`, `Settings`, `FleetDashboard`, ...) funnels through.
+  2. `discovery.Manager.Snapshot()`'s `Connected` list was hardcoded empty
+     with a comment deferring it as needing a future `ConnectionManager` —
+     but `SetReachabilityChecker`'s own doc comment already describes
+     exactly that session tracking (ClusterService's live client
+     registry). `Connected` is now derived as the subset of `Registered`
+     the checker reports reachable.
+  3. The real mechanism behind "recreating a kind cluster outside the app
+     takes up to 60s to show up": each watch source (e.g.
+     `KubeconfigFileSource`'s fsnotify handler) diffs its own prev/curr
+     state independently of `Manager.discovered`, which only
+     `Refresh()` rebuilds — previously called only on explicit
+     add/remove or the 60s tick, never on a raw watch event. The
+     frontend's SSE handler re-fetches `Snapshot()` the instant any event
+     arrives, so it raced ahead of the next scheduled `Refresh()` and got
+     stale data. `Manager.Events()` now calls `Refresh()` before
+     forwarding each event.
+  Also fixed an unrelated flaky `-race` failure in
+  `manager_bounded_refresh_test.go`'s `hangingSource` test helper
+  (check-then-close on a channel, racy under concurrent `Enumerate`
+  calls — `sync.Once` instead), found while stress-testing the above.
+  Kubilitics' identity model (name+serverURL logical identity surviving
+  session-UUID churn) and SSE-push architecture were confirmed already
+  sound and arguably ahead of Headlamp's polling model — the
+  unreliability was wiring, not architecture.
+
 - Vitest 2→4 / Vite 5→6 migration — cleared both critical CVEs
   (tinypool's prototype-pollution RCE; vitest's own UI-server file-read
   CVE — vitest 4 dropped tinypool as a dependency entirely). Done in an
