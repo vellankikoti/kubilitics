@@ -40,7 +40,14 @@ import { getProviderLogo, getProviderLabel } from '@/topology/icons/providerLogo
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type Reachability = 'reachable' | 'unreachable' | 'unknown';
+// 'checking' vs 'unreachable': the backend's Reachable flag fails closed
+// (false) both when a check has actually failed AND when no check has run
+// yet (fresh registration, or the brief window right after backend startup
+// before reconnects complete) — see SetReachabilityChecker's doc comment in
+// discovery/manager.go. last_checked_at (absent only in the "never checked"
+// case) is what tells these apart; collapsing both to a solid red
+// "Unreachable" dot is a false alarm on every fresh connect.
+type Reachability = 'reachable' | 'unreachable' | 'checking' | 'unknown';
 type AddTab = 'upload' | 'paste';
 
 interface MergedCluster {
@@ -108,7 +115,7 @@ function mergeClusters(
     byKey.set(k, {
       identity: r.identity,
       source: r.source,
-      reachability: r.reachable ? 'reachable' : 'unreachable',
+      reachability: r.reachable ? 'reachable' : r.last_checked_at ? 'unreachable' : 'checking',
       isConnected: connectedKeys.has(k) || prev?.isConnected || false,
       connectedAt: connectedAtMap.get(k) ?? prev?.connectedAt,
       kubeconfigPath: r.kubeconfig_path ?? prev?.kubeconfigPath,
@@ -133,6 +140,11 @@ function sortClusters(list: MergedCluster[]): MergedCluster[] {
 function reachabilityDotClass(r: Reachability): string {
   if (r === 'reachable') return 'bg-[hsl(var(--success))]';
   if (r === 'unreachable') return 'bg-[hsl(var(--destructive))]';
+  // 'checking' uses the same info-colored, pulsing convention as
+  // status-badge.tsx's 'loading' variant — an in-progress signal, visually
+  // distinct from 'unknown' (a bare discovered-only entry with no check
+  // pending at all), which keeps the plain muted dot.
+  if (r === 'checking') return 'bg-[hsl(var(--info))] animate-pulse';
   return 'bg-muted-foreground/40';
 }
 
@@ -155,7 +167,11 @@ function isReachabilityStale(lastCheckedAt?: string): boolean {
 // boolean — "Reachable" alone can't distinguish "checked 2s ago" from
 // "checked 10 minutes ago."
 function reachabilityTitle(r: Reachability, lastCheckedAt?: string): string {
-  const base = r === 'reachable' ? 'Reachable' : r === 'unreachable' ? 'Unreachable' : 'Unknown';
+  const base =
+    r === 'reachable' ? 'Reachable'
+    : r === 'unreachable' ? 'Unreachable'
+    : r === 'checking' ? 'Checking connection…'
+    : 'Unknown';
   if (!lastCheckedAt) return base;
   const checkedMs = Date.parse(lastCheckedAt);
   if (Number.isNaN(checkedMs)) return base;
