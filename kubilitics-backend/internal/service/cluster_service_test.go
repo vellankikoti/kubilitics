@@ -14,7 +14,9 @@ import (
 	"github.com/kubilitics/kubilitics-backend/internal/k8s"
 	"github.com/kubilitics/kubilitics-backend/internal/models"
 	"github.com/kubilitics/kubilitics-backend/internal/repository"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/fake"
+	k8stesting "k8s.io/client-go/testing"
 )
 
 // mockClusterRepo implements repository.ClusterRepository for tests.
@@ -313,6 +315,78 @@ func TestClusterService_AddCluster_ConnectionFailure(t *testing.T) {
 	}
 	if c.Status != "connected" && c.Status != "disconnected" && c.Status != "error" {
 		t.Errorf("unexpected status: %s", c.Status)
+	}
+}
+
+// TestClusterService_AddCluster_UnreachableClusterKeepsDeclaredServerURL is the
+// regression seal for the root cause behind "clicking an unreachable cluster
+// in the picker does something confusing/broken": when the live connection
+// test fails, addClusterWithSource left ServerURL as "" (serverURL only gets
+// set inside the TestConnection-succeeded branch) and persisted that empty
+// string. KubeconfigFileSource's discovery Enumerate(), in contrast, parses
+// the kubeconfig's declared `server:` field directly off disk — a purely
+// local read requiring no network call. The result: the SAME cluster gets
+// TWO DIFFERENT LogicalIdentity keys system-wide the moment it's unreachable
+// — identity.LogicalIdentity{Name, ServerURL} with a real ServerURL from
+// discovery, and {Name, ""} from the registered/manual record — so the
+// presence Manager's dedup-by-key (manager.go's Refresh) never merges them.
+// The frontend then renders/clicks the enriched-less (no session_id, no
+// kubeconfig_path) discovered-only entry, re-POSTs /clusters with a wrong
+// fallback path, and the user sees a cryptic failure instead of "already
+// registered, just unreachable." The declared kubeconfig server URL must
+// survive a failed connection test exactly like KubeconfigFileSource reads
+// it, independent of whether the live call could confirm it.
+func TestClusterService_AddCluster_UnreachableClusterKeepsDeclaredServerURL(t *testing.T) {
+	ctx := context.Background()
+	repo := &mockClusterRepo{clusters: make(map[string]*models.Cluster)}
+
+	const declaredServerURL = "https://10.255.255.1:6443"
+	const contextName = "blackhole-context"
+
+	factory := func(kubeconfigPath, ctxName string) (*k8s.Client, error) {
+		clientset := fake.NewSimpleClientset()
+		clientset.PrependReactor("list", "namespaces", func(k8stesting.Action) (bool, runtime.Object, error) {
+			return true, nil, errors.New("context deadline exceeded")
+		})
+		return k8s.NewClientForTest(clientset), nil
+	}
+	svc := NewClusterServiceWithClientFactory(repo, nil, factory)
+
+	path := filepath.Join(t.TempDir(), "kubeconfig")
+	kubeconfigYAML := `apiVersion: v1
+kind: Config
+clusters:
+- name: blackhole-cluster
+  cluster:
+    server: ` + declaredServerURL + `
+contexts:
+- name: ` + contextName + `
+  context:
+    cluster: blackhole-cluster
+    user: blackhole-user
+users:
+- name: blackhole-user
+  user:
+    token: fake
+`
+	if err := os.WriteFile(path, []byte(kubeconfigYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	c, err := svc.AddCluster(ctx, path, contextName)
+	if err != nil {
+		t.Fatalf("AddCluster (expected to succeed despite unreachable connection): %v", err)
+	}
+	if c.Status == "connected" {
+		t.Fatalf("expected a non-connected status for an unreachable cluster, got %q", c.Status)
+	}
+	if c.ServerURL != declaredServerURL {
+		t.Fatalf(
+			"ServerURL = %q, want the kubeconfig's declared server %q — an empty/wrong ServerURL here "+
+				"diverges from KubeconfigFileSource's discovery identity for the same cluster, breaking "+
+				"the presence dedup",
+			c.ServerURL, declaredServerURL,
+		)
 	}
 }
 

@@ -207,6 +207,30 @@ func clusterInfoString(info map[string]interface{}, key string) string {
 	return v
 }
 
+// serverURLFromKubeconfig reads the API server URL a context declares,
+// straight off disk — no network call, so it's available even when the
+// cluster turns out to be unreachable. Mirrors
+// internal/cluster/discovery/kubeconfig_source.go's Enumerate(), which reads
+// the identical field for the same purpose (discovery identity); kept here
+// rather than imported to avoid a cross-package dependency for one field
+// read. Returns "" on any parse failure or missing context/cluster — callers
+// already treat "" as "unknown," the same as before this helper existed.
+func serverURLFromKubeconfig(kubeconfigPath, contextName string) string {
+	cfg, err := clientcmd.LoadFromFile(kubeconfigPath)
+	if err != nil {
+		return ""
+	}
+	kctx, ok := cfg.Contexts[contextName]
+	if !ok || kctx == nil {
+		return ""
+	}
+	cluster, ok := cfg.Clusters[kctx.Cluster]
+	if !ok || cluster == nil {
+		return ""
+	}
+	return cluster.Server
+}
+
 // clusterInfoInt safely extracts an int value from a GetClusterInfo result map.
 // Returns 0 if the key is absent or the value is not an int.
 func clusterInfoInt(info map[string]interface{}, key string) int {
@@ -569,7 +593,18 @@ func (s *clusterService) addClusterWithSource(ctx context.Context, kubeconfigPat
 	defer cancel()
 
 	status := "connected"
-	serverURL := ""
+	// Seed from the kubeconfig's own declared `server:` field — a local,
+	// network-free read — so ServerURL is always populated, not only when
+	// the live connection test below happens to succeed. Without this, an
+	// unreachable cluster persists ServerURL="", which diverges from
+	// KubeconfigFileSource's discovery identity (it reads the same field
+	// directly off disk) for the exact same cluster. Two different
+	// LogicalIdentity keys for one cluster means the presence Manager's
+	// dedup never merges them, so the registered/session_id/kubeconfig_path
+	// data never reaches the entry the frontend actually renders and lets
+	// the user click — see TestClusterService_AddCluster_
+	// UnreachableClusterKeepsDeclaredServerURL for the full chain.
+	serverURL := serverURLFromKubeconfig(kubeconfigPath, contextName)
 	version := ""
 	provider := k8s.ProviderOnPrem
 
@@ -579,7 +614,12 @@ func (s *clusterService) addClusterWithSource(ctx context.Context, kubeconfigPat
 	} else {
 		fmt.Printf("[AddCluster] Connection test successful for %s\n", contextName)
 		if info, err := client.GetClusterInfo(regCtx); err == nil {
-			serverURL = clusterInfoString(info, "server_url")
+			// Prefer the live value (it's the source of truth when available),
+			// but never regress to empty — keep the kubeconfig-declared seed
+			// above if GetClusterInfo didn't actually return one.
+			if live := clusterInfoString(info, "server_url"); live != "" {
+				serverURL = live
+			}
 			version = clusterInfoString(info, "version")
 			if p, err := client.DetectProvider(regCtx); err == nil && p != "" {
 				provider = p
