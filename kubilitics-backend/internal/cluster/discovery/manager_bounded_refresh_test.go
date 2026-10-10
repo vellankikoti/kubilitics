@@ -15,6 +15,7 @@ package discovery
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -27,9 +28,9 @@ import (
 // client-go reactor, so there is no "Action has no context" limitation
 // here as there was for the PipelineManager/buildClusterSummary fixes).
 type hangingSource struct {
-	name    string
-	started chan struct{}
-	once    func()
+	name        string
+	started     chan struct{}
+	startedOnce sync.Once
 }
 
 func newHangingSource(name string) *hangingSource {
@@ -38,11 +39,12 @@ func newHangingSource(name string) *hangingSource {
 
 func (h *hangingSource) Name() string { return h.name }
 func (h *hangingSource) Enumerate(ctx context.Context) ([]DiscoveredCluster, error) {
-	select {
-	case <-h.started:
-	default:
-		close(h.started)
-	}
+	// TestManager_Refresh_ConcurrentCallsWithHangingSource_RaceFree calls
+	// Enumerate concurrently on the same instance — a plain
+	// select-default-close on h.started is check-then-act and can double
+	// close when two goroutines both see it open. sync.Once makes the
+	// first-closer-wins race safe instead of just unlikely.
+	h.startedOnce.Do(func() { close(h.started) })
 	<-ctx.Done()
 	return nil, ctx.Err()
 }
