@@ -5,12 +5,13 @@ these again.
 
 ## Deferred — needs its own task, not a quick fix
 
-### Informer-cache coverage gap — partially fixed (3 kinds remain)
+### Informer-cache coverage gap — CLOSED
 Backend informer cache (`resourceKindToStoreKey` in `informer.go`) tracked
 27 resource kinds; Headlamp's comparable cache-invalidation allowlist
-covers 46. **8 of the 11 missing kinds are now cached** (all GA/stable
-APIs, zero new go.mod dependencies): `ResourceQuota`, `LimitRange`,
-`EndpointSlice`, `Lease`, `VolumeAttachment`,
+covers 46. All 11 previously-missing kinds are now cached.
+
+8 (all GA/stable APIs, zero new go.mod dependencies): `ResourceQuota`,
+`LimitRange`, `EndpointSlice`, `Lease`, `VolumeAttachment`,
 `MutatingWebhookConfiguration`, `ValidatingWebhookConfiguration` (same
 `SharedInformerFactory` as everything else) and `CustomResourceDefinition`
 (separate apiextensions clientset built from `client.Config` in
@@ -18,20 +19,30 @@ APIs, zero new go.mod dependencies): `ResourceQuota`, `LimitRange`,
 `internal/addon/helm/uninstall.go`'s existing use of the same clientset).
 Regression tests: `internal/k8s/informer_coverage_gap_test.go`.
 
-**Still deferred, genuinely needs its own task:**
-- `APIService` — needs `k8s.io/kube-aggregator`, not currently a
-  dependency.
-- `VerticalPodAutoscaler` — `autoscaling.k8s.io` has no typed client in
-  client-go; needs the VPA project's own generated client (also not
-  vendored).
-- `ResourceSlice` / `DeviceClass` (DRA) — client-go v0.35.1's typed
-  informer targets `resource.k8s.io/v1` (GA), but the existing dynamic-
-  client GVR fallback in `discovery.go` targets `v1alpha3`/`v1`
-  inconsistently across the two kinds, which signals real version-skew
-  risk: wiring the `v1` typed informer could permanently fail to sync
-  (and silently disable the whole cache-sync gate — see `waitForSync`)
-  on any cluster that doesn't yet serve DRA as GA. Needs explicit version
-  negotiation before this is safe to add.
+The final 3, previously deferred as "needs its own task" (Phase 4 of
+`docs/ai/STABILIZATION-PLAN.md`), closed:
+- `APIService` — added `k8s.io/kube-aggregator` (exact version match to
+  the existing `k8s.io/*` v0.35.1 pins, no transitive bump). Always
+  constructed: apiregistration.k8s.io is a core, always-present API group.
+- `VerticalPodAutoscaler` — added
+  `k8s.io/autoscaler/vertical-pod-autoscaler` v1.6.0 (also an exact
+  client-go v0.35.1 match; v1.7+ requires client-go v0.36+). Gated on
+  `clusterServesResources` discovery first — most clusters don't have the
+  VPA CRDs installed, and building the informer anyway (without checking)
+  was tried first and found to retry a 404 forever, spamming logs; fixed
+  before landing.
+- `ResourceSlice` / `DeviceClass` (DRA) — no new dependency; client-go
+  v0.35.1 already has these informers. `discoverDRAVersion` negotiates
+  the version (`v1`/`v1beta2`/`v1beta1`) a given cluster actually serves
+  at startup instead of hardcoding one, avoiding the permanent-sync-
+  failure risk this item was originally deferred over.
+
+All three use a new generalized `auxInformerFactory` + `auxByKind`
+mechanism (generalizing the original hand-written `crdFactory`/
+`crdSynced` pair) so a kind's RBAC gap, missing CRD, or version mismatch
+can only ever disable ITS OWN cache-first path, never the main ~34-kind
+cache or another aux kind. Regression tests:
+`internal/k8s/informer_aux_factories_test.go`.
 
 ## Pre-existing, confirmed not regressions
 

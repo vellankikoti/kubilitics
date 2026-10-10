@@ -176,15 +176,25 @@ multi-second loads plus a background refetch every 5 minutes
 (`refetchInterval` default) per open tab, but this is **estimated, not
 measured**.
 
-1. **Benchmark** Deployments/Services/ConfigMaps/Secrets list-page load
-   time against the real 15K-pod scale cluster — confirm or rule out the
-   extrapolated concern before deciding whether it needs a fix (e.g.
-   moving more kinds to server-side pagination like Pods already has).
-2. **P2, cheap fix**: debounce the `singleSelectedNamespace`-keyed side
-   queries (Deployments' `eventsForScaleCount`, StatefulSets' PVC scoping)
-   — currently fire one request per namespace touched during rapid
-   checkbox-clicking. Bounded by human click speed, not urgent, but a
-   trivial fix.
+1. **DONE — measured, concern ruled out.** Benchmarked the backend list
+   endpoint (`GET /clusters/{id}/resources/{kind}?limit=5000`, exactly
+   what `useK8sResourceList` calls) against a real kind cluster seeded to
+   the documented scale (15,256 pods, 5,002 deployments, 3,002 services,
+   2,043 configmaps, 1,103 secrets, 35 namespaces — kind-nightshift-dev,
+   rebuilt fresh for this test since its prior state had unrelated
+   cert-rotation corruption). Three repeated requests per kind, all
+   well under the extrapolated "multi-second" concern:
+   - Pods: ~365ms · Deployments: ~372ms · Services: ~80ms ·
+     ConfigMaps: ~29ms · Secrets: ~18ms
+   The extrapolation was wrong — no server-side pagination migration is
+   needed for these kinds at this scale. (Seeding used synthetic
+   Pod/Deployment objects with replicas=0 and fake-but-real Node objects
+   so nothing actually scheduled or ran real containers — see git history
+   on this branch for the throwaway seeding tool, not kept in the repo.)
+2. **DONE.** Debounced the `singleSelectedNamespace`-keyed side queries
+   (Deployments' `eventsForScaleCount`, StatefulSets' PVC scoping) via
+   `useDebouncedValue` — they no longer fire one request per namespace
+   touched during rapid checkbox-clicking.
 3. **P2, watch not fix**: EndpointSlice count scales with Service × pod
    fan-out and has no cache eviction/cap — worth a line item to check
    informer memory footprint at scale, not a confirmed problem.
