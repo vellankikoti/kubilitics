@@ -46,9 +46,33 @@ cache or another aux kind. Regression tests:
 
 ## Pre-existing, confirmed not regressions
 
-- `ClusterPickerPage.test.tsx` ×2, `AddClusterDialog.test.tsx` ×1 — see
-  `docs/ai/TESTING.md`. Verified pre-existing via baseline worktree
-  comparison against `e1acb339`.
+- **CORRECTION (2026-10-10):** `ClusterPickerPage.test.tsx` ×2 and
+  `AddClusterDialog.test.tsx` ×1, previously filed here as "confirmed
+  pre-existing, not a regression" (parallel-run flakiness), turned out to
+  be three different deterministic bugs, not flakiness — fixed:
+  - `ClusterPickerPage.test.tsx`'s reachability test used `getByLabelText`
+    against an element with only a `title` attribute — that query never
+    matches `title` at all, so the assertion was silently vacuous, not
+    flaky. Fixed to `getByTitle`.
+  - Its empty-state test asserted text ("No clusters found") the
+    component has never rendered (actual: "No clusters detected") — a
+    typo-level mismatch. It also asserted an empty-state "Add a cluster"
+    dialog trigger that doesn't exist in the current two-pane layout;
+    that half is a product decision (add the feature vs. drop the
+    assertion), so it's split out and `it.skip`'d with an explanation
+    rather than resolved unilaterally.
+  - `AddClusterDialog.test.tsx` mocked `@/services/backendApiClient` (a
+    re-export facade) while the component imports
+    `addClusterWithUpload` from `@/services/api/clusters` directly —
+    `vi.mock` intercepts by exact specifier, so the mock never took
+    effect and every run hit a real (failing, no backend in jsdom) fetch.
+  All four now pass deterministically; see
+  `kubilitics-frontend/src/pages/ClusterPickerPage.test.tsx` and
+  `.../src/components/cluster/AddClusterDialog.test.tsx`. If a test is
+  filed here as "pre-existing flaky" again, verify it actually IS
+  nondeterministic (reruns disagree) before accepting that label — a
+  wrong query or wrong mock target reproduces as a 100%-consistent
+  failure, which parallel-suite noise can look like at a glance.
 - `kubilitics-desktop/package.json`'s own `version` field has never been
   part of `scripts/bump-version.sh`'s 6 tracked files — stays at `1.0.0`,
   not a bug.
