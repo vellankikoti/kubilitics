@@ -29,9 +29,17 @@ func AggregatePods(nodes []v2.TopologyNode, edges []v2.TopologyEdge) ([]v2.Topol
 		return nodes, edges
 	}
 
-	// Build owner -> list of pod IDs from edges.
-	// The owner is determined by edges where the source is a workload controller
-	// and the target is a Pod.
+	// Build owner -> list of pod IDs from edges. The owner-relationship edge
+	// between a Pod and its controller can appear in either direction
+	// depending on the matcher that produced it: relationships/owner_ref.go
+	// (the actual production matcher) emits Pod -> owner (e.g. "Pod ownerRef
+	// ReplicaSet"), reflecting metadata.ownerReferences living on the Pod.
+	// Check both directions rather than assuming one — this function
+	// previously only checked owner -> Pod, which silently matched zero
+	// edges against the real registry's output (only its own hand-built
+	// unit tests used that direction), so wiring this in would have been a
+	// confirmed-tested no-op bug were BuildGraph's own integration test not
+	// built against the real relationship registry.
 	ownerKinds := map[string]bool{
 		"ReplicaSet":  true,
 		"StatefulSet": true,
@@ -51,15 +59,35 @@ func AggregatePods(nodes []v2.TopologyNode, edges []v2.TopologyEdge) ([]v2.Topol
 	}
 
 	ownerToPods := make(map[ownerKey][]string) // ownerKey -> []podNodeID
+	addOwnerPod := func(ownerID, podID string) {
+		ownerNode, ok := nodeByID[ownerID]
+		if !ok || !ownerKinds[ownerNode.Kind] {
+			return
+		}
+		key := ownerKey{ownerID: ownerID, namespace: ownerNode.Namespace}
+		ownerToPods[key] = append(ownerToPods[key], podID)
+	}
 	for _, e := range edges {
-		if _, isPod := podNodeIDs[e.Target]; !isPod {
-			continue
+		if _, isPod := podNodeIDs[e.Target]; isPod {
+			// owner -> Pod direction.
+			addOwnerPod(e.Source, e.Target)
+		} else if _, isPod := podNodeIDs[e.Source]; isPod {
+			// Pod -> owner direction (what owner_ref.go actually produces).
+			addOwnerPod(e.Target, e.Source)
 		}
-		// Check if source is an owner kind using the pre-built index.
-		if srcNode, ok := nodeByID[e.Source]; ok && ownerKinds[srcNode.Kind] {
-			key := ownerKey{ownerID: e.Source, namespace: srcNode.Namespace}
-			ownerToPods[key] = append(ownerToPods[key], e.Target)
+	}
+	// Dedupe in case some future matcher ever emits both directions for the
+	// same pair (harmless either way, but keeps group membership exact).
+	for key, pods := range ownerToPods {
+		seen := make(map[string]bool, len(pods))
+		deduped := pods[:0]
+		for _, p := range pods {
+			if !seen[p] {
+				seen[p] = true
+				deduped = append(deduped, p)
+			}
 		}
+		ownerToPods[key] = deduped
 	}
 
 	if len(ownerToPods) == 0 {

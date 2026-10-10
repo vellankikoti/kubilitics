@@ -33,6 +33,21 @@ func BuildGraph(ctx context.Context, opts v2.Options, bundle *v2.ResourceBundle)
 	// post-render enricher.
 	nodes = PropagateHealth(nodes, edges)
 
+	// Collapse pods under a shared owner into a single PodGroup node on
+	// broad views (Cluster/Namespace/Workload) — AggregatePods existed,
+	// fully tested, with zero call sites until now. Without this, every
+	// pod in the cluster became its own TopologyNode unconditionally
+	// (NodesFromBundle above), which is the root cause of Topology
+	// slowing/freezing as pod count grows: a 15k-pod cluster built and
+	// matched 15k individual pod nodes on every request before any
+	// later truncation (handler.go's MaxTopologyNodes) got a chance to
+	// act. Skipped on ViewModeResource: a user drilling into one specific
+	// resource wants to see its individual pods (e.g. which replica is
+	// unhealthy), not a collapsed summary.
+	if opts.Mode != v2.ViewModeResource {
+		nodes, edges = AggregatePods(nodes, edges)
+	}
+
 	buildMs := time.Since(start).Milliseconds()
 	clusterName := opts.ClusterName
 	if clusterName == "" {

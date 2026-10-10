@@ -41,6 +41,13 @@ func NewLargeFixture(opts FixtureOptions) *ResourceBundle {
 	}
 
 	bundle := &ResourceBundle{}
+	// Real pods/replicasets always set Controller: true on a controller-owned
+	// OwnerReference; OwnerRefMatcher (relationships/owner_ref.go) requires it
+	// non-nil-true before emitting an ownership edge. Omitting it here (as a
+	// prior version of this fixture did) silently produced zero ownership
+	// edges, which any test relying on them (e.g. pod aggregation) would
+	// pass or fail for the wrong reason.
+	controllerTrue := true
 
 	// Create namespaces
 	namespaces := make([]string, opts.Namespaces)
@@ -134,7 +141,7 @@ func NewLargeFixture(opts FixtureOptions) *ResourceBundle {
 				UID:       rsUID,
 				Labels:    labels,
 				OwnerReferences: []metav1.OwnerReference{
-					{APIVersion: "apps/v1", Kind: "Deployment", Name: depName, UID: depUID},
+					{APIVersion: "apps/v1", Kind: "Deployment", Name: depName, UID: depUID, Controller: &controllerTrue},
 				},
 			},
 			Spec: appsv1.ReplicaSetSpec{
@@ -156,7 +163,7 @@ func NewLargeFixture(opts FixtureOptions) *ResourceBundle {
 					UID:       types.UID(fmt.Sprintf("pod-uid-%d-%d", i, j)),
 					Labels:    labels,
 					OwnerReferences: []metav1.OwnerReference{
-						{APIVersion: "apps/v1", Kind: "ReplicaSet", Name: rsName, UID: rsUID},
+						{APIVersion: "apps/v1", Kind: "ReplicaSet", Name: rsName, UID: rsUID, Controller: &controllerTrue},
 					},
 				},
 				Spec: corev1.PodSpec{
