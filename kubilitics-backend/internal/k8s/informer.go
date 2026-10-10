@@ -127,6 +127,36 @@ type auxInformerFactory struct {
 // back to the direct API, same as before this change.
 var draCandidateVersions = []string{"v1", "v1beta2", "v1beta1"}
 
+// clusterServesResources reports whether the connected cluster's API server
+// currently serves every named resource under the given "group/version"
+// string. Used to gate every aux informer whose API group may not be
+// installed at all (VPA, DRA) — constructing a generated clientset never
+// fails just because its CRD is missing (it's just an HTTP client for a
+// URL path), but STARTING that informer against a nonexistent resource
+// makes the reflector retry a 404 forever, spamming logs with "could not
+// find the requested resource" on every cluster that doesn't have it
+// installed — the common case for both VPA and DRA. Checking first avoids
+// ever registering an informer that can't possibly succeed.
+func clusterServesResources(client *Client, groupVersion string, resourceNames ...string) bool {
+	if client == nil || client.Clientset == nil {
+		return false
+	}
+	list, err := client.Clientset.Discovery().ServerResourcesForGroupVersion(groupVersion)
+	if err != nil || list == nil {
+		return false
+	}
+	served := make(map[string]bool, len(list.APIResources))
+	for _, r := range list.APIResources {
+		served[r.Name] = true
+	}
+	for _, name := range resourceNames {
+		if !served[name] {
+			return false
+		}
+	}
+	return true
+}
+
 // discoverDRAVersion returns the first candidate version the connected
 // cluster's API server actually serves BOTH ResourceSlice and DeviceClass
 // under, or ("", false) if none match (DRA disabled entirely, or served
@@ -140,20 +170,7 @@ func discoverDRAVersion(client *Client) (string, bool) {
 		return "", false
 	}
 	for _, v := range draCandidateVersions {
-		list, err := client.Clientset.Discovery().ServerResourcesForGroupVersion("resource.k8s.io/" + v)
-		if err != nil || list == nil {
-			continue // not served under this version (or discovery failed) — try the next
-		}
-		hasSlices, hasClasses := false, false
-		for _, r := range list.APIResources {
-			switch r.Name {
-			case "resourceslices":
-				hasSlices = true
-			case "deviceclasses":
-				hasClasses = true
-			}
-		}
-		if hasSlices && hasClasses {
+		if clusterServesResources(client, "resource.k8s.io/"+v, "resourceslices", "deviceclasses") {
 			return v, true
 		}
 	}
@@ -193,10 +210,21 @@ func NewInformerManager(client *Client) *InformerManager {
 			log.Printf("informer manager: APIService caching disabled (kube-aggregator clientset: %v); APIService reads will use the direct API fallback", err)
 		}
 
-		if vpaClient, err := vpaclientset.NewForConfig(client.Config); err == nil {
-			im.vpaFactory = vpainformers.NewSharedInformerFactory(vpaClient, 5*time.Minute)
+		// Most clusters don't install the VPA CRDs at all. Building the
+		// clientset above never fails for that reason (it's just an HTTP
+		// client for a URL path) — only actually starting an informer
+		// against a resource the server doesn't have would fail, and would
+		// do so by retrying a 404 forever, spamming logs. Check first via
+		// clusterServesResources (same reasoning as DRA's version
+		// negotiation below) rather than finding out by trying.
+		if clusterServesResources(client, "autoscaling.k8s.io/v1", "verticalpodautoscalers") {
+			if vpaClient, err := vpaclientset.NewForConfig(client.Config); err == nil {
+				im.vpaFactory = vpainformers.NewSharedInformerFactory(vpaClient, 5*time.Minute)
+			} else {
+				log.Printf("informer manager: VerticalPodAutoscaler caching disabled (VPA clientset: %v); VPA reads will use the direct API fallback", err)
+			}
 		} else {
-			log.Printf("informer manager: VerticalPodAutoscaler caching disabled (VPA clientset: %v); VPA reads will use the direct API fallback", err)
+			log.Printf("informer manager: VerticalPodAutoscaler caching disabled (cluster does not serve autoscaling.k8s.io/v1 verticalpodautoscalers — VPA likely not installed); VPA reads will use the direct API fallback")
 		}
 	}
 

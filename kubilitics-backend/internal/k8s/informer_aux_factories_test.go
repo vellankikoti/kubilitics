@@ -6,6 +6,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 )
 
 // Regression tests for the Oct 2026 Phase 4 informer additions
@@ -111,6 +112,45 @@ func TestKindSynced_AuxFactories_IndependentOfEachOtherAndMain(t *testing.T) {
 	}
 	if !im.kindSynced("Pod") {
 		t.Fatal("expected an ordinary main-factory kind to report synced via HasSynced(), unaffected by either aux factory")
+	}
+}
+
+// TestNewInformerManager_VPANotInstalled_StaysNilWithoutRetrying is a
+// regression test: before clusterServesResources gated VPA's informer
+// construction, a cluster that simply doesn't have the VPA CRDs installed
+// (the common case) would still get a vpaFactory built and started, whose
+// reflector then retried a 404 "could not find the requested resource"
+// forever — spamming logs on every such cluster. This proves that case now
+// resolves to vpaFactory staying nil instead.
+func TestNewInformerManager_VPANotInstalled_StaysNilWithoutRetrying(t *testing.T) {
+	clientset := fake.NewSimpleClientset()
+	// No Resources configured for autoscaling.k8s.io/v1 — simulates VPA not installed.
+	client := &Client{Clientset: clientset, Config: &rest.Config{Host: "https://127.0.0.1:0"}}
+
+	im := NewInformerManager(client)
+	defer im.Stop()
+
+	if im.vpaFactory != nil {
+		t.Fatal("expected vpaFactory to stay nil when the cluster does not serve autoscaling.k8s.io/v1 verticalpodautoscalers")
+	}
+}
+
+// TestNewInformerManager_VPAInstalled_FactoryConstructed proves the
+// opposite: when the cluster DOES serve verticalpodautoscalers under
+// autoscaling.k8s.io/v1, the factory is built as before.
+func TestNewInformerManager_VPAInstalled_FactoryConstructed(t *testing.T) {
+	clientset := fake.NewSimpleClientset()
+	withDiscoveryResources(clientset, &metav1.APIResourceList{
+		GroupVersion: "autoscaling.k8s.io/v1",
+		APIResources: []metav1.APIResource{{Name: "verticalpodautoscalers"}},
+	})
+	client := &Client{Clientset: clientset, Config: &rest.Config{Host: "https://127.0.0.1:0"}}
+
+	im := NewInformerManager(client)
+	defer im.Stop()
+
+	if im.vpaFactory == nil {
+		t.Fatal("expected vpaFactory to be constructed when the cluster serves autoscaling.k8s.io/v1 verticalpodautoscalers")
 	}
 }
 
