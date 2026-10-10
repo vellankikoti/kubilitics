@@ -55,6 +55,43 @@ cache or another aux kind. Regression tests:
 
 ## Fixed, for reference (don't re-investigate)
 
+- **P0 — unreachable-cluster identity collision causing app-wide freeze
+  (2026-10-10).** User-reported: clicking an inaccessible/unreachable
+  cluster showed a stuck "loading" state, and the rest of the app
+  (navigating to Fleet, any interaction) stopped responding. Reproduced
+  live end-to-end: a real backend process + frontend dev server + a
+  kubeconfig context pointed at a network-blackholed IP (TCP SYN never
+  answered — the worst-case unreachable shape) + Playwright driving an
+  actual click. Before the fix: clicking the cluster card never navigated
+  within 30s. Root cause, found by tracing the actual identity data, not
+  assumption: `addClusterWithSource` in `cluster_service.go` left
+  `ServerURL` as `""` whenever the live connection test failed — it was
+  only ever set inside the success branch. But
+  `kubeconfig_source.go`'s `Enumerate()` reads the exact same
+  `server:` field straight off the kubeconfig file (no network call) for
+  the same cluster. Result: the moment any cluster is unreachable, it
+  gets TWO different `identity.LogicalIdentity{Name, ServerURL}` keys
+  system-wide — a real one from discovery, an empty one from the
+  registered/manual record — so `discovery.Manager`'s dedup-by-key never
+  merges them. The frontend renders the discovery-sourced entry (the one
+  the user actually sees/clicks) with none of the enrichment that landed
+  on the other, invisible entry — no `session_id`, no `kubeconfig_path`.
+  Clicking it then re-POSTed `/api/v1/clusters` with
+  `ClusterPickerPage.tsx`'s wrong fallback path
+  (`c.kubeconfigPath ?? '~/.kube/config'`), producing the confusing stuck
+  interaction. Fixed by `serverURLFromKubeconfig()` seeding `ServerURL`
+  from the kubeconfig's declared field before the connection test runs,
+  mirroring discovery's own parse, so the identity never depends on
+  reachability. Confirmed fixed live: click now resolves in ~5s (the
+  pre-existing bounded connection-test timeout), and Fleet
+  navigation/page interactivity stay fully responsive throughout.
+  Regression test:
+  `TestClusterService_AddCluster_UnreachableClusterKeepsDeclaredServerURL`.
+  **If a user reports "clicking a cluster freezes everything" again,
+  check for a NEW instance of split identity first** — grep for any other
+  place a `LogicalIdentity`-bearing struct gets built with a field that's
+  only populated on a successful network call.
+
 - Cluster detection/sync reliability (Headlamp comparison pass, 2026-10-10)
   — three root causes behind "cluster detection is unreliable and
   confusing," found by comparing Kubilitics' presence architecture against
