@@ -5,8 +5,14 @@ import '@testing-library/jest-dom/vitest';
 import { AddClusterDialog } from './AddClusterDialog';
 
 // Mock the backend call — we only want to verify the dialog forwards the
-// right kubeconfig + context to it.
-vi.mock('@/services/backendApiClient', () => ({
+// right kubeconfig + context to it. NOTE: must mock the exact module the
+// component imports from (@/services/api/clusters), not the
+// @/services/backendApiClient re-export facade — vi.mock intercepts by
+// specifier, so mocking the facade silently did nothing and every call in
+// this file went to the real implementation (a real fetch(), which fails
+// in jsdom with no backend running). That's why "submits pasted kubeconfig"
+// below previously timed out waiting for a mock that was never invoked.
+vi.mock('@/services/api/clusters', () => ({
   addClusterWithUpload: vi.fn(async () => ({
     id: 'uuid-test',
     name: 'test-cluster',
@@ -23,7 +29,7 @@ vi.mock('@/components/ui/sonner', () => ({
   },
 }));
 
-import { addClusterWithUpload } from '@/services/backendApiClient';
+import { addClusterWithUpload } from '@/services/api/clusters';
 const addClusterWithUploadMock = vi.mocked(addClusterWithUpload);
 
 describe('AddClusterDialog', () => {
