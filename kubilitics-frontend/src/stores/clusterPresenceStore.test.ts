@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { useClusterPresenceStore, __resetForTest } from './clusterPresenceStore';
+import { onClusterSwitch, clearClusterSwitchListeners, __lastCluster } from './clusterSwitch';
 
 describe('clusterPresenceStore', () => {
   beforeEach(() => { __resetForTest(); });
@@ -31,6 +32,57 @@ describe('clusterPresenceStore', () => {
     useClusterPresenceStore.getState().setActiveByLogicalIdentity(id);
     const raw = localStorage.getItem('kubilitics.presence.lastActive');
     expect(JSON.parse(raw!)).toEqual(id);
+  });
+
+  describe('setActiveByLogicalIdentity emits a cluster-switch event', () => {
+    beforeEach(() => {
+      clearClusterSwitchListeners();
+    });
+
+    afterEach(() => {
+      clearClusterSwitchListeners();
+    });
+
+    it('notifies subscribers on the clusterSwitch bus so cached stores invalidate', () => {
+      const seen: string[] = [];
+      onClusterSwitch((id) => seen.push(id));
+
+      useClusterPresenceStore.getState().setActiveByLogicalIdentity({
+        name: 'prod',
+        serverUrl: 'https://prod',
+      });
+
+      expect(seen).toHaveLength(1);
+      expect(seen[0]).toBe(__lastCluster());
+    });
+
+    it('does not re-emit when switching to the same logical identity twice', () => {
+      const seen: string[] = [];
+      const id = { name: 'staging', serverUrl: 'https://staging' };
+      useClusterPresenceStore.getState().setActiveByLogicalIdentity(id);
+      onClusterSwitch((cid) => seen.push(cid));
+
+      useClusterPresenceStore.getState().setActiveByLogicalIdentity({ ...id });
+
+      expect(seen).toHaveLength(0);
+    });
+
+    it('emits again when switching to a genuinely different cluster', () => {
+      const seen: string[] = [];
+      onClusterSwitch((cid) => seen.push(cid));
+
+      useClusterPresenceStore.getState().setActiveByLogicalIdentity({
+        name: 'a',
+        serverUrl: 'https://a',
+      });
+      useClusterPresenceStore.getState().setActiveByLogicalIdentity({
+        name: 'b',
+        serverUrl: 'https://b',
+      });
+
+      expect(seen).toHaveLength(2);
+      expect(seen[0]).not.toBe(seen[1]);
+    });
   });
 
   it('activeCluster derives from connected using logical identity', () => {

@@ -12,6 +12,7 @@ import type {
   RegisteredCluster,
 } from '@/types/resilient';
 import { logicalIdentityEqual, logicalIdentityKey } from '@/types/resilient';
+import { emitClusterSwitch } from './clusterSwitch';
 
 const STORAGE_KEY = 'kubilitics.presence.lastActive';
 
@@ -104,6 +105,14 @@ export const useClusterPresenceStore = create<ClusterPresenceState>((set, get) =
       // ignore quota/privacy failures
     }
     set({ activeLogicalIdentity: id });
+    // This is the single choke point every "switch active cluster" call
+    // site goes through (directly or via setActiveClusterBySessionId
+    // below), so emitting here — rather than at each call site — is what
+    // actually makes the clusterSwitch.ts invalidation bus fire. Every
+    // cache-holding store (events, traces, chat, simulation, …) subscribes
+    // to it; without this call they silently kept the previous cluster's
+    // data after a switch.
+    emitClusterSwitch(logicalIdentityKey(id));
   },
 
   activeCluster() {
