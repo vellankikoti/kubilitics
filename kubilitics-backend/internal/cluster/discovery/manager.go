@@ -107,14 +107,22 @@ func (m *Manager) Refresh(ctx context.Context) error {
 // Registered so the frontend can use session_id for cluster-scoped API
 // calls. Entries without a SessionID stay in Discovered only.
 //
-// Connected wiring (session tracking with connected_at) is future work;
-// it would come from a ConnectionManager that observes active sessions.
+// Connected is the subset of Registered the reachability checker reports
+// as currently healthy. This is not a separate session-tracking concept:
+// SetReachabilityChecker's doc comment is explicit that `Reachable` already
+// comes from ClusterService's live client registry (populated on a
+// successful connection, cleared on disconnect/removal) — i.e. "reachable"
+// and "has an active backend session" are the same underlying fact. A
+// prior version of this method left Connected hardcoded empty pending a
+// separate ConnectionManager; that was unnecessary since the data already
+// exists here.
 func (m *Manager) Snapshot() presence.Snapshot {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	now := time.Now().Format(time.RFC3339)
 	disc := make([]presence.DiscoveredCluster, 0, len(m.discovered))
 	reg := make([]presence.RegisteredCluster, 0, len(m.discovered))
+	conn := make([]presence.ConnectedCluster, 0, len(m.discovered))
 	for _, c := range m.discovered {
 		pd := presence.DiscoveredCluster{
 			Identity:   c.Identity,
@@ -144,12 +152,22 @@ func (m *Manager) Snapshot() presence.Snapshot {
 				rc.LastError = status.LastError
 			}
 			reg = append(reg, rc)
+			if rc.Reachable {
+				connectedAt := rc.LastSuccessAt
+				if connectedAt == "" {
+					connectedAt = now
+				}
+				conn = append(conn, presence.ConnectedCluster{
+					RegisteredCluster: rc,
+					ConnectedAt:       connectedAt,
+				})
+			}
 		}
 	}
 	return presence.Snapshot{
 		Discovered: disc,
 		Registered: reg,
-		Connected:  []presence.ConnectedCluster{},
+		Connected:  conn,
 	}
 }
 

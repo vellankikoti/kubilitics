@@ -187,6 +187,9 @@ func TestManager_Snapshot_FailsClosedWithoutReachabilityChecker(t *testing.T) {
 	if snap.Registered[0].Reachable {
 		t.Fatal("expected Reachable=false when no ReachabilityChecker is wired — must fail closed, not default to true")
 	}
+	if len(snap.Connected) != 0 {
+		t.Fatalf("expected Connected to stay empty when unreachable: %+v", snap.Connected)
+	}
 }
 
 // HEALTH-1/HEALTH-2: with a checker wired, Reachable and the staleness
@@ -250,6 +253,18 @@ func TestManager_Snapshot_UsesWiredReachabilityChecker_PerClusterIsolation(t *te
 	}
 	if down.LastCheckedAt == "" {
 		t.Error("uuid-down: expected LastCheckedAt to be populated even though the check failed")
+	}
+
+	// Connected must contain exactly the reachable cluster, never the down
+	// one — Connected was previously hardcoded to always be empty.
+	if len(snap.Connected) != 1 {
+		t.Fatalf("expected exactly 1 connected cluster: %+v", snap.Connected)
+	}
+	if snap.Connected[0].SessionID != "uuid-healthy" {
+		t.Errorf("expected connected cluster to be uuid-healthy, got %q", snap.Connected[0].SessionID)
+	}
+	if snap.Connected[0].ConnectedAt == "" {
+		t.Error("expected ConnectedAt to be populated for the connected cluster")
 	}
 }
 
