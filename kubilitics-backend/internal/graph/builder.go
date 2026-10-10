@@ -236,19 +236,24 @@ func BuildSnapshot(res *ClusterResources, hasIstio bool, virtualServices, destin
 	}
 
 	// --- Step 5c: Build Service -> representative pod labels map ---
+	// Index pods by (namespace, name) once — O(pods) — instead of a linear
+	// scan of res.Pods per endpoint address, which was O(endpointAddresses *
+	// pods): at cluster scale this is close to O(n²) in practice, since most
+	// pods sit behind exactly one service's endpoint list.
+	type podKey struct{ namespace, name string }
+	podByKey := make(map[podKey]*corev1.Pod, len(res.Pods))
+	for i := range res.Pods {
+		p := &res.Pods[i]
+		podByKey[podKey{namespace: p.Namespace, name: p.Name}] = p
+	}
 	servicePodLabels := make(map[string]map[string]string)
 	for _, ep := range res.Endpoints {
 		svcKey := fmt.Sprintf("Service/%s/%s", ep.Namespace, ep.Name)
 		for _, subset := range ep.Subsets {
 			for _, addr := range subset.Addresses {
 				if addr.TargetRef != nil && addr.TargetRef.Kind == "Pod" {
-					for _, pod := range res.Pods {
-						if pod.Name == addr.TargetRef.Name && pod.Namespace == addr.TargetRef.Namespace {
-							servicePodLabels[svcKey] = pod.Labels
-							break
-						}
-					}
-					if servicePodLabels[svcKey] != nil {
+					if pod, ok := podByKey[podKey{namespace: addr.TargetRef.Namespace, name: addr.TargetRef.Name}]; ok {
+						servicePodLabels[svcKey] = pod.Labels
 						break
 					}
 				}
@@ -256,6 +261,17 @@ func BuildSnapshot(res *ClusterResources, hasIstio bool, virtualServices, destin
 			if servicePodLabels[svcKey] != nil {
 				break
 			}
+		}
+	}
+
+	// --- Step 5d: Precompute the edge-type lookup index for edgeType() ---
+	// First-wins on duplicate (from,to) pairs, matching the linear scan's
+	// original behavior (it returned on the first matching edge found).
+	edgeTypeByPair := make(map[string]string, len(edges))
+	for _, e := range edges {
+		key := refKey(e.Source) + "->" + refKey(e.Target)
+		if _, exists := edgeTypeByPair[key]; !exists {
+			edgeTypeByPair[key] = e.Type
 		}
 	}
 
@@ -289,6 +305,8 @@ func BuildSnapshot(res *ClusterResources, hasIstio bool, virtualServices, destin
 		BuiltAt:        time.Now().UnixMilli(),
 		BuildDuration:  time.Since(start),
 		Namespaces:     namespaces,
+
+		edgeTypeByPair: edgeTypeByPair,
 	}
 }
 

@@ -1,10 +1,14 @@
 package graph
 
 import (
+	"fmt"
 	"testing"
+	"time"
 
+	"github.com/kubilitics/kubilitics-backend/internal/models"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -75,6 +79,176 @@ func TestBuildSnapshot_RegistersAllResourceKinds(t *testing.T) {
 	// Verify edges were created (Service selects Deployment via pod)
 	if len(snap.Edges) == 0 {
 		t.Error("expected at least one edge (Service -> Deployment)")
+	}
+}
+
+// buildWideFanInBundle returns a ClusterResources with one Service and
+// `ingressCount` Ingresses that all route to it via DefaultBackend. Blast
+// radius of the Service then has `ingressCount` affected nodes — the shape
+// that made computeSingleResourceBlast's old per-affected-node
+// buildFailurePath (a fresh BFS over the whole Reverse graph, every time)
+// expensive: each of those re-runs touches the entire graph, not just the
+// one hop to its own Ingress.
+func buildWideFanInBundle(ingressCount int) *ClusterResources {
+	res := &ClusterResources{
+		Services: []corev1.Service{
+			{ObjectMeta: metav1.ObjectMeta{Name: "shared-svc", Namespace: "default"}},
+		},
+	}
+	for i := 0; i < ingressCount; i++ {
+		res.Ingresses = append(res.Ingresses, networkingv1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("ing-%d", i), Namespace: "default"},
+			Spec: networkingv1.IngressSpec{
+				DefaultBackend: &networkingv1.IngressBackend{
+					Service: &networkingv1.IngressServiceBackend{Name: "shared-svc"},
+				},
+			},
+		})
+	}
+	return res
+}
+
+// TestComputeSingleResourceBlast_WideFanIn_CompletesQuickly is a scale
+// regression guard for the bfsParents/pathFromParents optimization. Measured
+// directly (git-stash the fix and rerun to reproduce): at 2000 affected
+// nodes the old per-node fresh-BFS approach took ~880ms; the fix brings it
+// to ~40ms — a ~22x improvement at this modest scale, growing further at
+// real cluster scale since the old approach was O(affectedNodes * (V+E)).
+// 300ms is a deliberately generous ceiling (comfortably above the fixed
+// ~40ms, comfortably below the broken ~880ms) so this stays stable on
+// slower CI hardware while still catching a reintroduced O(n*(V+E)) pattern.
+func TestComputeSingleResourceBlast_WideFanIn_CompletesQuickly(t *testing.T) {
+	const ingressCount = 2000
+	snap := BuildSnapshot(buildWideFanInBundle(ingressCount), false, nil, nil)
+	target := models.ResourceRef{Kind: "Service", Namespace: "default", Name: "shared-svc"}
+
+	start := time.Now()
+	result, err := snap.ComputeBlastRadius(target)
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("ComputeBlastRadius: %v", err)
+	}
+	if result.TotalAffected != ingressCount {
+		t.Fatalf("expected %d affected nodes, got %d", ingressCount, result.TotalAffected)
+	}
+	if elapsed > 300*time.Millisecond {
+		t.Errorf("ComputeBlastRadius with %d affected nodes took %v — expected well under 300ms; "+
+			"likely a reintroduced per-affected-node BFS re-run", ingressCount, elapsed)
+	}
+}
+
+func BenchmarkComputeSingleResourceBlast_WideFanIn(b *testing.B) {
+	snap := BuildSnapshot(buildWideFanInBundle(2000), false, nil, nil)
+	target := models.ResourceRef{Kind: "Service", Namespace: "default", Name: "shared-svc"}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = snap.ComputeBlastRadius(target)
+	}
+}
+
+// TestBuildSnapshot_FailurePathUsesRealEdgeTypes is a correctness seal for
+// precomputing the edge-type lookup index in BuildSnapshot (instead of
+// snapshot.go's edgeType() doing a full linear scan of s.Edges per hop, per
+// affected node — O(affectedNodes * pathLength * totalEdges) in
+// computeSingleResourceBlast, the dominant cost in Blast Radius at scale).
+// Runs buildFailurePath against a snapshot built by the real BuildSnapshot
+// (not the hand-constructed buildTestSnapshot() helper other tests use,
+// which never populates the new index and exercises the fallback path
+// instead) to prove the indexed lookup finds the real edges the inference
+// functions produced, not just the "dependency" fallback placeholder.
+func TestBuildSnapshot_FailurePathUsesRealEdgeTypes(t *testing.T) {
+	replicas := int32(1)
+	res := &ClusterResources{
+		Pods: []corev1.Pod{
+			{ObjectMeta: metav1.ObjectMeta{Name: "web-abc", Namespace: "default", Labels: map[string]string{"app": "web"}}},
+		},
+		Deployments: []appsv1.Deployment{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "web", Namespace: "default"},
+				Spec: appsv1.DeploymentSpec{
+					Replicas: &replicas,
+					Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "web"}},
+				},
+			},
+		},
+		Services: []corev1.Service{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "web-svc", Namespace: "default"},
+				Spec:       corev1.ServiceSpec{Selector: map[string]string{"app": "web"}},
+			},
+		},
+	}
+	snap := BuildSnapshot(res, false, nil, nil)
+
+	podKey := refKey(models.ResourceRef{Kind: "Pod", Namespace: "default", Name: "web-abc"})
+	svcKey := refKey(models.ResourceRef{Kind: "Service", Namespace: "default", Name: "web-svc"})
+
+	hops := snap.buildFailurePath(podKey, svcKey)
+	if len(hops) == 0 {
+		t.Fatal("expected a non-empty failure path from Pod to Service")
+	}
+	for _, h := range hops {
+		if h.EdgeType == "" || h.EdgeType == "dependency" {
+			t.Errorf("hop %s/%s -> %s/%s: EdgeType %q looks like the no-match fallback, expected a real inferred type",
+				h.From.Kind, h.From.Name, h.To.Kind, h.To.Name, h.EdgeType)
+		}
+	}
+}
+
+// TestBuildSnapshot_ServicePodLabelsCorrectAcrossMultipleServices is a
+// correctness seal for optimizing Step 5c's service-pod-label lookup, which
+// did a linear scan of res.Pods per endpoint address (O(endpoints*pods) —
+// near-O(n²) in practice, since most pods sit behind exactly one service).
+// Multiple services/pods here so an index-based rewrite can't accidentally
+// mix up which pod's labels belong to which service.
+func TestBuildSnapshot_ServicePodLabelsCorrectAcrossMultipleServices(t *testing.T) {
+	res := &ClusterResources{
+		Pods: []corev1.Pod{
+			{ObjectMeta: metav1.ObjectMeta{Name: "web-1", Namespace: "default", Labels: map[string]string{"app": "web", "tier": "frontend"}}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "api-1", Namespace: "default", Labels: map[string]string{"app": "api", "tier": "backend"}}},
+			{ObjectMeta: metav1.ObjectMeta{Name: "web-1", Namespace: "other-ns", Labels: map[string]string{"app": "web", "tier": "other-ns-frontend"}}},
+		},
+		Endpoints: []corev1.Endpoints{
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "web-svc", Namespace: "default"},
+				Subsets: []corev1.EndpointSubset{{
+					Addresses: []corev1.EndpointAddress{
+						{TargetRef: &corev1.ObjectReference{Kind: "Pod", Name: "web-1", Namespace: "default"}},
+					},
+				}},
+			},
+			{
+				ObjectMeta: metav1.ObjectMeta{Name: "api-svc", Namespace: "default"},
+				Subsets: []corev1.EndpointSubset{{
+					Addresses: []corev1.EndpointAddress{
+						{TargetRef: &corev1.ObjectReference{Kind: "Pod", Name: "api-1", Namespace: "default"}},
+					},
+				}},
+			},
+			{
+				// Same pod name as default/web-1, but a different namespace —
+				// must not be cross-matched by name alone.
+				ObjectMeta: metav1.ObjectMeta{Name: "web-svc", Namespace: "other-ns"},
+				Subsets: []corev1.EndpointSubset{{
+					Addresses: []corev1.EndpointAddress{
+						{TargetRef: &corev1.ObjectReference{Kind: "Pod", Name: "web-1", Namespace: "other-ns"}},
+					},
+				}},
+			},
+		},
+	}
+
+	snap := BuildSnapshot(res, false, nil, nil)
+
+	if got := snap.ServicePodLabels["Service/default/web-svc"]["tier"]; got != "frontend" {
+		t.Errorf("Service/default/web-svc: expected tier=frontend, got %q", got)
+	}
+	if got := snap.ServicePodLabels["Service/default/api-svc"]["tier"]; got != "backend" {
+		t.Errorf("Service/default/api-svc: expected tier=backend, got %q", got)
+	}
+	if got := snap.ServicePodLabels["Service/other-ns/web-svc"]["tier"]; got != "other-ns-frontend" {
+		t.Errorf("Service/other-ns/web-svc: expected tier=other-ns-frontend, got %q — cross-namespace pod-name collision", got)
 	}
 }
 

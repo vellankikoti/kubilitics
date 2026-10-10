@@ -46,6 +46,17 @@ type GraphSnapshot struct {
 	BuiltAt        int64         // unix ms
 	BuildDuration  time.Duration
 	Namespaces     map[string]bool
+
+	// edgeTypeByPair is a precomputed "fromRefKey->toRefKey" -> edge Type
+	// index, built once by BuildSnapshot. edgeType() uses it for an O(1)
+	// lookup instead of a linear scan of Edges — buildFailurePath calls
+	// edgeType() once per hop per affected node, so at cluster scale this
+	// was the dominant cost in a single blast-radius query. Left nil (not
+	// populated) on snapshots built by hand rather than via BuildSnapshot
+	// (common in tests) — edgeType() falls back to the original linear scan
+	// in that case, so this is purely an optimization with no behavior
+	// change and no test-construction sites need updating.
+	edgeTypeByPair map[string]string
 }
 
 // EnsureMaps initializes any nil maps on the snapshot to empty maps.
@@ -176,26 +187,56 @@ func shortestPath(adj map[string]map[string]bool, src, dst string) []string {
 	return nil
 }
 
-// edgeType looks up the edge type between two adjacent nodes from the Edges slice.
-func (s *GraphSnapshot) edgeType(fromKey, toKey string) string {
-	fromRef := s.Nodes[fromKey]
-	toRef := s.Nodes[toKey]
-	for _, e := range s.Edges {
-		if refKey(e.Source) == refKey(fromRef) && refKey(e.Target) == refKey(toRef) {
-			return e.Type
+// bfsParents runs a single BFS from startKey over adj and returns a parent
+// map (child key -> parent key) for every node reachable from startKey.
+// Reconstructing the shortest path to ANY number of destinations from this
+// one map is O(path length) per destination, versus re-running shortestPath
+// (a fresh BFS) per destination — the dominant cost in a blast-radius query
+// that builds a FailurePath for every affected node (computeSingleResourceBlast
+// previously called buildFailurePath, and therefore shortestPath, once per
+// affected node: O(affectedNodes * (V+E)) instead of O(V+E) total).
+func bfsParents(adj map[string]map[string]bool, startKey string) map[string]string {
+	parent := map[string]string{startKey: ""}
+	queue := []string{startKey}
+	for len(queue) > 0 {
+		curr := queue[0]
+		queue = queue[1:]
+		for neighbor := range adj[curr] {
+			if _, seen := parent[neighbor]; !seen {
+				parent[neighbor] = curr
+				queue = append(queue, neighbor)
+			}
 		}
 	}
-	return "dependency"
+	return parent
 }
 
-// buildFailurePath constructs the failure propagation chain from targetKey to affectedKey
-// by finding the shortest path in the Reverse adjacency and building PathHops.
-func (s *GraphSnapshot) buildFailurePath(targetKey, affectedKey string) []models.PathHop {
-	path := shortestPath(s.Reverse, targetKey, affectedKey)
+// pathFromParents reconstructs the path from src to dst using a parent map
+// built by bfsParents(adj, src). Returns nil if dst is unreachable from src.
+func pathFromParents(parents map[string]string, src, dst string) []string {
+	if src == dst {
+		return []string{src}
+	}
+	if _, reachable := parents[dst]; !reachable {
+		return nil
+	}
+	path := []string{dst}
+	for at := dst; at != src; at = parents[at] {
+		path = append(path, parents[at])
+	}
+	for i, j := 0, len(path)-1; i < j; i, j = i+1, j-1 {
+		path[i], path[j] = path[j], path[i]
+	}
+	return path
+}
+
+// hopsFromPath builds the PathHop slice for an already-computed path (as
+// returned by shortestPath or pathFromParents), shared by buildFailurePath
+// and the bulk per-affected-node reconstruction in computeSingleResourceBlast.
+func (s *GraphSnapshot) hopsFromPath(path []string) []models.PathHop {
 	if len(path) < 2 {
 		return nil
 	}
-
 	hops := make([]models.PathHop, 0, len(path)-1)
 	for i := 0; i < len(path)-1; i++ {
 		fromRef := s.Nodes[path[i]]
@@ -208,6 +249,38 @@ func (s *GraphSnapshot) buildFailurePath(targetKey, affectedKey string) []models
 		})
 	}
 	return hops
+}
+
+// edgeType looks up the edge type between two adjacent nodes. Uses the
+// precomputed edgeTypeByPair index when available (O(1)); falls back to a
+// linear scan of Edges for snapshots that didn't go through BuildSnapshot
+// (e.g. hand-constructed in tests).
+func (s *GraphSnapshot) edgeType(fromKey, toKey string) string {
+	fromRef := s.Nodes[fromKey]
+	toRef := s.Nodes[toKey]
+	fromRk, toRk := refKey(fromRef), refKey(toRef)
+	if s.edgeTypeByPair != nil {
+		if t, ok := s.edgeTypeByPair[fromRk+"->"+toRk]; ok {
+			return t
+		}
+		return "dependency"
+	}
+	for _, e := range s.Edges {
+		if refKey(e.Source) == fromRk && refKey(e.Target) == toRk {
+			return e.Type
+		}
+	}
+	return "dependency"
+}
+
+// buildFailurePath constructs the failure propagation chain from targetKey to affectedKey
+// by finding the shortest path in the Reverse adjacency and building PathHops.
+// Used for single-pair lookups; computeSingleResourceBlast's per-affected-node
+// loop uses bfsParents + pathFromParents instead to share one BFS across all
+// affected nodes rather than re-running this per node.
+func (s *GraphSnapshot) buildFailurePath(targetKey, affectedKey string) []models.PathHop {
+	path := shortestPath(s.Reverse, targetKey, affectedKey)
+	return s.hopsFromPath(path)
 }
 
 // ComputeBlastRadius performs the full blast-radius analysis for a target resource.
@@ -514,6 +587,12 @@ func (s *GraphSnapshot) computeSingleResourceBlast(target models.ResourceRef, fa
 	// --- Backward compat: waves and dependency chain for topology rendering ---
 	affectedDepths := bfsWalkWithDepth(s.Reverse, key)
 	forwardReachable := bfsWalk(s.Forward, key)
+	// One BFS parent tree from key, shared across every affected node's
+	// FailurePath reconstruction below (pathFromParents is O(path length)
+	// per node) — previously each node re-ran buildFailurePath, a fresh BFS
+	// per node: O(affectedNodes * (V+E)) total, the dominant cost in this
+	// function at cluster scale.
+	failureParents := bfsParents(s.Reverse, key)
 
 	waveMap := make(map[int][]models.AffectedResource)
 	affectedNS := make(map[string]bool)
@@ -526,7 +605,8 @@ func (s *GraphSnapshot) computeSingleResourceBlast(target models.ResourceRef, fa
 		}
 		waveMap[depth] = append(waveMap[depth], models.AffectedResource{
 			Kind: ref.Kind, Name: ref.Name, Namespace: ref.Namespace,
-			Impact: impact, WaveDepth: depth, FailurePath: s.buildFailurePath(key, aKey),
+			Impact: impact, WaveDepth: depth,
+			FailurePath: s.hopsFromPath(pathFromParents(failureParents, key, aKey)),
 		})
 	}
 	var depths []int
