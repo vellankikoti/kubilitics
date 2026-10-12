@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Progress } from "@/components/ui/progress";
 import { useClusterOverview } from "@/hooks/useClusterOverview";
 import { useHealthScore } from "@/hooks/useHealthScore";
+import { useClusterReachability } from "@/hooks/useClusterReachability";
 import { useActiveCluster } from "@/stores/clusterPresenceStore";
 import { useBackendConfigStore } from "@/stores/backendConfigStore";
 import { EmptyNoClusters } from "@/components/ui/empty-state";
@@ -43,6 +44,8 @@ export const ClusterHealthWidget = () => {
 
   const overview = useClusterOverview(clusterId);
   const healthScore = useHealthScore();
+  const reachability = useClusterReachability(clusterId);
+  const isUnreachable = reachability.status === 'unreachable' || reachability.status === 'error';
 
   // UX-1 (docs/PRODUCTION-HARDENING-ROADMAP.md, Phase 7): this widget
   // previously never checked overview/healthScore loading or error state at
@@ -72,7 +75,7 @@ export const ClusterHealthWidget = () => {
     ["excellent", "good", "healthy"].includes(status) ? "Good State" :
     ["fair", "degraded"].includes(status) ? "Needs Attention" :
     "At Risk";
-  const hasData = activeCluster || clusterId;
+  const hasData = (activeCluster || clusterId) && !isUnreachable;
 
   return (
     <Card className="h-full min-h-[28rem] border-none soft-shadow glass-panel relative overflow-hidden group flex flex-col">
@@ -88,7 +91,7 @@ export const ClusterHealthWidget = () => {
             {/* UX-1: the status badge must not claim a health verdict ("At
                 Risk" etc.) while that verdict is still loading or could not
                 be determined — same reasoning as the CardContent gating below. */}
-            {!isLoading && !isError && hasData && (
+            {!isLoading && !isError && !isUnreachable && hasData && (
               <div className={cn("inline-flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs font-semibold shadow-sm backdrop-blur-sm", config.badge)}>
                 <StatusIcon className="w-3 h-3" />
                 <span>{statusLabel}</span>
@@ -105,7 +108,17 @@ export const ClusterHealthWidget = () => {
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col pt-2 pb-6 px-6 relative z-10">
-        {!hasData ? (
+        {isUnreachable ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center" role="status">
+            <AlertTriangle className="w-8 h-8 text-amber-500" />
+            <p className="text-sm font-medium text-foreground">Cluster unreachable</p>
+            <p className="text-xs text-muted-foreground max-w-[22rem]">
+              {reachability.status === 'unreachable'
+                ? `Last connected ${reachability.lastSuccessAt ? new Date(reachability.lastSuccessAt).toLocaleString() : 'previously'}.`
+                : 'This cluster has never been successfully reached.'}
+            </p>
+          </div>
+        ) : !hasData ? (
           <div className="flex-1 flex items-center justify-center">
             <EmptyNoClusters
               size="sm"
