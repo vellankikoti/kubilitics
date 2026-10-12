@@ -329,4 +329,32 @@ describe('useFleetOverview', () => {
     expect(c.stale).toBe(true);
     expect(c.staleAsOf).toBe('2026-01-01T00:00:00Z');
   });
+
+  // cluster-connection-state plan, Task 7: maps last_checked_at/
+  // last_success_at/last_error onto each cluster, matching the freshness
+  // fields presence.RegisteredCluster already exposes (added backend-side
+  // in Task 2), so Fleet rows and Picker rows can render identical
+  // "last seen" copy.
+  it('maps last_checked_at/last_success_at/last_error onto each cluster', async () => {
+    mockOverview = {
+      clusters: [
+        cluster({
+          id: 'c1', name: 'c1', reachable: true, healthStatus: 'healthy',
+          last_checked_at: '2026-10-12T00:10:00Z',
+          last_success_at: '2026-10-12T00:10:00Z',
+        }),
+      ],
+      totals: emptyTotals(),
+    };
+
+    const { result } = renderHook(() => useFleetOverview(), { wrapper: createWrapper() });
+
+    await waitFor(() => {
+      expect(result.current.clusters.length).toBe(1);
+    });
+
+    const c = result.current.clusters[0];
+    expect(c.lastCheckedAt).toBe('2026-10-12T00:10:00Z');
+    expect(c.lastSuccessAt).toBe('2026-10-12T00:10:00Z');
+  });
 });
