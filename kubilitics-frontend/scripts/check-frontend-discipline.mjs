@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * check-frontend-discipline.mjs — fail-CI scanner enforcing three rules:
+ * check-frontend-discipline.mjs — fail-CI scanner enforcing four rules:
  *
  * 1. Backend path discipline (Option B port architecture, 2026-04-26):
  *    Bare fetch / new WebSocket / new EventSource / new URL calls with a
@@ -17,6 +17,12 @@
  *    Direct invoke('save_profile' | 'list_profiles' | 'activate_profile' | …)
  *    is forbidden outside the helper hooks and AISettingsPage.
  *
+ * 4. Cluster reachability single-source (cluster-connection-state design,
+ *    2026-10-12): useClusterReachability is the only gate UI may consume
+ *    for "is this cluster reachable." useFleetOverview — which duplicated
+ *    this concept via a separate backend endpoint — is forbidden outside
+ *    its own file/test until Fleet migrates onto the shared signal.
+ *
  * All rules patch the same kind of bug — multiple sources of truth that
  * silently disagree — so they ship in one scanner. Easy to audit, easy to
  * extend with future single-source-of-truth invariants.
@@ -26,9 +32,10 @@
  * Wired into the top-level `npm run lint` script and CI.
  *
  * Per-line escape hatches:
- *   // allow-backend-path     — suppresses rule 1 on the matching line
- *   // allow-direct-ai-hook   — suppresses rule 2 on the matching line
- *   // allow-profile-invoke   — suppresses rule 3 on the matching line
+ *   // allow-backend-path         — suppresses rule 1 on the matching line
+ *   // allow-direct-ai-hook       — suppresses rule 2 on the matching line
+ *   // allow-profile-invoke       — suppresses rule 3 on the matching line
+ *   // allow-direct-cluster-status — suppresses rule 4 on the matching line
  */
 
 import { readFileSync } from 'node:fs';
@@ -81,6 +88,18 @@ const ALLOW_PROFILE_INVOKE = /\/\/\s*allow-profile-invoke/;
 // Match invoke('save_profile') | invoke("list_profiles") | invoke(`activate_profile`)
 const PROFILE_INVOKE_PATTERN =
   /\binvoke\s*[<(]\s*[^>]*?>?\s*\(?\s*['"`](list_profiles|get_active_profile|save_profile|update_profile|delete_profile|activate_profile|test_profile)['"`]/;
+
+// ─── Rule 4: cluster reachability single-source ───────────────────────
+const ALLOWED_CLUSTER_REACHABILITY_FILES = new Set([
+  'src/hooks/useClusterReachability.ts',
+  'src/hooks/useClusterReachability.test.tsx',
+  'src/hooks/useFleetOverview.ts',
+  'src/hooks/useFleetOverview.test.ts',
+  'src/pages/FleetDashboard.tsx',
+  'src/pages/FleetDashboard.test.tsx',
+]);
+const ALLOW_CLUSTER_REACHABILITY = /\/\/\s*allow-direct-cluster-status/;
+const CLUSTER_REACHABILITY_PATTERN = /\bimport\b[^;]*\buseFleetOverview\b[^;]*from\b/;
 
 function listFiles() {
   const out = execSync(
@@ -145,6 +164,20 @@ for (const abs of listFiles()) {
         code: line.trim(),
       });
     }
+
+    // Rule 4 — cluster reachability single-source
+    if (
+      !ALLOWED_CLUSTER_REACHABILITY_FILES.has(rel) &&
+      !ALLOW_CLUSTER_REACHABILITY.test(line) &&
+      CLUSTER_REACHABILITY_PATTERN.test(line)
+    ) {
+      violations.push({
+        rule: 'cluster-direct-reachability',
+        file: rel,
+        line: i + 1,
+        code: line.trim(),
+      });
+    }
   }
 }
 
@@ -187,6 +220,18 @@ if (byRule['profile-direct-invoke']?.length) {
   console.error('  outside the helper hooks + AISettingsPage. See ALLOWED_PROFILE_INVOKE_FILES.');
   console.error('  Per-line escape: `// allow-profile-invoke`');
   for (const v of byRule['profile-direct-invoke']) {
+    console.error(`  ${v.file}:${v.line}\n    ${v.code}`);
+  }
+  console.error('');
+}
+if (byRule['cluster-direct-reachability']?.length) {
+  console.error(`Rule: cluster-direct-reachability (${byRule['cluster-direct-reachability'].length})`);
+  console.error("  Use useClusterReachability() / useAllClusterReachability() from");
+  console.error("  '@/hooks/useClusterReachability' for connection/health status. Importing");
+  console.error('  useFleetOverview is forbidden outside its own file and FleetDashboard');
+  console.error('  (its legitimate resource-count consumer). See ALLOWED_CLUSTER_REACHABILITY_FILES.');
+  console.error('  Per-line escape: `// allow-direct-cluster-status`');
+  for (const v of byRule['cluster-direct-reachability']) {
     console.error(`  ${v.file}:${v.line}\n    ${v.code}`);
   }
   console.error('');
