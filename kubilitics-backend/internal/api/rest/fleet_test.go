@@ -107,6 +107,39 @@ func TestGetFleetOverview_ReturnsFullFieldsNeededByFrontend_NoSecondRequestRequi
 	}
 }
 
+// TestGetFleetOverview_IncludesHealthTimestamps locks in that Fleet rows
+// carry the same LastCheckedAt/LastSuccessAt/LastError freshness fields
+// Presence already exposes, so Fleet and Picker rows can share identical
+// "last seen" copy (Task 2, cluster-connection-state plan).
+func TestGetFleetOverview_IncludesHealthTimestamps(t *testing.T) {
+	lastChecked := time.Date(2026, 10, 12, 0, 10, 0, 0, time.UTC)
+	lastSuccess := time.Date(2026, 10, 12, 0, 10, 0, 0, time.UTC)
+	cs := &fleetMockClusterService{
+		mockClusterService: mockClusterService{
+			clusters: []*models.Cluster{
+				{ID: "c1", Name: "prod", Context: "prod-ctx", Status: "connected"},
+			},
+		},
+		summaries: map[string]*models.ClusterSummary{
+			"c1": {
+				NodeCount: 1, PodCount: 1, HealthStatus: "healthy",
+				Reachable:     true,
+				LastCheckedAt: &lastChecked,
+				LastSuccessAt: &lastSuccess,
+			},
+		},
+	}
+	resp := doFleetOverview(t, newFleetHandler(cs))
+	c := findFleetCluster(t, resp, "c1")
+
+	if c.LastCheckedAt == "" {
+		t.Error("expected LastCheckedAt to be populated for a reachable cluster")
+	}
+	if c.LastSuccessAt == "" {
+		t.Error("expected LastSuccessAt to be populated for a reachable cluster")
+	}
+}
+
 // One unreachable cluster must not block or corrupt the others' data, and
 // must be clearly distinguishable (Reachable=false, SummaryUnavailable=true,
 // ErrorMessage set) — never silently rendered as healthy.

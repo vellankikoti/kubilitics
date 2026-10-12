@@ -863,6 +863,8 @@ func (s *clusterService) GetClusterSummary(ctx context.Context, id string) (*mod
 	// (buildClusterSummary, a separate implementation) which does set it
 	// correctly. Reaching this line means every K8s call above succeeded
 	// enough to compute real counts, so Reachable=true is correct here.
+	_, lastSuccess, lastErr, _ := client.HealthStatus()
+	lastChecked := client.LastCheckedAt()
 	return &models.ClusterSummary{
 		ID:              id,
 		Name:            id,
@@ -873,7 +875,28 @@ func (s *clusterService) GetClusterSummary(ctx context.Context, id string) (*mod
 		ServiceCount:    len(services.Items),
 		HealthStatus:    healthStatus,
 		Reachable:       true,
+		LastCheckedAt:   timePtrOrNil(lastChecked),
+		LastSuccessAt:   timePtrOrNil(lastSuccess),
+		LastError:       errMsgOrEmpty(lastErr),
 	}, nil
+}
+
+// timePtrOrNil converts a possibly-zero time.Time into a *time.Time,
+// nil when zero — used so ClusterSummary's freshness fields are
+// omitted (not a fake zero-value timestamp) when nothing has happened yet.
+func timePtrOrNil(t time.Time) *time.Time {
+	if t.IsZero() {
+		return nil
+	}
+	return &t
+}
+
+// errMsgOrEmpty returns err.Error(), or "" when err is nil.
+func errMsgOrEmpty(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
 }
 
 // GetClient returns K8s client for internal use

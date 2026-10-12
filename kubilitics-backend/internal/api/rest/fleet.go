@@ -57,6 +57,14 @@ type FleetClusterInfo struct {
 	// (useFleetOverview.ts) between "the /summary call itself failed" and
 	// "it succeeded but reported bad health" — true only in the former case.
 	SummaryUnavailable bool `json:"summary_unavailable,omitempty"`
+	// LastCheckedAt/LastSuccessAt/LastErrorMsg mirror
+	// models.ClusterSummary's same-named fields and presence.
+	// RegisteredCluster's JSON field names exactly (last_checked_at,
+	// last_success_at, last_error) — cluster-connection-state plan Task 2
+	// — so Fleet and Picker rows can render identical "last seen" copy.
+	LastCheckedAt string `json:"last_checked_at,omitempty"`
+	LastSuccessAt string `json:"last_success_at,omitempty"`
+	LastErrorMsg  string `json:"last_error,omitempty"` // named to avoid colliding with ErrorMessage's semantics
 }
 
 // FleetTotals contains aggregate counts across all clusters.
@@ -186,6 +194,13 @@ func (h *Handler) GetFleetOverview(w http.ResponseWriter, r *http.Request) {
 			if summary.StaleAsOf != nil {
 				info.StaleAsOf = summary.StaleAsOf.Format(time.RFC3339)
 			}
+			if summary.LastCheckedAt != nil {
+				info.LastCheckedAt = summary.LastCheckedAt.Format(time.RFC3339)
+			}
+			if summary.LastSuccessAt != nil {
+				info.LastSuccessAt = summary.LastSuccessAt.Format(time.RFC3339)
+			}
+			info.LastErrorMsg = summary.LastError
 
 			mu.Lock()
 			infos = append(infos, info)
