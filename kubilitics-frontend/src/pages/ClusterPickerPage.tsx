@@ -126,6 +126,16 @@ function mergeClusters(
   return Array.from(byKey.values());
 }
 
+// cluster-connection-state plan, Task 8: among non-connected clusters,
+// rank by reachability so working/likely-working clusters surface above
+// confirmed-unreachable ones, instead of pure alphabetical mixing them.
+const REACHABILITY_RANK: Record<Reachability, number> = {
+  reachable: 0,
+  checking: 1,
+  unreachable: 2,
+  unknown: 3,
+};
+
 function sortClusters(list: MergedCluster[]): MergedCluster[] {
   return [...list].sort((a, b) => {
     if (a.isConnected !== b.isConnected) return a.isConnected ? -1 : 1;
@@ -133,6 +143,9 @@ function sortClusters(list: MergedCluster[]): MergedCluster[] {
       const ta = a.connectedAt ?? '', tb = b.connectedAt ?? '';
       if (ta !== tb) return ta < tb ? 1 : -1;
     }
+    const ra = REACHABILITY_RANK[a.reachability];
+    const rb = REACHABILITY_RANK[b.reachability];
+    if (ra !== rb) return ra - rb;
     return a.identity.name.localeCompare(b.identity.name);
   });
 }
@@ -486,6 +499,16 @@ export function ClusterPickerPage() {
                         )}
                       </div>
                       <div className="text-xs font-mono text-muted-foreground truncate mt-0.5">{c.identity.serverUrl}</div>
+                      {/* Always-visible status text — the colored dot above
+                          previously only explained itself on hover, which is
+                          exactly the "even if cluster not connected it says
+                          healthy" confusion the user reported (it wasn't
+                          mislabeled, it just wasn't readable without hovering). */}
+                      {!c.isConnected && (
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          {reachabilityTitle(c.reachability, c.lastCheckedAt)}
+                        </div>
+                      )}
                       {label && <div className="text-[11px] text-muted-foreground/70 mt-0.5">{label}</div>}
                     </div>
 

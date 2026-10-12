@@ -10,6 +10,11 @@ vi.mock('react-router-dom', async (orig) => {
   return { ...actual, useNavigate: () => navigateMock };
 });
 
+vi.mock('@/services/api/clusters', async (orig) => {
+  const actual = await orig<typeof import('@/services/api/clusters')>();
+  return { ...actual, addCluster: vi.fn(), addClusterWithUpload: vi.fn() };
+});
+
 import { ClusterPickerPage } from './ClusterPickerPage';
 import {
   useClusterPresenceStore,
@@ -269,5 +274,95 @@ describe('ClusterPickerPage', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('cluster-picker-add-cluster-empty'));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  // cluster-connection-state plan, Task 8: the reachability dot's status
+  // was previously only visible on hover (title attribute) — the user's
+  // reported confusion included "even if cluster not connected it says
+  // healthy", traced partly to status only being discoverable by hovering
+  // a tiny dot. It must now also be plain, always-visible text.
+  it('shows the reachability status as always-visible text, not just a hover tooltip', () => {
+    useClusterPresenceStore.setState({
+      discovered: [
+        { identity: { name: 'down', serverUrl: 'https://down.example' }, source: 'kubeconfig' },
+      ],
+      registered: [
+        {
+          identity: { name: 'down', serverUrl: 'https://down.example' },
+          source: 'kubeconfig',
+          registered_at: '2026-01-01T00:00:00Z',
+          reachable: false,
+          session_id: 'uuid-down',
+          last_checked_at: '2026-01-01T00:00:05Z',
+        },
+      ],
+      connected: [],
+      isReady: true,
+    });
+    renderPicker();
+    // Visible DOM text content, not just an element's title attribute.
+    expect(screen.getByText(/unreachable/i)).toBeInTheDocument();
+  });
+
+  it('ranks reachable above checking above unreachable among non-connected clusters', () => {
+    useClusterPresenceStore.setState({
+      discovered: [
+        { identity: { name: 'down', serverUrl: 'https://down.example' }, source: 'kubeconfig' },
+        { identity: { name: 'fresh', serverUrl: 'https://fresh.example' }, source: 'kubeconfig' },
+        { identity: { name: 'up', serverUrl: 'https://up.example' }, source: 'kubeconfig' },
+      ],
+      registered: [
+        {
+          identity: { name: 'down', serverUrl: 'https://down.example' }, source: 'kubeconfig',
+          registered_at: '2026-01-01T00:00:00Z', reachable: false, session_id: 'uuid-down',
+          last_checked_at: '2026-01-01T00:00:05Z',
+        },
+        {
+          identity: { name: 'fresh', serverUrl: 'https://fresh.example' }, source: 'kubeconfig',
+          registered_at: '2026-01-01T00:00:00Z', reachable: false, session_id: 'uuid-fresh',
+          // never checked — 'checking'
+        },
+        {
+          identity: { name: 'up', serverUrl: 'https://up.example' }, source: 'kubeconfig',
+          registered_at: '2026-01-01T00:00:00Z', reachable: true, session_id: 'uuid-up',
+          last_checked_at: '2026-01-01T00:00:05Z',
+        },
+      ],
+      connected: [],
+      isReady: true,
+    });
+    renderPicker();
+    const cards = screen.getAllByTestId('cluster-picker-card');
+    expect(cards[0]).toHaveTextContent('up');
+    expect(cards[1]).toHaveTextContent('fresh');
+    expect(cards[2]).toHaveTextContent('down');
+  });
+
+  it('clicking an unreachable, previously-registered cluster retries the connection', async () => {
+    const { addCluster } = await import('@/services/api/clusters');
+    vi.mocked(addCluster).mockResolvedValue({
+      id: 'uuid-down', name: 'down', context: 'down', status: 'connected',
+      created_at: '2026-01-01T00:00:10Z', provider: undefined,
+    } as Awaited<ReturnType<typeof addCluster>>);
+
+    useClusterPresenceStore.setState({
+      discovered: [
+        { identity: { name: 'down', serverUrl: 'https://down.example' }, source: 'kubeconfig' },
+      ],
+      registered: [
+        {
+          identity: { name: 'down', serverUrl: 'https://down.example' }, source: 'kubeconfig',
+          registered_at: '2026-01-01T00:00:00Z', reachable: false, session_id: 'uuid-down',
+          last_checked_at: '2026-01-01T00:00:05Z',
+        },
+      ],
+      connected: [],
+      isReady: true,
+    });
+    renderPicker();
+
+    fireEvent.click(screen.getByTestId('cluster-picker-card'));
+
+    await vi.waitFor(() => expect(addCluster).toHaveBeenCalled());
   });
 });
