@@ -19,6 +19,7 @@ import { useClusterOverview } from "@/hooks/useClusterOverview";
 import { useClusterUtilization } from "@/hooks/useClusterUtilization";
 import { useK8sResourceList } from "@/hooks/useKubernetes";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
+import { useClusterReachability } from "@/hooks/useClusterReachability";
 import { Loader2, Server, Cpu, MemoryStick, Hexagon, Info, Layers } from "lucide-react";
 import { EmptyNoClusters } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
@@ -210,6 +211,8 @@ export const ClusterCapacity = () => {
   const currentClusterId = useActiveClusterId();
   const clusterId = currentClusterId ?? undefined;
   const { isConnected } = useConnectionStatus();
+  const reachability = useClusterReachability(clusterId);
+  const isUnreachable = reachability.status === 'unreachable' || reachability.status === 'error';
   const overview = useClusterOverview(clusterId);
   const { utilization: clusterUtil } = useClusterUtilization(clusterId);
 
@@ -345,6 +348,16 @@ export const ClusterCapacity = () => {
         {isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <Loader2 className="h-7 w-7 animate-spin text-muted-foreground/40" />
+          </div>
+        ) : isUnreachable ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center" role="status">
+            <Server className="w-8 h-8 text-amber-500" />
+            <p className="text-sm font-medium text-foreground">Cluster unreachable</p>
+            <p className="text-xs text-muted-foreground max-w-[22rem]">
+              {reachability.status === 'unreachable'
+                ? `Last connected ${reachability.lastSuccessAt ? new Date(reachability.lastSuccessAt).toLocaleString() : 'previously'}.`
+                : 'This cluster has never been successfully reached.'}
+            </p>
           </div>
         ) : !hasData ? (
           <div className="flex-1 flex items-center justify-center">
