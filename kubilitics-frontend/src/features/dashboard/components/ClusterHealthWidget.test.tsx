@@ -116,6 +116,28 @@ describe('ClusterHealthWidget — reachability gate (cluster-connection-state)',
     expect(screen.getByText(/cluster unreachable/i)).toBeInTheDocument();
   });
 
+  // Final review, Critical #2: a cluster that has never had a client
+  // constructed at all reports reachable:false with no last_checked_at —
+  // the hook derives 'connecting' for this, which previously fell through
+  // to the real-score branch exactly like 'connected' did, so a cached
+  // optimistic healthScore (useHealthScore defaults to 100/Grade A on
+  // empty data with no explicit error) still rendered as if healthy.
+  it('does not show a fabricated score while the cluster is only "connecting" (never actually reached)', () => {
+    mockHealthScore.mockReturnValue({
+      score: 100, grade: 'A', status: 'excellent',
+      breakdown: { podHealth: 100, nodeHealth: 100, workloadHealth: 100, stability: 100, eventHealth: 100 },
+      details: [], insight: '', isLoading: false, isError: false,
+    });
+    mockOverview.mockReturnValue({ data: undefined, isLoading: false, isError: false });
+    mockReachability.mockReturnValue({ status: 'connecting' });
+
+    render(<TooltipProvider><ClusterHealthWidget /></TooltipProvider>);
+
+    expect(screen.queryByText(/grade a/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Good State')).not.toBeInTheDocument();
+    expect(screen.getByText(/connecting to cluster/i)).toBeInTheDocument();
+  });
+
   it('still renders the real score when the cluster is connected', () => {
     mockHealthScore.mockReturnValue({
       score: 92, grade: 'A', status: 'excellent',

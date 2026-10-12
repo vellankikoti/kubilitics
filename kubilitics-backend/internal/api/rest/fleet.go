@@ -152,8 +152,7 @@ func (h *Handler) GetFleetOverview(w http.ResponseWriter, r *http.Request) {
 				// can distinguish "the /summary call itself failed" from "it succeeded
 				// but reported bad health" — the same distinction useFleetOverview.ts
 				// already made for its own per-cluster requests.
-				mu.Lock()
-				infos = append(infos, FleetClusterInfo{
+				info := FleetClusterInfo{
 					ID:                 c.ID,
 					Name:               c.Name,
 					Context:            c.Context,
@@ -164,7 +163,29 @@ func (h *Handler) GetFleetOverview(w http.ResponseWriter, r *http.Request) {
 					Reachable:          false,
 					ErrorMessage:       summaryErr.Error(),
 					SummaryUnavailable: true,
-				})
+				}
+				// Final review, Important #1: this branch previously never set
+				// LastCheckedAt/LastSuccessAt, so a row only ever carried them
+				// via the success path (Reachable always true there) — the
+				// "Last checked" copy added in Task 7 could never appear with
+				// real data, since it only renders when !Reachable. If a
+				// client exists for this cluster (it was reachable before and
+				// has since gone down), its cached health still has a real
+				// LastCheckedAt/LastSuccessAt/LastError to surface here.
+				if client, clientErr := h.clusterService.GetClient(c.ID); clientErr == nil {
+					_, lastSuccess, lastErr, _ := client.HealthStatus()
+					if lastChecked := client.LastCheckedAt(); !lastChecked.IsZero() {
+						info.LastCheckedAt = lastChecked.Format(time.RFC3339)
+					}
+					if !lastSuccess.IsZero() {
+						info.LastSuccessAt = lastSuccess.Format(time.RFC3339)
+					}
+					if lastErr != nil {
+						info.LastErrorMsg = lastErr.Error()
+					}
+				}
+				mu.Lock()
+				infos = append(infos, info)
 				totals.Unhealthy++
 				mu.Unlock()
 				return nil

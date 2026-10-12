@@ -63,12 +63,28 @@ describe('ClusterCapacity — reachability gate (cluster-connection-state)', () 
     expect(screen.queryByText(/no clusters connected/i)).not.toBeInTheDocument();
   });
 
-  it('still shows the generic empty state when there is simply no cluster selected (not unreachable)', () => {
+  it('does not show the unreachable message when the cluster status is simply unknown (not unreachable)', () => {
     setConnectedDefaults();
     mockReachability.mockReturnValue({ status: 'unknown' });
 
     render(<TooltipProvider><ClusterCapacity /></TooltipProvider>);
 
+    expect(screen.queryByText(/cluster unreachable/i)).not.toBeInTheDocument();
+  });
+
+  // Final review, Important #4: Health and Capacity must agree on
+  // 'connecting'/'unknown' too — previously Capacity could fall straight
+  // to "No clusters connected" here while Health showed a transient
+  // connecting state, recreating the original two-cards-disagree bug for
+  // a different pair of states.
+  it('shows a connecting indicator, not the generic empty state, while reachability is still being determined', () => {
+    setConnectedDefaults();
+    mockConnectionStatus.mockReturnValue({ isConnected: false });
+    mockReachability.mockReturnValue({ status: 'connecting' });
+
+    render(<TooltipProvider><ClusterCapacity /></TooltipProvider>);
+
+    expect(screen.queryByText(/no clusters connected/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/cluster unreachable/i)).not.toBeInTheDocument();
   });
 });

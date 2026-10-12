@@ -9,6 +9,9 @@ import (
 	"testing"
 	"time"
 
+	k8sfake "k8s.io/client-go/kubernetes/fake"
+
+	"github.com/kubilitics/kubilitics-backend/internal/k8s"
 	"github.com/kubilitics/kubilitics-backend/internal/models"
 )
 
@@ -137,6 +140,41 @@ func TestGetFleetOverview_IncludesHealthTimestamps(t *testing.T) {
 	}
 	if c.LastSuccessAt == "" {
 		t.Error("expected LastSuccessAt to be populated for a reachable cluster")
+	}
+}
+
+// TestGetFleetOverview_UnreachableClusterIncludesHealthTimestamps locks in
+// that an unreachable cluster's row still carries real LastCheckedAt/
+// LastSuccessAt/LastError when a client exists for it (it was reachable
+// before and has since gone down) — Final review, Important #1: this
+// branch previously never set these fields at all, so Task 7's "Last
+// checked" Fleet copy could never render with real backend data, since
+// Reachable is always true on the success path where they WERE set.
+func TestGetFleetOverview_UnreachableClusterIncludesHealthTimestamps(t *testing.T) {
+	client := k8s.NewClientForTest(k8sfake.NewSimpleClientset())
+	_ = client.TestConnection(context.Background()) // seeds LastCheckedAt/LastSuccessAt via updateHealth
+
+	cs := &fleetMockClusterService{
+		mockClusterService: mockClusterService{
+			clusters:   []*models.Cluster{{ID: "down-1", Name: "down"}},
+			clusterMap: map[string]*models.Cluster{"down-1": {ID: "down-1", Name: "down"}},
+			clientMap:  map[string]*k8s.Client{"down-1": client},
+		},
+		summaryErrs: map[string]error{
+			"down-1": errors.New("dial tcp: connection refused"),
+		},
+	}
+	resp := doFleetOverview(t, newFleetHandler(cs))
+	c := findFleetCluster(t, resp, "down-1")
+
+	if c.Reachable {
+		t.Fatalf("expected Reachable=false, got true: %+v", c)
+	}
+	if c.LastCheckedAt == "" {
+		t.Error("expected LastCheckedAt to be populated from the existing client's cached health")
+	}
+	if c.LastSuccessAt == "" {
+		t.Error("expected LastSuccessAt to be populated from the existing client's cached health")
 	}
 }
 

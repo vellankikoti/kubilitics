@@ -90,6 +90,16 @@ function inferProviderFromName(name: string): string | undefined {
   return undefined;
 }
 
+// Final review, Important #6: the Picker's cluster count is NOT expected
+// to equal Fleet's. This list starts from `discovered` — every kubeconfig
+// context the backend can see, including ones the user has never
+// registered/added at all — then layers `registered` entries on top by
+// identity key. Fleet (useFleetOverview → GET /fleet/overview) lists only
+// *registered* clusters (backend's ListClusters/repo). A kubeconfig with
+// more contexts than the user has added will therefore always show a
+// higher count here than on Fleet — this is correct, not a bug: see
+// "the Picker count intentionally includes discovered-but-not-registered
+// entries" below for the regression test locking this explanation in.
 function mergeClusters(
   discovered: DiscoveredCluster[],
   registered: RegisteredCluster[],
@@ -115,7 +125,12 @@ function mergeClusters(
     byKey.set(k, {
       identity: r.identity,
       source: r.source,
-      reachability: r.reachable ? 'reachable' : r.last_checked_at ? 'unreachable' : 'checking',
+      // Final review, Important #5: last_checked_at empty always means
+      // "not yet confirmed" — checked before reachable, matching
+      // useClusterReachability's precedence (the Dashboard's single
+      // source of truth) exactly, so the same underlying data can never
+      // read "Reachable" here and "connecting" there.
+      reachability: !r.last_checked_at ? 'checking' : r.reachable ? 'reachable' : 'unreachable',
       isConnected: connectedKeys.has(k) || prev?.isConnected || false,
       connectedAt: connectedAtMap.get(k) ?? prev?.connectedAt,
       kubeconfigPath: r.kubeconfig_path ?? prev?.kubeconfigPath,
