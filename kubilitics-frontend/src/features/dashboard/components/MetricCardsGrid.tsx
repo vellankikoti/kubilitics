@@ -10,11 +10,13 @@
  */
 import React from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, AlertCircle } from "lucide-react";
+import { ChevronRight, AlertCircle, Server } from "lucide-react";
 import k8sIconMap from "@/topology/icons/k8sIconMap";
 import { useResourceCounts } from "@/hooks/useResourceCounts";
 import { useDashboardResourceHealth, type HealthSegment } from "@/hooks/useDashboardResourceHealth";
 import { useProjectStore } from "@/stores/projectStore";
+import { useActiveClusterId } from "@/hooks/useActiveClusterId";
+import { useClusterReachability } from "@/hooks/useClusterReachability";
 import { cn } from "@/lib/utils";
 
 /* ─── Constants ───────────────────────────────────────────────────────────── */
@@ -129,8 +131,35 @@ export const MetricCardsGrid = () => {
   const { health, isError } = useDashboardResourceHealth();
   const activeProject = useProjectStore((s) => s.activeProject);
   const isProjectScope = !!activeProject;
+  const clusterId = useActiveClusterId();
+  const reachability = useClusterReachability(clusterId ?? undefined);
+  const isUnreachable = reachability.status === 'unreachable' || reachability.status === 'error';
 
   let globalIndex = 0;
+
+  // useResourceCounts/useDashboardResourceHealth both disable their queries
+  // (enabled: isConnected) rather than erroring when the cluster is
+  // unreachable, so every tile would otherwise silently fall back to "0" —
+  // indistinguishable from "this cluster genuinely has zero of this
+  // resource." Same bug class as ClusterHealthWidget/ClusterCapacity/
+  // DashboardHero: don't render a value that looks like real data when we
+  // couldn't actually check.
+  if (isUnreachable) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center gap-2 text-center rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 p-8"
+        role="status"
+      >
+        <Server className="w-8 h-8 text-amber-500" aria-hidden />
+        <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Cluster unreachable</p>
+        <p className="text-xs text-amber-600 dark:text-amber-400 max-w-[22rem]">
+          {reachability.lastError
+            ? `Resource counts cannot be refreshed right now: ${reachability.lastError}`
+            : 'Resource counts cannot be refreshed right now.'}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-5">
