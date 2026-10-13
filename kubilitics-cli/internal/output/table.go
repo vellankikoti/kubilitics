@@ -52,6 +52,11 @@ type Table struct {
 	// namespace data. Set by NewResourceTable to enable interactive mode.
 	NameColIdx int
 	NSColIdx   int
+
+	// EmptyMessage is shown instead of a bare header-only box when Rows is
+	// empty, so a user can tell "genuinely empty" apart from "stuck/broken".
+	// Defaults to "No resources found." if unset.
+	EmptyMessage string
 }
 
 // ResourceNames returns the NAME column values from all rows (for interactive mode).
@@ -136,6 +141,14 @@ func (t *Table) Render(width int) string {
 
 	if len(t.Columns) == 0 {
 		return ""
+	}
+
+	if len(t.Rows) == 0 {
+		msg := t.EmptyMessage
+		if msg == "" {
+			msg = "No resources found."
+		}
+		return GetTheme().Muted.Render(msg) + "\n"
 	}
 
 	if width <= 0 {
