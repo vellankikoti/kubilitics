@@ -127,6 +127,50 @@ func TestGetResourceTopology_LiveFetchesWhenNoEngineRunning(t *testing.T) {
 	}
 }
 
+// TestGetResourceTopology_ClampsHopsAboveThreeToAvoidMisleadingDepthMetadata
+// is the Phase 2 audit regression test. TopologyMetadata.Depth is documented
+// (internal/topology/v2/response.go) as "current depth level (0-3)", but the
+// handler accepted ?depth= up to 5 and echoed the raw requested value back
+// into Metadata.Depth unclamped — so a caller requesting depth=5 got a
+// response claiming "depth": 5, violating the field's own documented range.
+// It's also not a real fourth or fifth traversal level: filterResource's BFS
+// (filter.go) treats any depth >= 3 as unlimited "Full mode," so depth 3, 4,
+// and 5 already produce byte-identical node/edge sets (see
+// TestViewFilter_Resource_FullModeDepthIsUnboundedAboveThree in the
+// topology/v2 package) — only the echoed metadata differed, misleadingly
+// implying three distinct deeper views that don't exist.
+func TestGetResourceTopology_ClampsHopsAboveThreeToAvoidMisleadingDepthMetadata(t *testing.T) {
+	cases := []struct {
+		name      string
+		clusterID string
+		queryTail string
+	}{
+		{name: "depth=4 via depth param", clusterID: "depth-clamp-cluster-1", queryTail: "?depth=4"},
+		{name: "depth=5 via depth param", clusterID: "depth-clamp-cluster-2", queryTail: "?depth=5"},
+		{name: "depth=4 via legacy hops param", clusterID: "depth-clamp-cluster-3", queryTail: "?hops=4"},
+		{name: "depth=5 via legacy hops param", clusterID: "depth-clamp-cluster-4", queryTail: "?hops=5"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			clusterID := tc.clusterID
+			client, _ := newCountingDeploymentClient(clusterID)
+			h := newResourceTopologyTestHandler(t, clusterID, client)
+
+			r := httptest.NewRequest(http.MethodGet, "/clusters/"+clusterID+"/topology/resource/Deployment/default/web"+tc.queryTail, nil)
+			w := serve(h, r)
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+			}
+			if strings.Contains(w.Body.String(), `"depth":4`) || strings.Contains(w.Body.String(), `"depth":5`) {
+				t.Fatalf("expected requested depth above 3 to be clamped to the documented max (3) in response metadata, got: %s", w.Body.String())
+			}
+			if !strings.Contains(w.Body.String(), `"depth":3`) {
+				t.Fatalf("expected clamped metadata depth of 3, got: %s", w.Body.String())
+			}
+		})
+	}
+}
+
 // TestGetResourceTopology_ScopesLiveCollectionToResourceNamespace covers a
 // real production bug: GetResourceTopology always built the v2 Options with
 // Namespace left empty, so when no graph engine was running (the common

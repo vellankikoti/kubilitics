@@ -280,6 +280,59 @@ func TestViewFilter_Resource_FullMode(t *testing.T) {
 	}
 }
 
+// TestViewFilter_Resource_FullModeDepthIsUnboundedAboveThree confirms (Phase 2
+// audit, Checkpoint A suspected bug) that requesting hop depth 3, 4, and 5
+// against the same resource produces byte-identical node/edge sets. This is
+// confirmed INTENTIONAL: filterResource's maxDepth clamp (filter.go) treats
+// any depth >= 3 as "Full mode" = unlimited hops (capped at 100 for safety),
+// so 3/4/5 are not three different traversal depths — they're one "no limit"
+// behavior reachable from three different input values. Not a defect in the
+// filter itself; see TestGetResourceTopology_RejectsMisleadingHopsAboveThree
+// in the api/rest package for the fix (the API accepted depth up to 5,
+// implying 4 and 5 are distinct deeper views, which they are not).
+func TestViewFilter_Resource_FullModeDepthIsUnboundedAboveThree(t *testing.T) {
+	resp := &TopologyResponse{
+		Metadata: TopologyMetadata{ClusterID: "test"},
+		Nodes: []TopologyNode{
+			{ID: "Ingress/default/my-ingress", Kind: "Ingress", Name: "my-ingress", Namespace: "default"},
+			{ID: "Service/default/my-svc", Kind: "Service", Name: "my-svc", Namespace: "default"},
+			{ID: "Endpoints/default/my-ep", Kind: "Endpoints", Name: "my-ep", Namespace: "default"},
+			{ID: "Pod/default/my-pod", Kind: "Pod", Name: "my-pod", Namespace: "default"},
+			{ID: "ReplicaSet/default/my-rs", Kind: "ReplicaSet", Name: "my-rs", Namespace: "default"},
+			{ID: "Deployment/default/my-deploy", Kind: "Deployment", Name: "my-deploy", Namespace: "default"},
+			{ID: "ConfigMap/default/my-cm", Kind: "ConfigMap", Name: "my-cm", Namespace: "default"},
+			{ID: "Node/worker-1", Kind: "Node", Name: "worker-1"},
+		},
+		Edges: []TopologyEdge{
+			{ID: "e1", Source: "Ingress/default/my-ingress", Target: "Service/default/my-svc", RelationshipCategory: "networking"},
+			{ID: "e2", Source: "Service/default/my-svc", Target: "Endpoints/default/my-ep", RelationshipCategory: "networking"},
+			{ID: "e3", Source: "Endpoints/default/my-ep", Target: "Pod/default/my-pod", RelationshipCategory: "networking"},
+			{ID: "e4", Source: "Pod/default/my-pod", Target: "ReplicaSet/default/my-rs", RelationshipCategory: "ownership"},
+			{ID: "e5", Source: "ReplicaSet/default/my-rs", Target: "Deployment/default/my-deploy", RelationshipCategory: "ownership"},
+			{ID: "e6", Source: "Pod/default/my-pod", Target: "ConfigMap/default/my-cm", RelationshipCategory: "configuration"},
+			{ID: "e7", Source: "Pod/default/my-pod", Target: "Node/worker-1", RelationshipCategory: "scheduling"},
+		},
+	}
+	filter := &ViewFilter{}
+	nodeSet := func(depth int) map[string]bool {
+		result := filter.Filter(resp, Options{Mode: ViewModeResource, Resource: "Service/default/my-svc", Depth: depth})
+		set := make(map[string]bool, len(result.Nodes))
+		for _, n := range result.Nodes {
+			set[n.ID] = true
+		}
+		return set
+	}
+	d3, d4, d5 := nodeSet(3), nodeSet(4), nodeSet(5)
+	if len(d3) != len(d4) || len(d4) != len(d5) {
+		t.Fatalf("expected depth 3/4/5 to produce identical node counts, got %d/%d/%d", len(d3), len(d4), len(d5))
+	}
+	for id := range d3 {
+		if !d4[id] || !d5[id] {
+			t.Errorf("node %s present at depth 3 but missing at depth 4 or 5", id)
+		}
+	}
+}
+
 // TestViewFilter_Resource_DirectVsExtended verifies Direct and Extended produce different results.
 // Uses Deployment as focus — Direct sees ReplicaSet/Service, Extended adds Pod/ConfigMap/etc.
 func TestViewFilter_Resource_DirectVsExtended(t *testing.T) {

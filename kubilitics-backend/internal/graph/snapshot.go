@@ -316,7 +316,8 @@ func (s *GraphSnapshot) computeNamespaceDeletion(target models.ResourceRef) (*mo
 		totalScore = 100.0
 	}
 
-	confidenceScore, confidenceNote := computeConfidence(s)
+	// Namespace deletion has no single target to scope to — cluster-global.
+	confidenceScore, confidenceNote := computeConfidence(s, nil)
 
 	return &models.BlastRadiusResult{
 		TargetResource:     target,
