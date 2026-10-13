@@ -241,3 +241,4 @@ brain/certify-tools
 # a build artifact, not hand-authored source. Removed from history in the
 # pre-OSS-release cleanup (2026-10-11); regenerate it, don't commit it.
 /catalog.json
+docs/KNOWN-ISSUES.md
