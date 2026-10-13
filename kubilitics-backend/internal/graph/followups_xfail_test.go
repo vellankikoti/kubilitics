@@ -23,8 +23,6 @@ import (
 // Un-skip this test once a fix lands; it should then assert something
 // close to 1/10 = 10%, not today's measured 22%.
 func TestFollowupTopo1_BlastPercentDoesNotInflateFromFanOut(t *testing.T) {
-	t.Skip("FOLLOWUP-TOPO-1: known blast% unit mismatch, deferred — see KNOWN-ISSUES.md")
-
 	svc := models.ResourceRef{Kind: "Service", Namespace: "default", Name: "checkout"}
 	dep := models.ResourceRef{Kind: "Deployment", Namespace: "default", Name: "checkout"}
 	ing := models.ResourceRef{Kind: "Ingress", Namespace: "default", Name: "checkout-ing"}

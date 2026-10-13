@@ -121,15 +121,65 @@ func TestClassifyServiceImpact_NoImpact(t *testing.T) {
 }
 
 func TestComputeBlastRadiusPercent(t *testing.T) {
+	// Three genuinely distinct services (not the same resource observed
+	// through overlapping taxonomies) — computeBlastRadiusPercent dedupes
+	// by resource identity (FOLLOWUP-TOPO-1 fix), so this must use 3
+	// different Service refs to still exercise additive weighting across
+	// real, distinct impacts.
 	impacts := []models.ServiceImpact{
-		{Classification: "broken", Service: models.ResourceRef{Namespace: "default"}},
-		{Classification: "degraded", Service: models.ResourceRef{Namespace: "default"}},
-		{Classification: "self-healing", Service: models.ResourceRef{Namespace: "default"}},
+		{Classification: "broken", Service: models.ResourceRef{Kind: "Service", Namespace: "default", Name: "svc-broken"}},
+		{Classification: "degraded", Service: models.ResourceRef{Kind: "Service", Namespace: "default", Name: "svc-degraded"}},
+		{Classification: "self-healing", Service: models.ResourceRef{Kind: "Service", Namespace: "default", Name: "svc-self-healing"}},
 	}
 	pct := computeBlastRadiusPercent(impacts, nil, nil, 10, nil)
 	expected := 15.0
 	if pct != expected {
 		t.Errorf("expected %.1f%%, got %.1f%%", expected, pct)
+	}
+}
+
+// TestComputeBlastRadiusPercent_DistinctConsumerStillAddsBlast guards against
+// the FOLLOWUP-TOPO-1 fix over-correcting: a genuinely distinct consumer
+// workload (a different Deployment, not the same resource observed twice)
+// must still add its own weight, not be swallowed by the same-resource dedup.
+func TestComputeBlastRadiusPercent_DistinctConsumerStillAddsBlast(t *testing.T) {
+	svcImpacts := []models.ServiceImpact{
+		{Classification: "broken", Service: models.ResourceRef{Kind: "Service", Namespace: "default", Name: "checkout"}},
+	}
+	consumerImpacts := []models.ConsumerImpact{
+		{Classification: "degraded", Workload: models.ResourceRef{Kind: "Deployment", Namespace: "default", Name: "other-app"}, DependsOn: "checkout"},
+	}
+
+	pct := computeBlastRadiusPercent(svcImpacts, nil, consumerImpacts, 10, nil)
+
+	// 1.0 (broken checkout) + 0.5 (degraded, distinct consumer) = 1.5/10 = 15%
+	if pct != 15.0 {
+		t.Errorf("expected 15.0%% (distinct service + distinct consumer both counted), got %.1f%%", pct)
+	}
+}
+
+// TestComputeBlastRadiusPercent_IngressFoldsOntoBackingService is the
+// narrower unit-level pin for FOLLOWUP-TOPO-1's ingress-side fold: an
+// Ingress impact for the SAME backing Service as an existing ServiceImpact
+// must not add a second distinct unit of weight.
+func TestComputeBlastRadiusPercent_IngressFoldsOntoBackingService(t *testing.T) {
+	svc := models.ResourceRef{Kind: "Service", Namespace: "default", Name: "checkout"}
+	ing := models.ResourceRef{Kind: "Ingress", Namespace: "default", Name: "checkout-ing"}
+
+	snap := &GraphSnapshot{}
+	snap.EnsureMaps()
+	snap.Nodes[refKey(svc)] = svc
+	snap.Nodes[refKey(ing)] = ing
+	snap.Forward[refKey(ing)] = map[string]bool{refKey(svc): true}
+
+	svcImpacts := []models.ServiceImpact{{Classification: "broken", Service: svc}}
+	ingImpacts := []models.IngressImpact{{Classification: "broken", Ingress: ing}}
+
+	withIngress := computeBlastRadiusPercent(svcImpacts, ingImpacts, nil, 10, snap)
+	withoutIngress := computeBlastRadiusPercent(svcImpacts, nil, nil, 10, snap)
+
+	if withIngress != withoutIngress {
+		t.Errorf("ingress routing to an already-counted service should not change the percentage: with=%.1f%% without=%.1f%%", withIngress, withoutIngress)
 	}
 }
 
