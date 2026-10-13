@@ -51,6 +51,7 @@ import { HealthChangesCard } from '@/components/events/HealthChangesCard';
 import type { ComponentScore, NamespaceHealth } from '@/services/api/clusterHealth';
 
 import { useActiveClusterId } from '@/hooks/useActiveClusterId';
+import { useClusterReachability } from '@/hooks/useClusterReachability';
 /* ─── Constants ───────────────────────────────────────────────────────────── */
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50];
@@ -289,6 +290,8 @@ export default function HealthDashboard() {
   }), [activeClusterId, currentClusterId]);
   useAIContext(aiCtx);
   const { data, isLoading, error } = useClusterHealth(currentClusterId);
+  const reachability = useClusterReachability(currentClusterId);
+  const isUnreachable = reachability.status === 'unreachable' || reachability.status === 'error';
   const { data: insights } = useActiveInsights();
   const dismissInsightMutation = useDismissInsight();
 
@@ -385,6 +388,32 @@ export default function HealthDashboard() {
 
   if (isLoading) {
     return <PageLoadingState message="Loading cluster health..." />;
+  }
+
+  // The cluster can go unreachable mid-session without useClusterHealth's
+  // query erroring (no refetchInterval, so a stale cached score/level can
+  // sit there indefinitely). Gate on live reachability, not just the
+  // query's own error/loading state, so a score fetched before disconnect
+  // never renders with full confidence after the cluster is actually down.
+  if (isUnreachable) {
+    return (
+      <PageLayout label="Health Dashboard">
+        <div className="rounded-xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 p-4 flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              Cluster unreachable
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+              {reachability.lastError
+                ? `Health data cannot be refreshed right now: ${reachability.lastError}`
+                : 'Health data cannot be refreshed right now.'}
+              {data ? ' The score shown previously is no longer being displayed because it may be out of date.' : ''}
+            </p>
+          </div>
+        </div>
+      </PageLayout>
+    );
   }
 
   const score = data?.score ?? 0;
