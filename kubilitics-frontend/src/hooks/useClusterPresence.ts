@@ -5,6 +5,16 @@ import { apiUrl, eventSourceUrl } from '@/lib/backendUrl';
 
 const PRESENCE_PATH = '/api/v1/presence';
 const SSE_PATH = '/api/v1/presence/events';
+// Final review, Critical #1 (cluster-connection-state plan): the SSE
+// stream only carries discovery-source events (file/secret/manual
+// add/remove), never a pure reachability flip — a cluster going down or
+// recovering with the discovered-cluster set unchanged emits nothing.
+// Without an independent poll, the store's reachable/last_checked_at
+// fields are a one-time snapshot for the rest of the session. Polled at
+// half the backend's own 60s reachability-refresh ticker
+// (cmd/server/main.go's presence-periodic-refresh) so a change is caught
+// within one backend tick on average, not up to two.
+const REACHABILITY_POLL_MS = 30_000;
 
 // useClusterPresence subscribes to the backend's presence layer:
 //   1. On mount, fetch the current snapshot and apply it.
@@ -80,9 +90,14 @@ export function useClusterPresence(): void {
       openStream();
     })();
 
+    const pollTimer = setInterval(() => {
+      void fetchSnapshot();
+    }, REACHABILITY_POLL_MS);
+
     return () => {
       cancelled = true;
       if (fetchTimer) clearTimeout(fetchTimer);
+      clearInterval(pollTimer);
       esRef.current?.close();
     };
   }, [applySnapshot]);

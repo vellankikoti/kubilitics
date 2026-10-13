@@ -52,6 +52,12 @@ export interface FleetCluster {
    * summary succeeding and reporting bad health. Status still falls back to cluster.status in this
    * case; this flag lets the UI additionally say "health detail unavailable" rather than staying silent. */
   summaryUnavailable?: boolean;
+  /** cluster-connection-state plan, Task 7: same freshness fields the
+   * Picker already exposes via presence.RegisteredCluster, so Fleet and
+   * Picker rows can render identical "last seen" copy. */
+  lastCheckedAt?: string;
+  lastSuccessAt?: string;
+  lastError?: string;
 }
 
 /** Aggregate metrics across the fleet. */
@@ -133,6 +139,9 @@ function mergeCluster(c: BackendFleetClusterInfo): FleetCluster {
     staleAsOf: c.stale_as_of,
     errorMessage: c.error_message,
     summaryUnavailable: !!c.summary_unavailable,
+    lastCheckedAt: c.last_checked_at,
+    lastSuccessAt: c.last_success_at,
+    lastError: c.last_error,
   };
 }
 

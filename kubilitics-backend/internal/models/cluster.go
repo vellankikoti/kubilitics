@@ -91,4 +91,15 @@ type ClusterSummary struct {
 	// StaleAsOf is the wall-clock time of the cached snapshot, set only when
 	// Stale is true. Lets the UI show "last updated N minutes ago".
 	StaleAsOf *time.Time `json:"stale_as_of,omitempty"`
+	// LastCheckedAt is when this cluster's reachability was last checked
+	// (success or failure), nil if never checked. Mirrors
+	// presence.RegisteredCluster.LastCheckedAt — same underlying
+	// Client.LastCheckedAt() cache, so Fleet and Picker agree.
+	LastCheckedAt *time.Time `json:"last_checked_at,omitempty"`
+	// LastSuccessAt is when the last successful check happened, nil if
+	// never successful.
+	LastSuccessAt *time.Time `json:"last_success_at,omitempty"`
+	// LastError is the error message from the most recent failed check,
+	// empty if the last check succeeded or none has run yet.
+	LastError string `json:"last_error,omitempty"`
 }

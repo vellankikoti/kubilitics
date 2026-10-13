@@ -10,6 +10,11 @@ vi.mock('react-router-dom', async (orig) => {
   return { ...actual, useNavigate: () => navigateMock };
 });
 
+vi.mock('@/services/api/clusters', async (orig) => {
+  const actual = await orig<typeof import('@/services/api/clusters')>();
+  return { ...actual, addCluster: vi.fn(), addClusterWithUpload: vi.fn() };
+});
+
 import { ClusterPickerPage } from './ClusterPickerPage';
 import {
   useClusterPresenceStore,
@@ -126,6 +131,12 @@ describe('ClusterPickerPage', () => {
           source: 'kubeconfig',
           registered_at: '2026-01-01T00:00:00Z',
           reachable: true,
+          // A real confirmed-reachable cluster always has last_checked_at
+          // set (the backend only reports reachable:true after a
+          // completed check) — see "shows a checking state... when
+          // reachable=true but no check has completed yet" for the
+          // genuinely-pending case, which is a distinct state.
+          last_checked_at: '2026-01-01T00:00:05Z',
           session_id: 'uuid-prod',
         },
       ],
@@ -170,6 +181,36 @@ describe('ClusterPickerPage', () => {
     renderPicker();
     expect(screen.getByTitle(/checking/i)).toBeInTheDocument();
     expect(screen.queryByTitle(/^unreachable/i)).toBeNull();
+  });
+
+  // Final review, Important #5: the Picker's own reachability derivation
+  // must agree with useClusterReachability's precedence (last_checked_at
+  // empty always means "not yet confirmed," checked before reachable) —
+  // previously reachable:true with no last_checked_at (the Picker's own
+  // handlePick sets this optimistically right after a successful add)
+  // showed as confidently "Reachable" here while the Dashboard's hook
+  // would call the identical data 'connecting'.
+  it('shows a checking state (not reachable) when reachable=true but no check has completed yet', () => {
+    useClusterPresenceStore.setState({
+      discovered: [
+        { identity: { name: 'optimistic', serverUrl: 'https://optimistic.example' }, source: 'kubeconfig' },
+      ],
+      registered: [
+        {
+          identity: { name: 'optimistic', serverUrl: 'https://optimistic.example' },
+          source: 'kubeconfig',
+          registered_at: '2026-01-01T00:00:00Z',
+          reachable: true,
+          session_id: 'uuid-optimistic',
+          // last_checked_at intentionally omitted.
+        },
+      ],
+      connected: [],
+      isReady: true,
+    });
+    renderPicker();
+    expect(screen.getByTitle(/checking/i)).toBeInTheDocument();
+    expect(screen.queryByTitle(/^reachable/i)).toBeNull();
   });
 
   it('shows unreachable (not checking) once a real check has actually failed', () => {
@@ -269,5 +310,128 @@ describe('ClusterPickerPage', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('cluster-picker-add-cluster-empty'));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  // cluster-connection-state plan, Task 8: the reachability dot's status
+  // was previously only visible on hover (title attribute) — the user's
+  // reported confusion included "even if cluster not connected it says
+  // healthy", traced partly to status only being discoverable by hovering
+  // a tiny dot. It must now also be plain, always-visible text.
+  it('shows the reachability status as always-visible text, not just a hover tooltip', () => {
+    useClusterPresenceStore.setState({
+      discovered: [
+        { identity: { name: 'down', serverUrl: 'https://down.example' }, source: 'kubeconfig' },
+      ],
+      registered: [
+        {
+          identity: { name: 'down', serverUrl: 'https://down.example' },
+          source: 'kubeconfig',
+          registered_at: '2026-01-01T00:00:00Z',
+          reachable: false,
+          session_id: 'uuid-down',
+          last_checked_at: '2026-01-01T00:00:05Z',
+        },
+      ],
+      connected: [],
+      isReady: true,
+    });
+    renderPicker();
+    // Visible DOM text content, not just an element's title attribute.
+    expect(screen.getByText(/unreachable/i)).toBeInTheDocument();
+  });
+
+  it('ranks reachable above checking above unreachable among non-connected clusters', () => {
+    useClusterPresenceStore.setState({
+      discovered: [
+        { identity: { name: 'down', serverUrl: 'https://down.example' }, source: 'kubeconfig' },
+        { identity: { name: 'fresh', serverUrl: 'https://fresh.example' }, source: 'kubeconfig' },
+        { identity: { name: 'up', serverUrl: 'https://up.example' }, source: 'kubeconfig' },
+      ],
+      registered: [
+        {
+          identity: { name: 'down', serverUrl: 'https://down.example' }, source: 'kubeconfig',
+          registered_at: '2026-01-01T00:00:00Z', reachable: false, session_id: 'uuid-down',
+          last_checked_at: '2026-01-01T00:00:05Z',
+        },
+        {
+          identity: { name: 'fresh', serverUrl: 'https://fresh.example' }, source: 'kubeconfig',
+          registered_at: '2026-01-01T00:00:00Z', reachable: false, session_id: 'uuid-fresh',
+          // never checked — 'checking'
+        },
+        {
+          identity: { name: 'up', serverUrl: 'https://up.example' }, source: 'kubeconfig',
+          registered_at: '2026-01-01T00:00:00Z', reachable: true, session_id: 'uuid-up',
+          last_checked_at: '2026-01-01T00:00:05Z',
+        },
+      ],
+      connected: [],
+      isReady: true,
+    });
+    renderPicker();
+    const cards = screen.getAllByTestId('cluster-picker-card');
+    expect(cards[0]).toHaveTextContent('up');
+    expect(cards[1]).toHaveTextContent('fresh');
+    expect(cards[2]).toHaveTextContent('down');
+  });
+
+  it('clicking an unreachable, previously-registered cluster retries the connection', async () => {
+    const { addCluster } = await import('@/services/api/clusters');
+    vi.mocked(addCluster).mockResolvedValue({
+      id: 'uuid-down', name: 'down', context: 'down', status: 'connected',
+      created_at: '2026-01-01T00:00:10Z', provider: undefined,
+    } as Awaited<ReturnType<typeof addCluster>>);
+
+    useClusterPresenceStore.setState({
+      discovered: [
+        { identity: { name: 'down', serverUrl: 'https://down.example' }, source: 'kubeconfig' },
+      ],
+      registered: [
+        {
+          identity: { name: 'down', serverUrl: 'https://down.example' }, source: 'kubeconfig',
+          registered_at: '2026-01-01T00:00:00Z', reachable: false, session_id: 'uuid-down',
+          last_checked_at: '2026-01-01T00:00:05Z',
+        },
+      ],
+      connected: [],
+      isReady: true,
+    });
+    renderPicker();
+
+    fireEvent.click(screen.getByTestId('cluster-picker-card'));
+
+    await vi.waitFor(() => expect(addCluster).toHaveBeenCalled());
+  });
+
+  // Final review, Important #6: the user's reported "Picker shows 4,
+  // Fleet shows 3" was never a backend bug (fleet_presence_parity_test.go
+  // in kubilitics-backend locks registered-cluster membership agreement)
+  // — it's the Picker correctly showing a kubeconfig context Fleet
+  // legitimately doesn't know about yet, because Fleet only lists
+  // registered clusters and the Picker also surfaces discovered-but-
+  // never-added ones. This test locks that explanation in so it can't
+  // silently become an actual bug later.
+  it('the Picker count intentionally includes discovered-but-not-registered entries (not a Fleet-count bug)', () => {
+    useClusterPresenceStore.setState({
+      discovered: [
+        { identity: { name: 'added', serverUrl: 'https://added.example' }, source: 'kubeconfig' },
+        { identity: { name: 'never-added', serverUrl: 'https://never-added.example' }, source: 'kubeconfig' },
+      ],
+      registered: [
+        {
+          identity: { name: 'added', serverUrl: 'https://added.example' }, source: 'kubeconfig',
+          registered_at: '2026-01-01T00:00:00Z', reachable: true,
+          last_checked_at: '2026-01-01T00:00:05Z', session_id: 'uuid-added',
+        },
+      ],
+      connected: [],
+      isReady: true,
+    });
+    renderPicker();
+    // Both show — "never-added" would NOT appear in Fleet's response,
+    // which only lists registered clusters (1, not 2).
+    const cards = screen.getAllByTestId('cluster-picker-card');
+    expect(cards).toHaveLength(2);
+    expect(screen.getByText('added')).toBeInTheDocument();
+    expect(screen.getByText('never-added')).toBeInTheDocument();
   });
 });

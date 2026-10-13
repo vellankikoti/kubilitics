@@ -52,6 +52,12 @@ export interface BackendFleetClusterInfo {
   stale_as_of?: string;
   error_message?: string;
   summary_unavailable?: boolean;
+  /** cluster-connection-state plan, Task 2/7: same freshness fields
+   * presence.RegisteredCluster already exposes, so Fleet and Picker rows
+   * can render identical "last seen" copy. */
+  last_checked_at?: string;
+  last_success_at?: string;
+  last_error?: string;
 }
 
 export interface BackendFleetOverview {

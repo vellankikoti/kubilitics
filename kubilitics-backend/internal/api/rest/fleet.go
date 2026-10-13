@@ -57,6 +57,14 @@ type FleetClusterInfo struct {
 	// (useFleetOverview.ts) between "the /summary call itself failed" and
 	// "it succeeded but reported bad health" — true only in the former case.
 	SummaryUnavailable bool `json:"summary_unavailable,omitempty"`
+	// LastCheckedAt/LastSuccessAt/LastErrorMsg mirror
+	// models.ClusterSummary's same-named fields and presence.
+	// RegisteredCluster's JSON field names exactly (last_checked_at,
+	// last_success_at, last_error) — cluster-connection-state plan Task 2
+	// — so Fleet and Picker rows can render identical "last seen" copy.
+	LastCheckedAt string `json:"last_checked_at,omitempty"`
+	LastSuccessAt string `json:"last_success_at,omitempty"`
+	LastErrorMsg  string `json:"last_error,omitempty"` // named to avoid colliding with ErrorMessage's semantics
 }
 
 // FleetTotals contains aggregate counts across all clusters.
@@ -144,8 +152,7 @@ func (h *Handler) GetFleetOverview(w http.ResponseWriter, r *http.Request) {
 				// can distinguish "the /summary call itself failed" from "it succeeded
 				// but reported bad health" — the same distinction useFleetOverview.ts
 				// already made for its own per-cluster requests.
-				mu.Lock()
-				infos = append(infos, FleetClusterInfo{
+				info := FleetClusterInfo{
 					ID:                 c.ID,
 					Name:               c.Name,
 					Context:            c.Context,
@@ -156,7 +163,29 @@ func (h *Handler) GetFleetOverview(w http.ResponseWriter, r *http.Request) {
 					Reachable:          false,
 					ErrorMessage:       summaryErr.Error(),
 					SummaryUnavailable: true,
-				})
+				}
+				// Final review, Important #1: this branch previously never set
+				// LastCheckedAt/LastSuccessAt, so a row only ever carried them
+				// via the success path (Reachable always true there) — the
+				// "Last checked" copy added in Task 7 could never appear with
+				// real data, since it only renders when !Reachable. If a
+				// client exists for this cluster (it was reachable before and
+				// has since gone down), its cached health still has a real
+				// LastCheckedAt/LastSuccessAt/LastError to surface here.
+				if client, clientErr := h.clusterService.GetClient(c.ID); clientErr == nil {
+					_, lastSuccess, lastErr, _ := client.HealthStatus()
+					if lastChecked := client.LastCheckedAt(); !lastChecked.IsZero() {
+						info.LastCheckedAt = lastChecked.Format(time.RFC3339)
+					}
+					if !lastSuccess.IsZero() {
+						info.LastSuccessAt = lastSuccess.Format(time.RFC3339)
+					}
+					if lastErr != nil {
+						info.LastErrorMsg = lastErr.Error()
+					}
+				}
+				mu.Lock()
+				infos = append(infos, info)
 				totals.Unhealthy++
 				mu.Unlock()
 				return nil
@@ -186,6 +215,13 @@ func (h *Handler) GetFleetOverview(w http.ResponseWriter, r *http.Request) {
 			if summary.StaleAsOf != nil {
 				info.StaleAsOf = summary.StaleAsOf.Format(time.RFC3339)
 			}
+			if summary.LastCheckedAt != nil {
+				info.LastCheckedAt = summary.LastCheckedAt.Format(time.RFC3339)
+			}
+			if summary.LastSuccessAt != nil {
+				info.LastSuccessAt = summary.LastSuccessAt.Format(time.RFC3339)
+			}
+			info.LastErrorMsg = summary.LastError
 
 			mu.Lock()
 			infos = append(infos, info)

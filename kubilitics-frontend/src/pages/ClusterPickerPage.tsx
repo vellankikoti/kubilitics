@@ -90,6 +90,16 @@ function inferProviderFromName(name: string): string | undefined {
   return undefined;
 }
 
+// Final review, Important #6: the Picker's cluster count is NOT expected
+// to equal Fleet's. This list starts from `discovered` — every kubeconfig
+// context the backend can see, including ones the user has never
+// registered/added at all — then layers `registered` entries on top by
+// identity key. Fleet (useFleetOverview → GET /fleet/overview) lists only
+// *registered* clusters (backend's ListClusters/repo). A kubeconfig with
+// more contexts than the user has added will therefore always show a
+// higher count here than on Fleet — this is correct, not a bug: see
+// "the Picker count intentionally includes discovered-but-not-registered
+// entries" below for the regression test locking this explanation in.
 function mergeClusters(
   discovered: DiscoveredCluster[],
   registered: RegisteredCluster[],
@@ -115,7 +125,12 @@ function mergeClusters(
     byKey.set(k, {
       identity: r.identity,
       source: r.source,
-      reachability: r.reachable ? 'reachable' : r.last_checked_at ? 'unreachable' : 'checking',
+      // Final review, Important #5: last_checked_at empty always means
+      // "not yet confirmed" — checked before reachable, matching
+      // useClusterReachability's precedence (the Dashboard's single
+      // source of truth) exactly, so the same underlying data can never
+      // read "Reachable" here and "connecting" there.
+      reachability: !r.last_checked_at ? 'checking' : r.reachable ? 'reachable' : 'unreachable',
       isConnected: connectedKeys.has(k) || prev?.isConnected || false,
       connectedAt: connectedAtMap.get(k) ?? prev?.connectedAt,
       kubeconfigPath: r.kubeconfig_path ?? prev?.kubeconfigPath,
@@ -126,6 +141,16 @@ function mergeClusters(
   return Array.from(byKey.values());
 }
 
+// cluster-connection-state plan, Task 8: among non-connected clusters,
+// rank by reachability so working/likely-working clusters surface above
+// confirmed-unreachable ones, instead of pure alphabetical mixing them.
+const REACHABILITY_RANK: Record<Reachability, number> = {
+  reachable: 0,
+  checking: 1,
+  unreachable: 2,
+  unknown: 3,
+};
+
 function sortClusters(list: MergedCluster[]): MergedCluster[] {
   return [...list].sort((a, b) => {
     if (a.isConnected !== b.isConnected) return a.isConnected ? -1 : 1;
@@ -133,6 +158,9 @@ function sortClusters(list: MergedCluster[]): MergedCluster[] {
       const ta = a.connectedAt ?? '', tb = b.connectedAt ?? '';
       if (ta !== tb) return ta < tb ? 1 : -1;
     }
+    const ra = REACHABILITY_RANK[a.reachability];
+    const rb = REACHABILITY_RANK[b.reachability];
+    if (ra !== rb) return ra - rb;
     return a.identity.name.localeCompare(b.identity.name);
   });
 }
@@ -486,6 +514,16 @@ export function ClusterPickerPage() {
                         )}
                       </div>
                       <div className="text-xs font-mono text-muted-foreground truncate mt-0.5">{c.identity.serverUrl}</div>
+                      {/* Always-visible status text — the colored dot above
+                          previously only explained itself on hover, which is
+                          exactly the "even if cluster not connected it says
+                          healthy" confusion the user reported (it wasn't
+                          mislabeled, it just wasn't readable without hovering). */}
+                      {!c.isConnected && (
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          {reachabilityTitle(c.reachability, c.lastCheckedAt)}
+                        </div>
+                      )}
                       {label && <div className="text-[11px] text-muted-foreground/70 mt-0.5">{label}</div>}
                     </div>
 

@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Progress } from "@/components/ui/progress";
 import { useClusterOverview } from "@/hooks/useClusterOverview";
 import { useHealthScore } from "@/hooks/useHealthScore";
+import { useClusterReachability } from "@/hooks/useClusterReachability";
 import { useActiveCluster } from "@/stores/clusterPresenceStore";
 import { useBackendConfigStore } from "@/stores/backendConfigStore";
 import { EmptyNoClusters } from "@/components/ui/empty-state";
@@ -43,6 +44,19 @@ export const ClusterHealthWidget = () => {
 
   const overview = useClusterOverview(clusterId);
   const healthScore = useHealthScore();
+  const reachability = useClusterReachability(clusterId);
+  // Final review, Critical #2: real data (a health score) may only ever
+  // render when reachability is positively 'connected' — never merely
+  // "not confirmed unreachable". 'connecting'/'unknown' previously fell
+  // through to the real-score branch, so a cluster the backend has never
+  // actually reached (no client ever constructed, reachable:false with
+  // no last_checked_at) still showed a cached "Grade A" from
+  // useHealthScore's own optimistic empty-data default — the same
+  // fabricated-healthy bug this whole plan exists to kill, just reached
+  // via a different state than 'unreachable'.
+  const isUnreachable = reachability.status === 'unreachable' || reachability.status === 'error';
+  const isConnecting = reachability.status === 'connecting' || reachability.status === 'unknown';
+  const isConnected = reachability.status === 'connected';
 
   // UX-1 (docs/PRODUCTION-HARDENING-ROADMAP.md, Phase 7): this widget
   // previously never checked overview/healthScore loading or error state at
@@ -72,7 +86,8 @@ export const ClusterHealthWidget = () => {
     ["excellent", "good", "healthy"].includes(status) ? "Good State" :
     ["fair", "degraded"].includes(status) ? "Needs Attention" :
     "At Risk";
-  const hasData = activeCluster || clusterId;
+  const hasIdentity = !!(activeCluster || clusterId);
+  const hasData = hasIdentity && isConnected;
 
   return (
     <Card className="h-full min-h-[28rem] border-none soft-shadow glass-panel relative overflow-hidden group flex flex-col">
@@ -105,7 +120,22 @@ export const ClusterHealthWidget = () => {
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col pt-2 pb-6 px-6 relative z-10">
-        {!hasData ? (
+        {isUnreachable ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center" role="status">
+            <AlertTriangle className="w-8 h-8 text-amber-500" />
+            <p className="text-sm font-medium text-foreground">Cluster unreachable</p>
+            <p className="text-xs text-muted-foreground max-w-[22rem]">
+              {reachability.status === 'unreachable'
+                ? `Last connected ${reachability.lastSuccessAt ? new Date(reachability.lastSuccessAt).toLocaleString() : 'previously'}.`
+                : 'This cluster has never been successfully reached.'}
+            </p>
+          </div>
+        ) : isConnecting && hasIdentity ? (
+          <div className="flex-1 flex flex-col items-center justify-center gap-3" role="status" aria-label="Connecting to cluster">
+            <div className="h-40 w-40 rounded-full border-4 border-muted animate-pulse" />
+            <p className="text-xs text-muted-foreground">Connecting to cluster…</p>
+          </div>
+        ) : !hasData ? (
           <div className="flex-1 flex items-center justify-center">
             <EmptyNoClusters
               size="sm"

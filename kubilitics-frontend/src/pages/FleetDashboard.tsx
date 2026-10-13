@@ -450,6 +450,12 @@ function ClusterCard({ cluster, onClick, onDelete }: { cluster: FleetCluster; on
                 <StatusBadge variant={cfg.variant} label={cfg.label} size="sm" dot />
               )}
             </div>
+            {!cluster.reachable && cluster.lastCheckedAt && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Last checked {formatDistanceToNow(new Date(cluster.lastCheckedAt), { addSuffix: true })}
+                {cluster.lastError ? ` — ${cluster.lastError}` : ''}
+              </p>
+            )}
           </div>
         </div>
 
