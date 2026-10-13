@@ -140,20 +140,34 @@ func TestGetResourceTopology_LiveFetchesWhenNoEngineRunning(t *testing.T) {
 // topology/v2 package) — only the echoed metadata differed, misleadingly
 // implying three distinct deeper views that don't exist.
 func TestGetResourceTopology_ClampsHopsAboveThreeToAvoidMisleadingDepthMetadata(t *testing.T) {
-	const clusterID = "depth-clamp-cluster"
-	client, _ := newCountingDeploymentClient(clusterID)
-	h := newResourceTopologyTestHandler(t, clusterID, client)
+	cases := []struct {
+		name      string
+		clusterID string
+		queryTail string
+	}{
+		{name: "depth=4 via depth param", clusterID: "depth-clamp-cluster-1", queryTail: "?depth=4"},
+		{name: "depth=5 via depth param", clusterID: "depth-clamp-cluster-2", queryTail: "?depth=5"},
+		{name: "depth=4 via legacy hops param", clusterID: "depth-clamp-cluster-3", queryTail: "?hops=4"},
+		{name: "depth=5 via legacy hops param", clusterID: "depth-clamp-cluster-4", queryTail: "?hops=5"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			clusterID := tc.clusterID
+			client, _ := newCountingDeploymentClient(clusterID)
+			h := newResourceTopologyTestHandler(t, clusterID, client)
 
-	r := httptest.NewRequest(http.MethodGet, "/clusters/"+clusterID+"/topology/resource/Deployment/default/web?depth=5", nil)
-	w := serve(h, r)
-	if w.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
-	}
-	if strings.Contains(w.Body.String(), `"depth":5`) {
-		t.Fatalf("expected requested depth=5 to be clamped to the documented max (3) in response metadata, got: %s", w.Body.String())
-	}
-	if !strings.Contains(w.Body.String(), `"depth":3`) {
-		t.Fatalf("expected clamped metadata depth of 3, got: %s", w.Body.String())
+			r := httptest.NewRequest(http.MethodGet, "/clusters/"+clusterID+"/topology/resource/Deployment/default/web"+tc.queryTail, nil)
+			w := serve(h, r)
+			if w.Code != http.StatusOK {
+				t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+			}
+			if strings.Contains(w.Body.String(), `"depth":4`) || strings.Contains(w.Body.String(), `"depth":5`) {
+				t.Fatalf("expected requested depth above 3 to be clamped to the documented max (3) in response metadata, got: %s", w.Body.String())
+			}
+			if !strings.Contains(w.Body.String(), `"depth":3`) {
+				t.Fatalf("expected clamped metadata depth of 3, got: %s", w.Body.String())
+			}
+		})
 	}
 }
 
