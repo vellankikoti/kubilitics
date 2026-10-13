@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
-import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 import { useHealthScore } from '@/hooks/useHealthScore';
+import { useActiveClusterId } from '@/hooks/useActiveClusterId';
+import { useClusterReachability } from '@/hooks/useClusterReachability';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Progress } from '@/components/ui/progress';
@@ -72,8 +74,39 @@ function BreakdownItem({
 
 export function HealthScoreCard() {
   const healthScore = useHealthScore();
+  const clusterId = useActiveClusterId();
+  const reachability = useClusterReachability(clusterId);
+  const isUnreachable = reachability.status === 'unreachable' || reachability.status === 'error';
+
   const config = statusConfig[healthScore.status];
   const StatusIcon = config.icon;
+
+  // Same class of bug already fixed for ClusterHealthWidget and
+  // DashboardHero: useHealthScore has no reachability awareness of its own,
+  // so a cluster that goes unreachable mid-session would otherwise keep
+  // this card showing its last fetched score with full visual confidence.
+  if (isUnreachable) {
+    return (
+      <section
+        className="dashboard-panel overflow-hidden rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 p-6"
+        aria-label="Cluster health score"
+      >
+        <div className="flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" aria-hidden />
+          <div>
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              Cluster unreachable
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+              {reachability.lastError
+                ? `Health score cannot be refreshed right now: ${reachability.lastError}`
+                : 'Health score cannot be refreshed right now.'}
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const circumference = 2 * Math.PI * 45;
   const strokeDasharray = `${(healthScore.score / 100) * circumference} ${circumference}`;

@@ -3,9 +3,11 @@
  * status label, AI-generated insight summary. The emotional anchor.
  */
 import { motion } from 'framer-motion';
-import { Shield, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { AlertCircle, Shield, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useHealthScore, type HealthScore } from '@/hooks/useHealthScore';
 import { useLiveSignals } from '@/hooks/useLiveSignals';
+import { useActiveClusterId } from '@/hooks/useActiveClusterId';
+import { useClusterReachability } from '@/hooks/useClusterReachability';
 import { cn } from '@/lib/utils';
 
 const STATUS_LABELS: Record<HealthScore['status'], string> = {
@@ -59,9 +61,42 @@ const SVG_SIZE = (RADIUS + 14) * 2;
 export function DashboardHero() {
   const health = useHealthScore();
   const signals = useLiveSignals();
+  const clusterId = useActiveClusterId();
+  const reachability = useClusterReachability(clusterId);
+  const isUnreachable = reachability.status === 'unreachable' || reachability.status === 'error';
+
   const strokeDash = (health.score / 100) * CIRCUMFERENCE;
   const config = STATUS_CONFIG[health.status];
   const StatusIcon = config.icon;
+
+  // useHealthScore's own data can be stale: it only reflects what was last
+  // fetched, and has no reachability awareness of its own. A cluster that
+  // goes unreachable mid-session must not keep showing its last fetched
+  // "Grade A" score with full visual confidence — this is the same class of
+  // bug already fixed for ClusterHealthWidget, which renders right next to
+  // this component on the same Dashboard page.
+  if (isUnreachable) {
+    return (
+      <section
+        className="relative w-full overflow-hidden rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-amber-50 dark:bg-amber-500/10 p-6"
+        aria-label="Cluster health overview"
+      >
+        <div className="flex items-center gap-3">
+          <AlertCircle className="h-5 w-5 text-amber-500 shrink-0" aria-hidden />
+          <div>
+            <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+              Cluster unreachable
+            </p>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">
+              {reachability.lastError
+                ? `Health score cannot be refreshed right now: ${reachability.lastError}`
+                : 'Health score cannot be refreshed right now.'}
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const quickStats = [
     { label: 'Pods', value: signals.runningPods + signals.failedPods + signals.pendingPods },
