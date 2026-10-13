@@ -69,23 +69,33 @@ func TestFollowupTopo1_BlastPercentDoesNotInflateFromFanOut(t *testing.T) {
 }
 
 // TestFollowupTopo2_OTelMatchingIsNamespaceScoped is the pinned
-// reproduction for FOLLOWUP-TOPO-2 (see KNOWN-ISSUES.md). It is skipped,
-// not fixed: OTel service-map edge matching (computeConfidence's trace
-// check, computeBlastRadiusPercent's traffic-hotspot amplification, and
-// consumer-count matching in computeSingleResourceBlast) all compare
-// edge.Target/edge.Source to a bare resource NAME via strings.EqualFold,
-// with no namespace component — so a trace edge for "checkout" in
-// namespace "staging" is indistinguishable from a resource named
-// "checkout" in namespace "prod".
+// reproduction for FOLLOWUP-TOPO-2's FULL resolution (see KNOWN-ISSUES.md).
+// A partial, safe mitigation has landed (see
+// TestComputeConfidence_AmbiguousNameAcrossNamespacesGetsNoFalseTraceCredit
+// and the nameIsAmbiguousAcrossNamespaces guard applied at computeConfidence,
+// computeBlastRadiusPercent's traffic-hotspot amplification, and
+// computeSingleResourceBlast's consumer-count/traffic matching): when a
+// name is ambiguous across namespaces, NONE of the same-named targets get
+// false trace credit, closing the false-positive direction.
 //
-// Acceptance criterion this pins (not yet met): identical names in
-// different namespaces remain isolated unless an explicitly supported
-// cross-namespace relationship establishes a connection. Un-skip this test
-// once OTel edges carry (or are resolved against) a namespace and the
-// match is namespace-aware; it should then assert the prod target's
-// confidence/trace signal is unaffected by a same-named staging service.
+// This specific test still cannot pass without a real architectural
+// change, confirmed by direct inspection, not guessed: internal/otel's
+// ServiceEdge (internal/otel/types.go) is Source/Target name-only, with no
+// namespace field, and internal/otel/store.go's GetServiceMap SQL query
+// (GROUP BY service_name) does not aggregate by namespace either — even
+// though the underlying spans table DOES carry k8s_namespace per-span
+// (populated from the "k8s.namespace.name" resource attribute in
+// receiver.go). The data exists at ingestion time but is discarded before
+// it reaches ServiceMap. The graph package's partial mitigation can only
+// make an ambiguous name's trace credit go to NEITHER target (safe, but
+// also takes credit away from the genuinely-traced one) — it cannot
+// correctly attribute the trace to ONLY staging/checkout, which is what
+// this test requires. Closing this fully means: add a namespace field to
+// ServiceNode/ServiceEdge, and change GetServiceMap's two SQL queries to
+// GROUP BY (service_name, k8s_namespace) instead of service_name alone —
+// out of scope for a fix confined to internal/graph.
 func TestFollowupTopo2_OTelMatchingIsNamespaceScoped(t *testing.T) {
-	t.Skip("FOLLOWUP-TOPO-2: known OTel name-only cross-namespace collision, deferred — see KNOWN-ISSUES.md")
+	t.Skip("FOLLOWUP-TOPO-2: full fix needs internal/otel's ServiceMap to carry a namespace (GetServiceMap's SQL groups by service_name only, discarding the k8s_namespace already present on spans) — out of internal/graph's scope. Partial mitigation (ambiguous name -> no false credit to anyone) has landed; see TestComputeConfidence_AmbiguousNameAcrossNamespacesGetsNoFalseTraceCredit.")
 
 	prodTarget := models.ResourceRef{Kind: "Deployment", Namespace: "prod", Name: "checkout"}
 	stagingTarget := models.ResourceRef{Kind: "Deployment", Namespace: "staging", Name: "checkout"}

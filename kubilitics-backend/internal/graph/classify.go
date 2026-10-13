@@ -404,8 +404,11 @@ func computeBlastRadiusPercent(
 				}
 			}
 
-			// Traffic hotspot amplification from OTel data
-			if snap != nil && snap.OTelServiceMap != nil && len(snap.OTelServiceMap.Edges) > 0 {
+			// Traffic hotspot amplification from OTel data. FOLLOWUP-TOPO-2
+			// partial mitigation: skip attributing calls to this service if
+			// its name is ambiguous across namespaces (no namespace on
+			// OTel edges — same reasoning as computeConfidence).
+			if snap != nil && snap.OTelServiceMap != nil && len(snap.OTelServiceMap.Edges) > 0 && !nameIsAmbiguousAcrossNamespaces(snap, si.Service.Name) {
 				totalCalls := 0
 				serviceCalls := 0
 				for _, edge := range snap.OTelServiceMap.Edges {
@@ -673,6 +676,24 @@ func findMatchingPDBByLabels(
 	return nil, false
 }
 
+// nameIsAmbiguousAcrossNamespaces reports whether more than one namespace in
+// this snapshot has a resource with the given bare name — the condition
+// under which a name-only OTel service-map edge (no namespace component)
+// cannot be safely attributed to one specific resource. Part of the
+// FOLLOWUP-TOPO-2 partial mitigation.
+func nameIsAmbiguousAcrossNamespaces(snap *GraphSnapshot, name string) bool {
+	if snap == nil {
+		return false
+	}
+	namespaces := make(map[string]bool)
+	for _, ref := range snap.Nodes {
+		if strings.EqualFold(ref.Name, name) {
+			namespaces[ref.Namespace] = true
+		}
+	}
+	return len(namespaces) > 1
+}
+
 // computeConfidence scores how much to trust the blast-radius result based on
 // which data sources were available during classification. target scopes the
 // PDB/HPA/trace signals to the specific resource being analyzed — without it,
@@ -695,10 +716,26 @@ func computeConfidence(snap *GraphSnapshot, target *models.ResourceRef) (int, st
 		hasPDBs = snap.NodeHasPDB[key]
 		hasHPAs = snap.NodeHasHPA[key]
 		if snap.OTelServiceMap != nil {
-			for _, edge := range snap.OTelServiceMap.Edges {
-				if strings.EqualFold(edge.Source, target.Name) || strings.EqualFold(edge.Target, target.Name) {
-					hasTraces = true
-					break
+			// FOLLOWUP-TOPO-2 partial mitigation: OTel service-map edges
+			// carry no namespace (otel.ServiceEdge is name-only), so a
+			// trace edge named "checkout" can't be distinguished between
+			// a traced staging/checkout and an untraced prod/checkout. If
+			// this target's name is ambiguous — some OTHER namespace in
+			// this snapshot also has a resource with the same name — we
+			// cannot safely attribute the trace to this target, so no
+			// target sharing that name gets credit. This closes the
+			// false-positive direction (an untraced resource no longer
+			// inherits a same-named peer's coverage); it does NOT fully
+			// resolve the issue, since the genuinely-traced peer also
+			// loses credit when ambiguous. Full resolution requires the
+			// OTel ingestion layer (internal/otel) to carry/resolve a
+			// namespace on service-map edges — out of this fix's scope.
+			if !nameIsAmbiguousAcrossNamespaces(snap, target.Name) {
+				for _, edge := range snap.OTelServiceMap.Edges {
+					if strings.EqualFold(edge.Source, target.Name) || strings.EqualFold(edge.Target, target.Name) {
+						hasTraces = true
+						break
+					}
 				}
 			}
 		}
