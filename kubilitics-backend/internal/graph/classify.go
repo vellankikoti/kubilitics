@@ -59,7 +59,7 @@ func classifyImpact(snap *GraphSnapshot, target models.ResourceRef, failureMode 
 	coverageLevel, coverageNote := determineCoverage(snap)
 
 	// Compute confidence score based on data sources
-	confidenceScore, confidenceNote := computeConfidence(snap)
+	confidenceScore, confidenceNote := computeConfidence(snap, &target)
 
 	return &ClassificationResult{
 		LostPods:        lostPods,
@@ -618,19 +618,42 @@ func findMatchingPDBByLabels(
 }
 
 // computeConfidence scores how much to trust the blast-radius result based on
-// which data sources were available during classification.
-func computeConfidence(snap *GraphSnapshot) (int, string) {
+// which data sources were available during classification. target scopes the
+// PDB/HPA/trace signals to the specific resource being analyzed — without it,
+// two different targets in the same cluster snapshot would get an identical
+// score merely because SOME resource somewhere has a PDB/HPA/trace, even if
+// this target has none of them. endpoints-availability and "large cluster"
+// remain cluster-wide: they describe whether the informer/endpoints data
+// source is wired up at all, not a claim about this target's own coverage.
+// target may be nil (e.g. namespace-deletion mode, which has no single
+// resource to scope to) — callers then get the prior cluster-global scoring.
+func computeConfidence(snap *GraphSnapshot, target *models.ResourceRef) (int, string) {
 	score := 0
 	var sources []string
 
 	hasEndpoints := len(snap.ServiceEndpoints) > 0
-	hasTraces := snap.OTelServiceMap != nil && len(snap.OTelServiceMap.Edges) > 0
-	hasPDBs := len(snap.PDBs) > 0
-	hasHPAs := false
-	for _, v := range snap.NodeHasHPA {
-		if v {
-			hasHPAs = true
-			break
+
+	var hasTraces, hasPDBs, hasHPAs bool
+	if target != nil {
+		key := refKey(*target)
+		hasPDBs = snap.NodeHasPDB[key]
+		hasHPAs = snap.NodeHasHPA[key]
+		if snap.OTelServiceMap != nil {
+			for _, edge := range snap.OTelServiceMap.Edges {
+				if strings.EqualFold(edge.Source, target.Name) || strings.EqualFold(edge.Target, target.Name) {
+					hasTraces = true
+					break
+				}
+			}
+		}
+	} else {
+		hasTraces = snap.OTelServiceMap != nil && len(snap.OTelServiceMap.Edges) > 0
+		hasPDBs = len(snap.PDBs) > 0
+		for _, v := range snap.NodeHasHPA {
+			if v {
+				hasHPAs = true
+				break
+			}
 		}
 	}
 

@@ -183,7 +183,7 @@ func TestComputeConfidence_FullData(t *testing.T) {
 	snap.NodeHasHPA["Deployment/default/app"] = true
 	snap.TotalWorkloads = 15
 
-	score, note := computeConfidence(snap)
+	score, note := computeConfidence(snap, nil)
 	// endpoints(30) + PDBs(15) + HPAs(10) + large cluster(15) = 70 (no traces)
 	if score < 60 {
 		t.Errorf("full data minus traces should score >= 60, got %d", score)
@@ -197,7 +197,7 @@ func TestComputeConfidence_GraphOnly(t *testing.T) {
 	snap := &GraphSnapshot{}
 	snap.EnsureMaps()
 
-	score, note := computeConfidence(snap)
+	score, note := computeConfidence(snap, nil)
 	if score != 0 {
 		t.Errorf("empty snapshot should have 0 confidence, got %d", score)
 	}
@@ -233,6 +233,47 @@ func TestComputeExposure_ErrorRate(t *testing.T) {
 	}
 }
 
+// TestComputeConfidence_IsPerTargetNotClusterGlobal is the Phase 2 audit
+// regression test (Checkpoint A suspected bug, confirmed here). Two targets
+// in the SAME snapshot: "well-covered" has a PDB, an HPA, and is traced by
+// OTel; "bare" has none of that and is never mentioned in any trace edge.
+// Before classifyImpact threaded the target into computeConfidence, the
+// function only read cluster-wide snapshot fields (snap.PDBs non-empty,
+// snap.NodeHasHPA true for ANY node, snap.OTelServiceMap non-empty at all),
+// so both targets got the exact same confidence score and "Based on: ..."
+// note — an SRE querying blast radius for the untraced, unprotected "bare"
+// resource during an incident would see the same false reassurance as for
+// the well-instrumented one.
+func TestComputeConfidence_IsPerTargetNotClusterGlobal(t *testing.T) {
+	wellCovered := models.ResourceRef{Kind: "Deployment", Namespace: "default", Name: "well-covered"}
+	bare := models.ResourceRef{Kind: "Deployment", Namespace: "default", Name: "bare"}
+	wcKey := refKey(wellCovered)
+	bareKey := refKey(bare)
+
+	snap := &GraphSnapshot{}
+	snap.EnsureMaps()
+	snap.Nodes[wcKey] = wellCovered
+	snap.Nodes[bareKey] = bare
+	snap.NodeHasPDB[wcKey] = true
+	snap.NodeHasHPA[wcKey] = true
+	snap.PDBs = []policyv1.PodDisruptionBudget{{}}
+	snap.OTelServiceMap = &otel.ServiceMap{
+		Edges: []otel.ServiceEdge{{Source: "ingress", Target: "well-covered", Count: 500}},
+	}
+	snap.BuiltAt = time.Now().UnixMilli()
+	snap.TotalWorkloads = 2
+
+	wcScore, wcNote := computeConfidence(snap, &wellCovered)
+	bareScore, bareNote := computeConfidence(snap, &bare)
+
+	if wcScore <= bareScore {
+		t.Errorf("well-covered target (PDB+HPA+traced) should score higher confidence than bare target with none of that, got well-covered=%d bare=%d", wcScore, bareScore)
+	}
+	if wcNote == bareNote {
+		t.Errorf("well-covered and bare targets should not share an identical confidence note, both got: %q", wcNote)
+	}
+}
+
 func TestComputeConfidence_StaleTraces(t *testing.T) {
 	// Fresh snapshot (just built)
 	freshSnap := buildSnapshotScenario1()
@@ -240,7 +281,7 @@ func TestComputeConfidence_StaleTraces(t *testing.T) {
 		Edges: []otel.ServiceEdge{{Source: "a", Target: "b", Count: 10}},
 	}
 	freshSnap.BuiltAt = time.Now().UnixMilli() // fresh
-	freshScore, _ := computeConfidence(freshSnap)
+	freshScore, _ := computeConfidence(freshSnap, nil)
 
 	// Stale snapshot (3 hours old)
 	staleSnap := buildSnapshotScenario1()
@@ -248,7 +289,7 @@ func TestComputeConfidence_StaleTraces(t *testing.T) {
 		Edges: []otel.ServiceEdge{{Source: "a", Target: "b", Count: 10}},
 	}
 	staleSnap.BuiltAt = time.Now().Add(-3 * time.Hour).UnixMilli() // 3 hours old
-	staleScore, staleNote := computeConfidence(staleSnap)
+	staleScore, staleNote := computeConfidence(staleSnap, nil)
 
 	if staleScore >= freshScore {
 		t.Errorf("stale trace data (%d) should give lower confidence than fresh (%d)",

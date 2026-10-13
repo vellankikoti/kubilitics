@@ -127,6 +127,36 @@ func TestGetResourceTopology_LiveFetchesWhenNoEngineRunning(t *testing.T) {
 	}
 }
 
+// TestGetResourceTopology_ClampsHopsAboveThreeToAvoidMisleadingDepthMetadata
+// is the Phase 2 audit regression test. TopologyMetadata.Depth is documented
+// (internal/topology/v2/response.go) as "current depth level (0-3)", but the
+// handler accepted ?depth= up to 5 and echoed the raw requested value back
+// into Metadata.Depth unclamped — so a caller requesting depth=5 got a
+// response claiming "depth": 5, violating the field's own documented range.
+// It's also not a real fourth or fifth traversal level: filterResource's BFS
+// (filter.go) treats any depth >= 3 as unlimited "Full mode," so depth 3, 4,
+// and 5 already produce byte-identical node/edge sets (see
+// TestViewFilter_Resource_FullModeDepthIsUnboundedAboveThree in the
+// topology/v2 package) — only the echoed metadata differed, misleadingly
+// implying three distinct deeper views that don't exist.
+func TestGetResourceTopology_ClampsHopsAboveThreeToAvoidMisleadingDepthMetadata(t *testing.T) {
+	const clusterID = "depth-clamp-cluster"
+	client, _ := newCountingDeploymentClient(clusterID)
+	h := newResourceTopologyTestHandler(t, clusterID, client)
+
+	r := httptest.NewRequest(http.MethodGet, "/clusters/"+clusterID+"/topology/resource/Deployment/default/web?depth=5", nil)
+	w := serve(h, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if strings.Contains(w.Body.String(), `"depth":5`) {
+		t.Fatalf("expected requested depth=5 to be clamped to the documented max (3) in response metadata, got: %s", w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `"depth":3`) {
+		t.Fatalf("expected clamped metadata depth of 3, got: %s", w.Body.String())
+	}
+}
+
 // TestGetResourceTopology_ScopesLiveCollectionToResourceNamespace covers a
 // real production bug: GetResourceTopology always built the v2 Options with
 // Namespace left empty, so when no graph engine was running (the common
