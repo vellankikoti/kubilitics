@@ -38,6 +38,13 @@ vi.mock('@/stores/projectStore', () => ({
   useProjectStore: (selector: (s: Record<string, unknown>) => unknown) => selector({ activeProject: null }),
 }));
 
+vi.mock('@/hooks/useActiveClusterId', () => ({ useActiveClusterId: () => 'c1' }));
+
+const mockReachability = vi.fn();
+vi.mock('@/hooks/useClusterReachability', () => ({
+  useClusterReachability: () => mockReachability(),
+}));
+
 // Mock k8sIconMap — return a placeholder URL for every kind
 vi.mock('@/topology/icons/k8sIconMap', () => ({
   default: new Proxy(
@@ -68,6 +75,10 @@ function renderGrid() {
 describe('MetricCardsGrid', () => {
   afterEach(() => {
     cleanup();
+  });
+
+  beforeEach(() => {
+    mockReachability.mockReturnValue({ status: 'connected', lastCheckedAt: 't', lastSuccessAt: 't' });
   });
 
   it('renders 3 category labels', () => {
@@ -148,5 +159,35 @@ describe('MetricCardsGrid', () => {
     // With empty health, each tile should show "No data"
     const noDataElements = screen.getAllByText('No data');
     expect(noDataElements).toHaveLength(9);
+  });
+
+  // stabilization Task 5: useResourceCounts/useDashboardResourceHealth both
+  // disable their queries (enabled: isConnected) when the cluster is
+  // unreachable, rather than erroring — so every tile silently fell back to
+  // a bare "0" with no indication this is "couldn't check" rather than "the
+  // cluster genuinely has zero of this resource." Same bug class as
+  // ClusterHealthWidget/ClusterCapacity/DashboardHero, different manifestation.
+  it('shows a clear unreachable message instead of fabricated zero counts when the cluster is unreachable', () => {
+    mockReachability.mockReturnValue({
+      status: 'unreachable',
+      lastCheckedAt: '2026-10-13T00:00:00Z',
+      lastSuccessAt: '2026-10-12T23:00:00Z',
+      lastError: 'dial tcp: connection refused',
+    });
+
+    renderGrid();
+
+    expect(screen.getByText(/cluster unreachable/i)).toBeInTheDocument();
+    // None of the tile titles (and therefore none of the misleading "0"
+    // counts) should render while unreachable.
+    expect(screen.queryByText('Nodes')).not.toBeInTheDocument();
+    expect(screen.queryByText('Pods')).not.toBeInTheDocument();
+  });
+
+  it('still renders the tile grid normally when connected', () => {
+    renderGrid();
+
+    expect(screen.queryByText(/cluster unreachable/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Nodes')).toBeInTheDocument();
   });
 });
