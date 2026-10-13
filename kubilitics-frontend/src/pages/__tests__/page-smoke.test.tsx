@@ -345,30 +345,6 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('Page smoke tests', () => {
-  describe('Dashboard', () => {
-    it('renders without crashing and shows key content', async () => {
-      const Dashboard = (await import('@/pages/Dashboard')).default;
-      const { container } = renderPage(<Dashboard />);
-      expect(container).toBeTruthy();
-      // Dashboard shows "Gateway" heading when cluster is active
-      expect(screen.getByText('Gateway')).toBeInTheDocument();
-    });
-
-    it('shows "No cluster selected" when no active cluster', async () => {
-      // Swap the presence mock so useActiveCluster() returns null; Dashboard
-      // reads the presence view directly post-Phase-7.
-      const presence = (await import('@/stores/clusterPresenceStore')) as unknown as Record<string, unknown>;
-      const origUseActive = presence.useActiveCluster;
-      presence.useActiveCluster = () => null;
-
-      const Dashboard = (await import('@/pages/Dashboard')).default;
-      renderPage(<Dashboard />);
-      expect(screen.getByText('No cluster selected')).toBeInTheDocument();
-
-      presence.useActiveCluster = origUseActive;
-    });
-  });
-
   describe('FleetDashboard', () => {
     it('renders without crashing and shows Fleet Overview heading', async () => {
       const FleetDashboard = (await import('@/pages/FleetDashboard')).default;

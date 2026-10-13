@@ -45,7 +45,7 @@ describe('i18next-http-backend v4 (FOLLOWUP-DEP-1)', () => {
     expect(instance.t('greeting')).toBe('hello');
   });
 
-  it('rejects an attacker-controlled lng value instead of building an unsafe URL (v4 security behavior)', async () => {
+  it('supportedLngs rejects an attacker-controlled lng before it reaches the backend', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
@@ -53,6 +53,14 @@ describe('i18next-http-backend v4 (FOLLOWUP-DEP-1)', () => {
     await instance.use(Backend).init({
       lng: 'http:evil.example.com',
       fallbackLng: false,
+      // Mirrors src/i18n/i18n.ts's real config: i18next-http-backend itself
+      // does not validate `lng` before interpolating it into loadPath (the
+      // first test in this file, and the library's docs, confirm it will
+      // happily fetch whatever URL the template produces) — supportedLngs
+      // is the actual mitigation, enforced by i18next core before the
+      // backend is ever invoked.
+      supportedLngs: ['en', 'de'],
+      nonExplicitSupportedLngs: false,
       ns: ['translation'],
       defaultNS: 'translation',
       backend: {
