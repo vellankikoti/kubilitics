@@ -194,6 +194,13 @@ export function RecentResources() {
 
   const handleToggle = () => setIsCollapsed((prev) => !prev);
 
+  const handleToggleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleToggle();
+    }
+  };
+
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
     clearRecent();
@@ -201,12 +208,21 @@ export function RecentResources() {
 
   return (
     <div className="space-y-1">
-      <button
+      {/* role="button" div, not a real <button>: it wraps the "Clear recent
+          resources" button below, and a <button> cannot nest another
+          <button> (invalid HTML — breaks accessible-name computation and
+          screen reader/keyboard focus order). */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={handleToggle}
+        onKeyDown={handleToggleKeyDown}
         aria-expanded={!isCollapsed}
         aria-controls="nav-recent-resources"
+        aria-label={isCollapsed ? 'Expand recent resources' : 'Collapse recent resources'}
         className={cn(
-          'flex items-center justify-between w-full px-4 py-2.5 rounded-xl transition-all duration-300 group border h-11',
+          'flex items-center justify-between w-full px-4 py-2.5 rounded-xl transition-all duration-300 group border h-11 cursor-pointer',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50',
           isCollapsed
             ? 'bg-transparent hover:bg-slate-100/60 dark:hover:bg-slate-800/40 text-slate-800 dark:text-slate-300 border-transparent hover:border-slate-100 dark:hover:border-slate-700/50'
             : 'bg-slate-100/40 dark:bg-slate-800/40 text-slate-900 dark:text-slate-100 border-slate-100 dark:border-slate-700/50',
@@ -263,7 +279,7 @@ export function RecentResources() {
             )}
           />
         </div>
-      </button>
+      </div>
 
       <AnimatePresence initial={false}>
         {!isCollapsed && (
