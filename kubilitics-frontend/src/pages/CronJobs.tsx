@@ -170,8 +170,8 @@ function transformResource(resource: CronJobResource): CronJob {
  const lastResult = status?.active?.length ? 'Running' : hasFailedCondition ? 'Failed' : status?.lastSuccessfulTime ? 'Success' : '–';
  return {
  uid: resource.metadata?.uid,
- name: resource.metadata.name,
- namespace: resource.metadata.namespace || 'default',
+ name: resource.metadata?.name,
+ namespace: resource.metadata?.namespace || 'default',
  status: spec?.suspend ? 'Suspended' : 'Active',
  schedule,
  scheduleHuman: cronScheduleToHuman(schedule),
@@ -183,7 +183,7 @@ function transformResource(resource: CronJobResource): CronJob {
  historyLimit,
  lastResult,
  successRate7d: '-',
- age: calculateAge(resource.metadata.creationTimestamp),
+ age: calculateAge(resource.metadata?.creationTimestamp),
  creationTimestamp: resource.metadata?.creationTimestamp,
  };
 }
@@ -418,8 +418,8 @@ spec:
  const map = new Map<string, Record<string, string>>();
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = (data?.items ?? []).find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = (data?.items ?? []).find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.items]);

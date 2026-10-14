@@ -107,10 +107,10 @@ function transformResource(resource: ReplicaSetResource): ReplicaSet {
  let status: ReplicaSet['status'] = 'Healthy';
  if (ready === 0 && desired > 0) status = 'Degraded';
  else if (ready < desired) status = 'Progressing';
- const ownerRefs = (resource.metadata as unknown as Record<string, unknown>).ownerReferences as Array<{kind: string}> | undefined;
+ const ownerRefs = (resource.metadata as unknown as Record<string, unknown> | undefined)?.ownerReferences as Array<{kind: string}> | undefined;
  const deploymentOwner = ownerRefs?.find((r: {kind: string}) => r.kind === 'Deployment');
  const ownerRef = deploymentOwner ?? ownerRefs?.[0];
- return { name: resource.metadata.name, namespace: resource.metadata.namespace || 'default', status, desired, current, ready, owner: ownerRef?.name || '-', ownerKind: ownerRef?.kind || '', age: calculateAge(resource.metadata.creationTimestamp), creationTimestamp: resource.metadata?.creationTimestamp, cpu: '-', memory: '-' };
+ return { name: resource.metadata?.name ?? 'unknown', namespace: resource.metadata?.namespace || 'default', status, desired, current, ready, owner: ownerRef?.name || '-', ownerKind: ownerRef?.kind || '', age: calculateAge(resource.metadata?.creationTimestamp), creationTimestamp: resource.metadata?.creationTimestamp, cpu: '-', memory: '-' };
 }
 
 type ListView = 'flat' | 'byNamespace' | 'byOwner';
@@ -264,7 +264,7 @@ export default function ReplicaSets() {
  const replicasetResourceMaxMap = useMemo(() => {
  const m: Record<string, { cpuMax?: number; memoryMax?: number }> = {};
  rawReplicaSetItems.forEach((rsResource) => {
- const key = `${rsResource.metadata.namespace}/${rsResource.metadata.name}`;
+ const key = `${rsResource.metadata?.namespace || 'default'}/${rsResource.metadata?.name ?? 'unknown'}`;
  const containers = rsResource.spec?.template?.spec?.containers || [];
  const cpuMax = calculatePodResourceMax(containers, 'cpu');
  const memoryMax = calculatePodResourceMax(containers, 'memory');
@@ -412,8 +412,8 @@ spec:
  const map = new Map<string, Record<string, string>>();
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = rawReplicaSetItems.find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = rawReplicaSetItems.find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, rawReplicaSetItems]);

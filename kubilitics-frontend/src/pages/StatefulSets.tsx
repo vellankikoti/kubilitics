@@ -131,12 +131,12 @@ function transformResource(resource: StatefulSetResource): StatefulSet {
  const partition = resource.spec?.updateStrategy?.rollingUpdate?.partition ?? 0;
  return {
  uid: resource.metadata?.uid,
- name: resource.metadata.name,
- namespace: resource.metadata.namespace || 'default',
+ name: resource.metadata?.name,
+ namespace: resource.metadata?.namespace || 'default',
  status,
  ready: `${ready}/${desired}`,
  serviceName: resource.spec?.serviceName || '-',
- age: calculateAge(resource.metadata.creationTimestamp),
+ age: calculateAge(resource.metadata?.creationTimestamp),
  creationTimestamp: resource.metadata?.creationTimestamp,
  replicas: desired,
  updateStrategy,
@@ -324,7 +324,7 @@ export default function StatefulSets() {
  const m: Record<string, { cpuMax?: number; memoryMax?: number }> = {};
  if (data?.items) {
  data.items.forEach((ssResource) => {
- const key = `${ssResource.metadata.namespace}/${ssResource.metadata.name}`;
+ const key = `${ssResource.metadata?.namespace}/${ssResource.metadata?.name}`;
  const containers = ssResource.spec?.template?.spec?.containers || [];
  const cpuMax = calculatePodResourceMax(containers, 'cpu');
  const memoryMax = calculatePodResourceMax(containers, 'memory');
@@ -478,8 +478,8 @@ spec:
  const map = new Map<string, Record<string, string>>();
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = (data?.items ?? []).find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = (data?.items ?? []).find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.items]);

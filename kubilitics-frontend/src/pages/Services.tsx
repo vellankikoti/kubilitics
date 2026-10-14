@@ -188,8 +188,8 @@ function transformServiceResource(resource: ServiceResource): Service {
 
  return {
  uid: resource.metadata?.uid,
- name: resource.metadata.name,
- namespace: resource.metadata.namespace || 'default',
+ name: resource.metadata?.name,
+ namespace: resource.metadata?.namespace || 'default',
  type: (resource.spec?.type as Service['type']) || 'ClusterIP',
  clusterIP: resource.spec?.clusterIP ?? '-',
  externalIP,
@@ -198,7 +198,7 @@ function transformServiceResource(resource: ServiceResource): Service {
  selector,
  sessionAffinity,
  trafficPolicy,
- age: calculateAge(resource.metadata.creationTimestamp),
+ age: calculateAge(resource.metadata?.creationTimestamp),
  creationTimestamp: resource.metadata?.creationTimestamp,
  status,
  containers,
@@ -473,8 +473,8 @@ spec:
  const map = new Map<string, Record<string, string>>();
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = (data?.items ?? []).find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = (data?.items ?? []).find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.items]);

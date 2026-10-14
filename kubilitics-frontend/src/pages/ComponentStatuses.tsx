@@ -76,11 +76,11 @@ function transformCS(resource: ComponentStatusResource): ComponentStatus {
  const error = firstCondition?.error ?? '-';
 
  return {
- name: resource.metadata.name,
+ name: resource.metadata?.name,
  status,
  message,
  error,
- age: calculateAge(resource.metadata.creationTimestamp),
+ age: calculateAge(resource.metadata?.creationTimestamp),
  creationTimestamp: resource.metadata?.creationTimestamp,
  };
 }

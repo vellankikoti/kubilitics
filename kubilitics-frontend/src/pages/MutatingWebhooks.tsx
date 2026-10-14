@@ -77,12 +77,12 @@ function transformMutatingWebhook(resource: MutatingWebhookResource): MutatingWe
  const matchPolicy = first?.matchPolicy ?? '-';
 
  return {
- name: resource.metadata.name,
+ name: resource.metadata?.name,
  webhookCount: webhooks.length,
  failurePolicy,
  sideEffects,
  matchPolicy,
- age: calculateAge(resource.metadata.creationTimestamp),
+ age: calculateAge(resource.metadata?.creationTimestamp),
  creationTimestamp: resource.metadata?.creationTimestamp,
  hasMultipleWebhooks: webhooks.length > 1,
  };

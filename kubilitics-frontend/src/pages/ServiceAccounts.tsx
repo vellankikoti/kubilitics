@@ -88,8 +88,8 @@ interface ServiceAccount {
 }
 
 function transformServiceAccount(sa: ServiceAccountResource): ServiceAccount {
- const ns = sa.metadata.namespace || '';
- const name = sa.metadata.name || '';
+ const ns = sa.metadata?.namespace || '';
+ const name = sa.metadata?.name || '';
  const isSystem = ns === 'kube-system' || name.startsWith('system:');
  const secretsCount = sa.secrets?.length ?? 0;
  return {
@@ -103,7 +103,7 @@ function transformServiceAccount(sa: ServiceAccountResource): ServiceAccount {
  clusterRoles: '–',
  permissions: '–',
  automountToken: sa.automountServiceAccountToken !== false,
- age: calculateAge(sa.metadata.creationTimestamp),
+ age: calculateAge(sa.metadata?.creationTimestamp),
  creationTimestamp: sa.metadata?.creationTimestamp,
  isSystem,
  hasSecrets: secretsCount > 0,
@@ -310,8 +310,8 @@ export default function ServiceAccounts() {
  const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; namespace?: string; labels?: Record<string, string> } }>;
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = rawItems.find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = rawItems.find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.allItems]);
