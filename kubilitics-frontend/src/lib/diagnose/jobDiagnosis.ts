@@ -25,8 +25,8 @@ export function diagnoseJob(
   events: WarningEvent[] = []
 ): Diagnosis {
   const kind = job.kind ?? 'Job';
-  const name = job.metadata.name;
-  const namespace = job.metadata.namespace;
+  const name = job.metadata?.name ?? 'unknown';
+  const namespace = job.metadata?.namespace;
 
   const completeCondition = job.status?.conditions?.find(c => c.type === 'Complete' && c.status === 'True');
   const failedCondition = job.status?.conditions?.find(c => c.type === 'Failed' && c.status === 'True');

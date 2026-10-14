@@ -30,4 +30,11 @@ describe('diagnoseCronJob', () => {
     const d = diagnoseCronJob(cj, [failedJob('nightly-bad')]);
     expect(d.severity).toBe('broken');
   });
+
+  // Independent re-verification (Task 12): same shared diagnose-entry bug
+  // class as podDiagnosis.test.ts — disconnected-cluster pages pass an
+  // empty {} resource cast past the type system via `as unknown as`.
+  it('does not crash when metadata is entirely absent (disconnected-cluster {} resource)', () => {
+    expect(() => diagnoseCronJob({} as unknown as Parameters<typeof diagnoseCronJob>[0], [])).not.toThrow();
+  });
 });
