@@ -657,6 +657,13 @@ func (s *clusterService) addClusterWithSource(ctx context.Context, kubeconfigPat
 				return nil, fmt.Errorf("failed to update existing cluster: %w", err)
 			}
 			if status == "connected" {
+				// OBS-3 (end-to-end audit): must happen before the client is
+				// cached — this client is reused for every future periodic
+				// health check, and updateHealth reads the cluster ID off
+				// the circuit breaker, not a parameter. Without this, every
+				// health-check metric for this cluster's lifetime carries an
+				// empty cluster_id label.
+				client.SetClusterID(c.ID)
 				s.mu.Lock()
 				s.clients[c.ID] = client
 				s.mu.Unlock()
@@ -688,6 +695,10 @@ func (s *clusterService) addClusterWithSource(ctx context.Context, kubeconfigPat
 	}
 
 	if status == "connected" {
+		// OBS-3: see the identical comment in the idempotent-match branch
+		// above — must precede caching, since this client is reused for
+		// every future periodic health check.
+		client.SetClusterID(cluster.ID)
 		s.mu.Lock()
 		s.clients[cluster.ID] = client
 		s.mu.Unlock()
@@ -1054,6 +1065,8 @@ func (s *clusterService) loadOneClusterFromRepo(ctx context.Context, c *models.C
 		// use. A user with 50 previously-registered clusters no longer
 		// pays ~297 goroutines × 50 on every backend restart regardless of
 		// which (if any) they intend to use this session.
+		// OBS-3: see the identical comment in AddCluster above.
+		client.SetClusterID(c.ID)
 		s.mu.Lock()
 		s.clients[c.ID] = client
 		s.mu.Unlock()
@@ -1117,6 +1130,11 @@ func (s *clusterService) applyAndStoreClient(ctx context.Context, c *models.Clus
 	if s.k8sRateLimitPerSec > 0 && s.k8sRateLimitBurst > 0 {
 		client.SetLimiter(rate.NewLimiter(rate.Limit(s.k8sRateLimitPerSec), s.k8sRateLimitBurst))
 	}
+	// OBS-3: set before TestConnection (unlike the two registration-path call
+	// sites above, c.ID already exists here — this is a reconnect of an
+	// existing cluster) so even the reconnect's own health-check sample
+	// carries the correct cluster_id, not just subsequent ones.
+	client.SetClusterID(c.ID)
 	if err := client.TestConnection(ctx); err != nil {
 		return false
 	}
