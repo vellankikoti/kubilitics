@@ -77,6 +77,7 @@ export function FileTransferDialog({
 
   const [currentPath, setCurrentPath] = useState('/');
   const [entries, setEntries] = useState<ContainerFileEntry[]>([]);
+  const [entriesTruncated, setEntriesTruncated] = useState<{ totalCount: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedContainer, setSelectedContainer] = useState(containers?.[0]?.name || '');
@@ -101,11 +102,13 @@ export function FileTransferDialog({
           dirPath,
           selectedContainer
         );
-        setEntries(result || []);
+        setEntries(result?.entries ?? []);
+        setEntriesTruncated(result?.truncated ? { totalCount: result.totalCount } : null);
         setCurrentPath(dirPath);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to list files');
         setEntries([]);
+        setEntriesTruncated(null);
       } finally {
         setLoading(false);
       }
@@ -306,6 +309,12 @@ export function FileTransferDialog({
                 </span>
               ))}
             </div>
+
+            {entriesTruncated && (
+              <span className="text-xs text-amber-600 dark:text-amber-400 shrink-0 whitespace-nowrap">
+                showing first {entries.length} of {entriesTruncated.totalCount} entries (truncated)
+              </span>
+            )}
 
             {/* Nav buttons */}
             <button

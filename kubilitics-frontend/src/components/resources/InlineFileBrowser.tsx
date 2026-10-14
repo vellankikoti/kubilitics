@@ -87,6 +87,7 @@ export function InlineFileBrowser({
   const [currentPath, setCurrentPath] = useState('/');
   const currentPathRef = useRef('/');
   const [entries, setEntries] = useState<ContainerFileEntry[]>([]);
+  const [entriesTruncated, setEntriesTruncated] = useState<{ totalCount: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -103,12 +104,14 @@ export function InlineFileBrowser({
       setError(null);
       try {
         const result = await listContainerFiles(baseUrl, clusterId, namespace, podName, dirPath, containerName);
-        setEntries(result || []);
+        setEntries(result?.entries ?? []);
+        setEntriesTruncated(result?.truncated ? { totalCount: result.totalCount } : null);
         setCurrentPath(dirPath);
         currentPathRef.current = dirPath;
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to list files');
         setEntries([]);
+        setEntriesTruncated(null);
       } finally {
         setLoading(false);
       }
@@ -250,6 +253,12 @@ export function InlineFileBrowser({
             </span>
           ))}
         </div>
+
+        {entriesTruncated && (
+          <span className="text-xs text-amber-600 dark:text-amber-400 shrink-0 whitespace-nowrap">
+            showing first {entries.length} of {entriesTruncated.totalCount} entries (truncated)
+          </span>
+        )}
 
         {/* Action buttons */}
         <button
