@@ -165,6 +165,15 @@ func (c *Client) KubeconfigPath() string {
 	return c.kubeconfigPath
 }
 
+// ClusterID returns the cluster ID this client's health-check metrics are
+// currently labeled with (empty if SetClusterID was never called).
+func (c *Client) ClusterID() string {
+	if c.circuitBreaker != nil {
+		return c.circuitBreaker.clusterID
+	}
+	return ""
+}
+
 // SetClusterID sets the cluster ID for circuit breaker metrics labeling.
 func (c *Client) SetClusterID(clusterID string) {
 	if c.circuitBreaker != nil {
