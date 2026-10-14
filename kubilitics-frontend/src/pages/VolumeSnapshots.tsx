@@ -102,14 +102,14 @@ function transformVS(resource: VolumeSnapshotResource): VolumeSnapshot {
  else if (status.readyToUse === true) vsStatus = 'Ready';
 
  return {
- name: resource.metadata.name,
- namespace: resource.metadata.namespace ?? 'default',
+ name: resource.metadata?.name,
+ namespace: resource.metadata?.namespace ?? 'default',
  status: vsStatus,
  sourcePVC: pvcName,
  snapshotClass,
  restoreSize,
  creationTime,
- age: calculateAge(resource.metadata.creationTimestamp),
+ age: calculateAge(resource.metadata?.creationTimestamp),
  creationTimestamp: resource.metadata?.creationTimestamp,
  };
 }

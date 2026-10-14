@@ -84,13 +84,13 @@ function transformPSP(resource: PSPResource): PodSecurityPolicy {
  const hasHostAccess = hostNetwork || hostPID;
 
  return {
- name: resource.metadata.name,
+ name: resource.metadata?.name,
  privileged,
  volumes,
  hostNetwork,
  hostPID,
  runAsUser,
- age: calculateAge(resource.metadata.creationTimestamp),
+ age: calculateAge(resource.metadata?.creationTimestamp),
  creationTimestamp: resource.metadata?.creationTimestamp,
  hasHostAccess,
  };

@@ -134,13 +134,13 @@ export default function Endpoints() {
  });
  
  return {
- name: ep.metadata.name,
- namespace: ep.metadata.namespace || 'default',
+ name: ep.metadata?.name,
+ namespace: ep.metadata?.namespace || 'default',
  endpoints: endpointsList.slice(0, 3).join(', ') + (endpointsList.length > 3 ? ` (+${endpointsList.length - 3})` : '') || '<none>',
  readyCount,
  notReadyCount,
  ports: [...new Set(portsList)].join(', ') || '-',
- age: calculateAge(ep.metadata.creationTimestamp),
+ age: calculateAge(ep.metadata?.creationTimestamp),
  creationTimestamp: ep.metadata?.creationTimestamp,
  };
  })
@@ -251,8 +251,8 @@ subsets: []
  const map = new Map<string, Record<string, string>>();
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = (data?.items ?? []).find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = (data?.items ?? []).find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.items]);

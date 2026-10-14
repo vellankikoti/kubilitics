@@ -145,8 +145,8 @@ function transformResource(resource: JobResource): Job {
  const owner = ownerRef?.name ?? '-';
  return {
  uid: resource.metadata?.uid,
- name: resource.metadata.name,
- namespace: resource.metadata.namespace || 'default',
+ name: resource.metadata?.name,
+ namespace: resource.metadata?.namespace || 'default',
  status: jobStatus,
  completions: `${succeeded}/${completionsDesired}`,
  completionsNum: succeeded,
@@ -158,7 +158,7 @@ function transformResource(resource: JobResource): Job {
  duration,
  backoffLimit: spec.backoffLimit ?? 6,
  owner,
- age: calculateAge(resource.metadata.creationTimestamp),
+ age: calculateAge(resource.metadata?.creationTimestamp),
  creationTimestamp: resource.metadata?.creationTimestamp,
  cpu: '-',
  memory: '-',
@@ -293,7 +293,7 @@ export default function Jobs() {
  const m: Record<string, { cpuMax?: number; memoryMax?: number }> = {};
  if (data?.items) {
  data.items.forEach((jobResource) => {
- const key = `${jobResource.metadata.namespace}/${jobResource.metadata.name}`;
+ const key = `${jobResource.metadata?.namespace}/${jobResource.metadata?.name}`;
  const containers = jobResource.spec?.template?.spec?.containers || [];
  const cpuMax = calculatePodResourceMax(containers, 'cpu');
  const memoryMax = calculatePodResourceMax(containers, 'memory');
@@ -444,8 +444,8 @@ spec:
  const map = new Map<string, Record<string, string>>();
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = (data?.items ?? []).find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = (data?.items ?? []).find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.items]);

@@ -90,10 +90,10 @@ const SYSTEM_NS = new Set(['kube-system', 'kube-public', 'kube-node-lease', 'def
 
 function transformNamespaceResource(resource: NamespaceResource): Namespace {
  return {
- name: resource.metadata.name,
+ name: resource.metadata?.name,
  status: resource.status?.phase || 'Active',
- labels: resource.metadata.labels || {},
- age: calculateAge(resource.metadata.creationTimestamp),
+ labels: resource.metadata?.labels || {},
+ age: calculateAge(resource.metadata?.creationTimestamp),
  creationTimestamp: resource.metadata?.creationTimestamp,
  pods: '–',
  services: '–',
@@ -328,8 +328,8 @@ export default function Namespaces() {
  const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; labels?: Record<string, string> } }>;
  for (const key of selectedItems) {
  const n = key.startsWith('_/') ? key.slice(2) : key;
- const raw = rawItems.find((r) => r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = rawItems.find((r) => r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.allItems]);

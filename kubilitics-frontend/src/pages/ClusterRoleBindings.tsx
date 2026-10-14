@@ -92,13 +92,13 @@ function transformClusterRoleBinding(r: ClusterRoleBindingResource): ClusterRole
  ? subjects.map((s) => (s.namespace ? `${s.kind}/${s.namespace}/${s.name}` : `${s.kind}/${s.name}`)).join('\n')
  : '';
  return {
- name: r.metadata.name,
+ name: r.metadata?.name,
  clusterRoleName: roleName,
  subjectsSummary: summary,
  subjectsTooltip,
  subjectKinds: kinds,
  subjectCount: subjects.length,
- age: calculateAge(r.metadata.creationTimestamp),
+ age: calculateAge(r.metadata?.creationTimestamp),
  creationTimestamp: r.metadata?.creationTimestamp,
  hasUser: subjects.some((s) => s.kind === 'User'),
  hasGroup: subjects.some((s) => s.kind === 'Group'),
@@ -262,8 +262,8 @@ export default function ClusterRoleBindings() {
  const map = new Map<string, Record<string, string>>();
  const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; labels?: Record<string, string> } }>;
  for (const n of selectedItems) {
- const raw = rawItems.find((r) => r.metadata.name === n);
- if (raw) map.set(n, raw.metadata.labels ?? {});
+ const raw = rawItems.find((r) => r.metadata?.name === n);
+ if (raw) map.set(n, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.allItems]);

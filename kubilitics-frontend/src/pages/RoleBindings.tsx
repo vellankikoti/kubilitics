@@ -99,15 +99,15 @@ function transformRoleBinding(r: RoleBindingResource): RoleBindingRow {
  ? subjects.map((s) => (s.namespace ? `${s.kind}/${s.namespace}/${s.name}` : `${s.kind}/${s.name}`)).join('\n')
  : '';
  return {
- name: r.metadata.name,
- namespace: r.metadata.namespace || 'default',
+ name: r.metadata?.name,
+ namespace: r.metadata?.namespace || 'default',
  roleName,
  roleKind,
  subjectsSummary: summary,
  subjectsTooltip,
  subjectKinds: kinds,
  subjectCount: subjects.length,
- age: calculateAge(r.metadata.creationTimestamp),
+ age: calculateAge(r.metadata?.creationTimestamp),
  creationTimestamp: r.metadata?.creationTimestamp,
  hasUser: subjects.some((s) => s.kind === 'User'),
  hasGroup: subjects.some((s) => s.kind === 'Group'),
@@ -286,8 +286,8 @@ export default function RoleBindings() {
  const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; namespace?: string; labels?: Record<string, string> } }>;
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = rawItems.find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = rawItems.find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.allItems]);

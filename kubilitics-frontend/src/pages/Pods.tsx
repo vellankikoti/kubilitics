@@ -179,7 +179,7 @@ function transformResource(resource: PodResource): Pod {
  let status: Pod['status'] = (statusPhase as Pod['status']) || 'Unknown';
 
  // Refine status based on container states
- if ((resource.metadata as unknown as Record<string, unknown>).deletionTimestamp) {
+ if ((resource.metadata as unknown as Record<string, unknown> | undefined)?.deletionTimestamp) {
  status = 'Terminating';
  } else {
  for (const c of containerStatuses) {
@@ -219,15 +219,15 @@ function transformResource(resource: PodResource): Pod {
 
  return {
  uid: resource.metadata?.uid,
- name: resource.metadata.name,
- namespace: resource.metadata.namespace || 'default',
+ name: resource.metadata?.name ?? 'unknown',
+ namespace: resource.metadata?.namespace || 'default',
  status,
  ready: `${readyContainers}/${totalContainers}`,
  restarts,
  cpu: '-', // Filled by metrics
  memory: '-', // Filled by metrics
- age: calculateAge(resource.metadata.creationTimestamp),
- creationTimestamp: resource.metadata.creationTimestamp,
+ age: calculateAge(resource.metadata?.creationTimestamp),
+ creationTimestamp: resource.metadata?.creationTimestamp,
  node: resource.spec?.nodeName || '-',
  internalIP: resource.status?.podIP || '-',
  externalIP: resource.status?.hostIP || '-',
@@ -360,7 +360,7 @@ export default function Pods() {
  const podResourceMaxMap = useMemo(() => {
  const m: Record<string, { cpuMax?: number; memoryMax?: number }> = {};
  rawItems.forEach((podResource) => {
- const key = `${podResource.metadata.namespace}/${podResource.metadata.name}`;
+ const key = `${podResource.metadata?.namespace || 'default'}/${podResource.metadata?.name ?? 'unknown'}`;
  const containers = podResource.spec?.containers || [];
  const cpuMax = calculatePodResourceMax(containers, 'cpu'); // millicores
  const memoryMax = calculatePodResourceMax(containers, 'memory'); // bytes
@@ -846,8 +846,8 @@ export default function Pods() {
  const map = new Map<string, Record<string, string>>();
  for (const key of selectedPods) {
  const [ns, n] = key.split('/');
- const raw = rawItems.find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = rawItems.find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedPods, rawItems]);

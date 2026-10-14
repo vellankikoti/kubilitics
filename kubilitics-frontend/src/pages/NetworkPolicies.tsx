@@ -150,11 +150,11 @@ export default function NetworkPolicies() {
  const egress = np.spec?.egress ?? [];
  const allowedSources = ingress.reduce((sum, r) => sum + (Array.isArray(r.from) ? r.from.length : 0), 0);
  const allowedDestinations = egress.reduce((sum, r) => sum + (Array.isArray(r.to) ? r.to.length : 0), 0);
- const ns = np.metadata.namespace || 'default';
+ const ns = np.metadata?.namespace || 'default';
  const podsInNs = podsByNamespace.get(ns) ?? [];
  const affectedPods = podsInNs.filter((p) => podMatchesSelector(p.labels, labels)).length;
  return {
- name: np.metadata.name,
+ name: np.metadata?.name,
  namespace: ns,
  podSelector,
  policyTypes: np.spec?.policyTypes || ['Ingress'],
@@ -163,7 +163,7 @@ export default function NetworkPolicies() {
  allowedSources,
  allowedDestinations,
  affectedPods,
- age: calculateAge(np.metadata.creationTimestamp),
+ age: calculateAge(np.metadata?.creationTimestamp),
  creationTimestamp: np.metadata?.creationTimestamp,
  };
  });
@@ -330,8 +330,8 @@ spec:
  const map = new Map<string, Record<string, string>>();
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = (data?.items ?? []).find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = (data?.items ?? []).find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.items]);

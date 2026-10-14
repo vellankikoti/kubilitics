@@ -122,8 +122,8 @@ function transformResourceQuota(r: ResourceQuotaResource): ResourceQuotaRow {
  const isAtLimit = overallPct != null && overallPct >= 100;
  const hasScopeSelector = !!(r.spec?.scopeSelector && Object.keys((r.spec.scopeSelector as Record<string, unknown>) || {}).length > 0);
  return {
- name: r.metadata.name,
- namespace: r.metadata.namespace || 'default',
+ name: r.metadata?.name,
+ namespace: r.metadata?.namespace || 'default',
  cpuRequests: formatUsedHard(used, hard, 'requests.cpu'),
  cpuRequestsPct: usagePercentForKey(used, hard, 'requests.cpu'),
  cpuLimits: formatUsedHard(used, hard, 'limits.cpu'),
@@ -135,7 +135,7 @@ function transformResourceQuota(r: ResourceQuotaResource): ResourceQuotaRow {
  services: formatUsedHard(used, hard, 'services'),
  pvcs: formatUsedHard(used, hard, 'persistentvolumeclaims'),
  overallUsagePct: overallPct,
- age: calculateAge(r.metadata.creationTimestamp),
+ age: calculateAge(r.metadata?.creationTimestamp),
  creationTimestamp: r.metadata?.creationTimestamp,
  hasScopeSelector,
  isNearLimit,
@@ -317,8 +317,8 @@ export default function ResourceQuotas() {
  const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; namespace?: string; labels?: Record<string, string> } }>;
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = rawItems.find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = rawItems.find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.allItems]);

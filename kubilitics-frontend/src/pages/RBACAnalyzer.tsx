@@ -129,11 +129,11 @@ function buildPermissions(
 
   // Index roles by "namespace/name" and clusterroles by name
   for (const r of roles) {
-    const ns = r.metadata.namespace ?? '';
-    roleMap.set(`Role:${ns}/${r.metadata.name}`, r);
+    const ns = r.metadata?.namespace ?? '';
+    roleMap.set(`Role:${ns}/${r.metadata?.name}`, r);
   }
   for (const cr of clusterRoles) {
-    roleMap.set(`ClusterRole:/${cr.metadata.name}`, cr);
+    roleMap.set(`ClusterRole:/${cr.metadata?.name}`, cr);
   }
 
   const entries: PermissionEntry[] = [];
@@ -143,7 +143,7 @@ function buildPermissions(
     const roleRef = binding.roleRef;
     if (!roleRef) return;
 
-    const bindingNs = binding.metadata.namespace ?? '';
+    const bindingNs = binding.metadata?.namespace ?? '';
     const lookupKey = roleRef.kind === 'ClusterRole'
       ? `ClusterRole:/${roleRef.name}`
       : `Role:${bindingNs}/${roleRef.name}`;
@@ -170,7 +170,7 @@ function buildPermissions(
             apiGroup: apiGroups.join(', '),
             verbs,
             namespace: effectiveNs,
-            bindingName: binding.metadata.name,
+            bindingName: binding.metadata?.name,
             bindingKind: isClusterBinding ? 'ClusterRoleBinding' : 'RoleBinding',
             roleName: roleRef.name,
             roleKind: roleRef.kind,

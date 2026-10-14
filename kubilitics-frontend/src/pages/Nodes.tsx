@@ -190,7 +190,7 @@ function parseMemoryUsageToMi(s: string): number | null {
 }
 
 function transformNodeResource(resource: NodeResource): Node {
- const labels = resource.metadata.labels || {};
+ const labels = resource.metadata?.labels || {};
  const roles = Object.keys(labels)
  .filter(k => k.startsWith('node-role.kubernetes.io/'))
  .map(k => k.replace('node-role.kubernetes.io/', ''));
@@ -219,7 +219,7 @@ function transformNodeResource(resource: NodeResource): Node {
 
  return {
  uid: resource.metadata?.uid,
- name: resource.metadata.name,
+ name: resource.metadata?.name,
  status,
  roles,
  version: resource.status?.nodeInfo?.kubeletVersion || '-',
@@ -228,7 +228,7 @@ function transformNodeResource(resource: NodeResource): Node {
  cpuRaw: '-',
  memoryRaw: '-',
  pods: `–/${podsCap}`,
- age: calculateAge(resource.metadata.creationTimestamp),
+ age: calculateAge(resource.metadata?.creationTimestamp),
  creationTimestamp: resource.metadata?.creationTimestamp,
  cpuCapacity: resource.status?.capacity?.cpu || resource.status?.allocatable?.cpu || '-',
  memoryCapacity: resource.status?.capacity?.memory || resource.status?.allocatable?.memory || '-',
@@ -535,8 +535,8 @@ export default function Nodes() {
  const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; labels?: Record<string, string> } }>;
  for (const key of selectedNodes) {
  const n = key.startsWith('_/') ? key.slice(2) : key;
- const raw = rawItems.find((r) => r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = rawItems.find((r) => r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedNodes, data?.allItems]);

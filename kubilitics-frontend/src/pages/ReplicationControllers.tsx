@@ -98,15 +98,15 @@ function transformRC(resource: RCResource): ReplicationController {
  const readyPct = desired > 0 ? Math.round((ready / desired) * 100) : 0;
 
  return {
- name: resource.metadata.name,
- namespace: resource.metadata.namespace || 'default',
+ name: resource.metadata?.name,
+ namespace: resource.metadata?.namespace || 'default',
  status,
  readyFraction: `${ready}/${desired}`,
  readyPct,
  current,
  available,
  selector,
- age: calculateAge(resource.metadata.creationTimestamp),
+ age: calculateAge(resource.metadata?.creationTimestamp),
  creationTimestamp: resource.metadata?.creationTimestamp,
  desiredReplicas: desired,
  };
