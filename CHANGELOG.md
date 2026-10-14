@@ -5,6 +5,72 @@ All notable changes to Kubilitics will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.5] - 2026-10-14
+
+
+### Added
+
+- Expose last_checked_at/last_success_at/last_error, matching presence by @vellankikoti ([7d74191](https://github.com/vellankikoti/kubilitics/commit/7d74191a0687befacbc2927e56ca81a539cfaf64))
+- Add useClusterReachability — single source for connection status by @vellankikoti ([2dd017e](https://github.com/vellankikoti/kubilitics/commit/2dd017ef5d8612ad66a4e961070a94558ae6fad3))
+- Show last-checked staleness copy, matching the Picker by @vellankikoti ([84d4852](https://github.com/vellankikoti/kubilitics/commit/84d48528e05a5491cb7451993c37f6800ca645f0))
+- Rank by reachability and show status as visible text by @vellankikoti ([0618572](https://github.com/vellankikoti/kubilitics/commit/06185721df47af80cf7c3a73c267f72fbe9cccc0))
+
+
+### Documentation
+
+- Correct v1.2.3 publish status + v1.2.4 report accuracy by @vellankikoti ([e91a399](https://github.com/vellankikoti/kubilitics/commit/e91a3990ef69f01514ebcb7fdb16751a53fab239))
+- Add reconciled KNOWN-ISSUES.md as single source of truth by @vellankikoti ([ab40ee8](https://github.com/vellankikoti/kubilitics/commit/ab40ee8f93940ac8859234603970ca2a286bc13f))
+- Mark Phase 11 (WebSocket isolation) complete, correct stale status by @vellankikoti ([2186ee6](https://github.com/vellankikoti/kubilitics/commit/2186ee605acdb5fa9a674b19921bb1134e66ee49))
+- V1.2.5 real-artifact validation report by @vellankikoti ([2931c3e](https://github.com/vellankikoti/kubilitics/commit/2931c3eb45f3dc3d7dcc94aa0a44057fb67bd57a))
+
+
+### Fixed
+
+- Patch 20 high-severity Go dependency CVEs across all modules by @vellankikoti ([169e77b](https://github.com/vellankikoti/kubilitics/commit/169e77b141bc33360d2f10de570c4e78070695d2))
+- Pin go directive back to 1.25.x, cap deps below their go1.26 floor by @vellankikoti ([18663a4](https://github.com/vellankikoti/kubilitics/commit/18663a484cc9823a34e730f0ae485dde0764f57f))
+- Force dompurify>=3.4.17 for monaco-editor's pinned nested copy by @vellankikoti ([0735f8b](https://github.com/vellankikoti/kubilitics/commit/0735f8b76add7a5a503167b3f38f33dfe86a0af7))
+- Patch low-severity otel DoS advisory (CVE-2026-81870) by @vellankikoti ([dcef82d](https://github.com/vellankikoti/kubilitics/commit/dcef82d07918f96c1d4a704498ee1c2745185985))
+- Per-target confidence scoring + clamp misleading hop depth by @vellankikoti ([c308585](https://github.com/vellankikoti/kubilitics/commit/c308585d5a90149b4714de6a20b097911c011959))
+- Gate Cluster Health on live reachability, not remembered identity by @vellankikoti ([8b14312](https://github.com/vellankikoti/kubilitics/commit/8b143125782121800d920ea27a5066fdea9fb6a9))
+- Cluster Capacity shows the same unreachable message as Cluster Health by @vellankikoti ([809891f](https://github.com/vellankikoti/kubilitics/commit/809891f983e6408ea833909972d7d6d1cebf1867))
+- Address Critical/Important findings from final branch review by @vellankikoti ([da84ef7](https://github.com/vellankikoti/kubilitics/commit/da84ef70073b2b977960b221235932db75e2fd98))
+- Dedupe fan-out across service/ingress/consumer taxonomies by @vellankikoti ([aaee47d](https://github.com/vellankikoti/kubilitics/commit/aaee47db0cc9ca645c810fb51930cf9dc5c55ca6))
+- Partial mitigation for OTel name-only namespace collision by @vellankikoti ([4e33cf2](https://github.com/vellankikoti/kubilitics/commit/4e33cf2c3e75073de4c64384e3577c71f5dd6b04))
+- Migrate react-router-dom 6.30.1 -> 7.18.0 (CVE-2026-53666, CVE-2026-53669) by @vellankikoti ([e8cf800](https://github.com/vellankikoti/kubilitics/commit/e8cf800db64f11969476b57c3218ab988d62b628))
+- Migrate i18next-http-backend 3.0.6 -> 4.0.2 (CVE-2026-105800) by @vellankikoti ([614324f](https://github.com/vellankikoti/kubilitics/commit/614324f4f427d7c829053bf641ee663ea4ddcd3e))
+- Explicit 'No resources found' instead of bare empty table by @vellankikoti ([bfc6f5f](https://github.com/vellankikoti/kubilitics/commit/bfc6f5f327d413a066c4b6343f30d275df6e595c))
+- Stop client-go warnings from corrupting the TUI alt-screen by @vellankikoti ([f732b5d](https://github.com/vellankikoti/kubilitics/commit/f732b5df19dbeb9dfbfaa547923d9928993f5224))
+- Gate Health Dashboard score on live reachability by @vellankikoti ([4f4e313](https://github.com/vellankikoti/kubilitics/commit/4f4e313ca12dde52743bc207687cf11d95a4baa9))
+- Gate DashboardHero and HealthScoreCard on live reachability by @vellankikoti ([f91c561](https://github.com/vellankikoti/kubilitics/commit/f91c561736aa0db7d487c096ccf93d0279efa7da))
+- Gate MetricCardsGrid on live reachability by @vellankikoti ([ba06296](https://github.com/vellankikoti/kubilitics/commit/ba06296925d431bf75479daf1cd22315fb6ed161))
+- Wire SetClusterID into all cluster-cache sites (OBS-3) by @vellankikoti ([b5fbac6](https://github.com/vellankikoti/kubilitics/commit/b5fbac6b7151ae83094177afcabc0a68863b93b2))
+- P0 — Pod detail page crashed on open via file browser type mismatch by @vellankikoti ([9c29f85](https://github.com/vellankikoti/kubilitics/commit/9c29f852de23fd8be38a4a4dad68007790750c52))
+- ReadinessProbe must check real health, not a hardcoded 200 by @vellankikoti ([4a83650](https://github.com/vellankikoti/kubilitics/commit/4a836508cc71e18df7335f59d065997cd1fbb02e))
+- Decouple first-run kubeconfig auto-load from listener bind by @vellankikoti ([6107d63](https://github.com/vellankikoti/kubilitics/commit/6107d630166928aa96ef6f82cdcdabc797eff0a8))
+- P0 — diagnose panel crashed on a disconnected-cluster resource by @vellankikoti ([9d3c00d](https://github.com/vellankikoti/kubilitics/commit/9d3c00de445f4094531ea2dadf4fa8f293f01e58))
+- Date-aware axis labels and tooltips on 24h/7d ranges by @vellankikoti ([5c4973f](https://github.com/vellankikoti/kubilitics/commit/5c4973f25f782c892c6f4d9e4688b16d7be3d06d))
+- Remove nested <button> and fix its accessible name by @vellankikoti ([28896d8](https://github.com/vellankikoti/kubilitics/commit/28896d83f51ccfbc429706daac872b39b766d786))
+- Guard resource.metadata access across 35 list pages by @vellankikoti ([4c424fb](https://github.com/vellankikoti/kubilitics/commit/4c424fb7350bbaebc3a651e6648382812dfa9076))
+- UseHealthScore crashes when backend overview omits health by @vellankikoti ([ba56b09](https://github.com/vellankikoti/kubilitics/commit/ba56b0951aa1543a1de91da9a264a5d6563bbe44))
+
+
+### Misc
+
+- Add Rule 4 — cluster reachability single-source discipline by @vellankikoti ([f410a63](https://github.com/vellankikoti/kubilitics/commit/f410a638905d835acb3c1f37b026a68f4e2fae53))
+- Regenerate for v1.2.4 by @vellankikoti ([0b0db89](https://github.com/vellankikoti/kubilitics/commit/0b0db895a5a8d549d86a47a6b574dee5301117d3))
+- Untrack KNOWN-ISSUES.md, gitignore it going forward by @vellankikoti ([0595ea7](https://github.com/vellankikoti/kubilitics/commit/0595ea73e0f0a10c3b911ecacc1d14dc9c93996a))
+- Remove dead Dashboard.tsx page + orphaned dashboard components by @vellankikoti ([3104755](https://github.com/vellankikoti/kubilitics/commit/3104755b5a4202e487423c40086f9626559a7182))
+- Bump version to 1.2.5 by @vellankikoti ([a2b8615](https://github.com/vellankikoti/kubilitics/commit/a2b861570a7e6f2832a56043cf94ebfe84e3d535))
+
+
+### Tests
+
+- Extend depth-clamp regression to depth=4, hops= alias by @vellankikoti ([d4ff4fa](https://github.com/vellankikoti/kubilitics/commit/d4ff4fada1057589e9cb2e2f18c8633f820a2cf8))
+- Pin FOLLOWUP-TOPO-1 and FOLLOWUP-TOPO-2 as skipped regressions by @vellankikoti ([9ad33c9](https://github.com/vellankikoti/kubilitics/commit/9ad33c913bcdb3ebfb7f1eb7790c273ca45c98c1))
+- Lock cluster membership to match presence's registered list by @vellankikoti ([e543d4f](https://github.com/vellankikoti/kubilitics/commit/e543d4fc30bace03439595bcf2a06bdfe18aacd1))
+- Add large-cluster FULL-mode BFS benchmark by @vellankikoti ([451db1e](https://github.com/vellankikoti/kubilitics/commit/451db1e41726c731c4acc3ad04958e1aa264dfe4))
+- Investigate V2-vs-graph relationship engine duplication by @vellankikoti ([c1152b4](https://github.com/vellankikoti/kubilitics/commit/c1152b49dfc7c966460a3fabf2fa4c1eceadcf92))
+
 ## [1.2.4] - 2026-10-11
 
 
