@@ -24,6 +24,7 @@ type Bundle struct {
 	Clientset        kubernetes.Interface
 	Dynamic          dynamic.Interface
 	REST             rest.Interface
+	RestConfig       *rest.Config
 }
 
 type rawConfigCacheEntry struct {
@@ -54,6 +55,30 @@ func NewBundle(kubeconfigPath, contextName string) (*Bundle, error) {
 		return b, nil
 	}
 
+	bundle, err := newBundle(kubeconfigPath, contextName, nil)
+	if err != nil {
+		return nil, err
+	}
+	storeBundleInCache(key, bundle)
+	return bundle, nil
+}
+
+// NewBundleForTUI builds a Bundle for the interactive Bubble Tea TUI's
+// data-fetching path only. client-go's default warning handler writes
+// deprecation warnings (e.g. "Warning: v1 Endpoints is deprecated...")
+// directly to stderr — outside the TUI's managed alt-screen rendering,
+// which corrupts the display and makes the header/footer appear to
+// vanish. Scoped to this one bundle via rest.Config.WarningHandler
+// (not rest.SetDefaultWarningHandler, which is process-global and would
+// also silence warnings for the plain, non-TUI `kcli get` commands that
+// share NewBundle). Deliberately bypasses the shared bundle cache so a
+// TUI-built bundle (with warnings suppressed) can never be handed back
+// to a plain CLI caller expecting the default behavior, or vice versa.
+func NewBundleForTUI(kubeconfigPath, contextName string) (*Bundle, error) {
+	return newBundle(kubeconfigPath, contextName, rest.NoWarnings{})
+}
+
+func newBundle(kubeconfigPath, contextName string, warningHandler rest.WarningHandler) (*Bundle, error) {
 	loader := clientcmd.NewDefaultClientConfigLoadingRules()
 	if strings.TrimSpace(kubeconfigPath) != "" {
 		loader.ExplicitPath = strings.TrimSpace(kubeconfigPath)
@@ -73,6 +98,9 @@ func NewBundle(kubeconfigPath, contextName string) (*Bundle, error) {
 		return nil, wrapConfigErr(err)
 	}
 	restCfg.Timeout = 10 * time.Second
+	if warningHandler != nil {
+		restCfg.WarningHandler = warningHandler
+	}
 
 	var (
 		clientset kubernetes.Interface
@@ -108,8 +136,8 @@ func NewBundle(kubeconfigPath, contextName string) (*Bundle, error) {
 		Clientset:        clientset,
 		Dynamic:          dyn,
 		REST:             clientset.CoreV1().RESTClient(),
+		RestConfig:       restCfg,
 	}
-	storeBundleInCache(key, bundle)
 	return bundle, nil
 }
 

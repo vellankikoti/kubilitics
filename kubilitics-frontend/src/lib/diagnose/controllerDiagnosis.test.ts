@@ -47,4 +47,11 @@ describe('diagnoseController', () => {
     const d = diagnoseController(scaled, []);
     expect(d.severity).toBe('healthy');
   });
+
+  // Independent re-verification (Task 12): same shared diagnose-entry bug
+  // class as podDiagnosis.test.ts — disconnected-cluster pages pass an
+  // empty {} resource cast past the type system via `as unknown as`.
+  it('does not crash when metadata is entirely absent (disconnected-cluster {} resource)', () => {
+    expect(() => diagnoseController({} as unknown as Parameters<typeof diagnoseController>[0], [])).not.toThrow();
+  });
 });

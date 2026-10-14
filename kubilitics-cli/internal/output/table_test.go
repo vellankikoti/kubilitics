@@ -116,12 +116,38 @@ func TestTableEmptyRows(t *testing.T) {
 	table.AddColumn(Column{Name: "NAME", Priority: 10, MinWidth: 10, MaxWidth: 30, Align: Left})
 
 	result := table.Render(80)
-	// Should handle empty rows gracefully (just headers or empty)
-	if result == "" {
-		// Empty table can return empty string — that's fine
-		return
+	// A zero-row table must say so explicitly, not render a bare/ambiguous
+	// header-only box that a user can't distinguish from a stuck query.
+	if !strings.Contains(result, "No resources found") {
+		t.Errorf("empty table render = %q, want it to contain an explicit 'No resources found' message", result)
 	}
-	if !strings.Contains(result, "NAME") {
-		t.Error("Empty table should still render header")
+	if strings.Contains(result, "NAME") {
+		t.Error("empty table should not render a header-only box — that's the ambiguous state being fixed")
+	}
+}
+
+func TestTableEmptyRows_UsesCustomEmptyMessageWhenSet(t *testing.T) {
+	table := NewTable()
+	table.AddColumn(Column{Name: "NAME", Priority: 10, MinWidth: 10, MaxWidth: 30, Align: Left})
+	table.EmptyMessage = "No resources found in default namespace."
+
+	result := table.Render(80)
+	if !strings.Contains(result, "No resources found in default namespace.") {
+		t.Errorf("empty table render = %q, want the custom EmptyMessage to be used verbatim", result)
+	}
+}
+
+func TestTableNonEmptyRows_IgnoresEmptyMessage(t *testing.T) {
+	table := NewTable()
+	table.AddColumn(Column{Name: "NAME", Priority: 10, MinWidth: 10, MaxWidth: 30, Align: Left})
+	table.EmptyMessage = "No resources found in default namespace."
+	table.AddRow([]string{"api-server"})
+
+	result := table.Render(80)
+	if strings.Contains(result, "No resources found") {
+		t.Error("a non-empty table must never render the empty-state message")
+	}
+	if !strings.Contains(result, "api-server") {
+		t.Error("non-empty table should still render its rows")
 	}
 }

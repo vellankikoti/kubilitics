@@ -2,7 +2,7 @@
 
 **Companion document to:** `docs/PRODUCTION-RELIABILITY-AUDIT.md` — read that first. Every phase below references finding IDs from that audit.
 
-**Status: Phase 0, 1, 2, 3, 4, 5, 6, 7, 8, and 9 complete (2026-10-02).** Phase 10 (Release Gate) not yet started — awaiting explicit approval per the governing investigation brief. Phases execute one at a time, in order, each with its own scope confirmation, tests, and before/after evidence — never silently batched.
+**Status: Phase 0, 1, 2, 3, 4, 5, 6, 7, 8, and 9 complete (2026-10-02). Phase 11 complete (fixed 2026-10-05 in commit `0a7761a0`, independently re-verified 2026-10-13 against 8 deterministic isolation tests + `go test -race` — see that commit and `internal/api/websocket/contam1_isolation_test.go`/`informer_broadcast_test.go`).** Phase 10's Release Gate Criterion 1 (no open P0/P1 finding) is therefore satisfied as far as CONTAM-1 is concerned; Phase 10 itself has not been formally re-run end-to-end against the full P0/P1 inventory. Phases execute one at a time, in order, each with its own scope confirmation, tests, and before/after evidence — never silently batched.
 
 ---
 
@@ -187,7 +187,9 @@
 
 ## PHASE 11 — WebSocket Isolation & Release Unblock
 
-**Status: DEFINED, NOT STARTED.** Authorized 2026-10-02 as a roadmap amendment, after Phase 10's Release Gate ran and was explicitly BLOCKED on Criterion 1 ("no open P0/P1 finding, or UNVERIFIED with documented reasoning and user sign-off"). See `docs/PRODUCTION-HARDENING-EXECUTION.md` ("Phase 10 — Release Gate: Execution Record") for the blocking evidence. This section defines scope only; no implementation has occurred under this phase.
+**Status: COMPLETE (fixed 2026-10-05, commit `0a7761a0` "fix(reliability): bound blocking I/O, fix cross-cluster WebSocket isolation"; independently re-verified 2026-10-13).** Authorized 2026-10-02 as a roadmap amendment, after Phase 10's Release Gate ran and was explicitly BLOCKED on Criterion 1 ("no open P0/P1 finding, or UNVERIFIED with documented reasoning and user sign-off"). See `docs/PRODUCTION-HARDENING-EXECUTION.md` ("Phase 10 — Release Gate: Execution Record") for the original blocking evidence. The fix landed 3 days after this phase was authorized but this document was never updated to reflect it until the 2026-10-13 re-verification — a reminder that a phase isn't actually closed until its status line is.
+
+**2026-10-13 re-verification evidence:** all 8 of this phase's numbered acceptance tests below exist and pass in `internal/api/websocket/contam1_isolation_test.go` (7 tests) plus `informer_broadcast_test.go` (end-to-end proof through the still-dormant publisher path). `go test -race ./internal/api/websocket/...` — exit 0, zero race warnings. Full backend suite (`go build`, `go vet`, `go test ./...`) — 54 packages, zero failures. Dormancy confirmed preserved: `cmd/server/main.go` still constructs the WebSocket handler with `informerMgr: nil` and never calls `SetupInformerHandlers()`/`SetClusterID()` — no production activation occurred.
 
 **Finding:** CONTAM-1 — WebSocket resource/topology broadcast pipeline is dead code and lacks real cluster scoping.
 

@@ -16,6 +16,14 @@ i18n
     // for all options read: https://www.i18next.com/overview/configuration-options
     .init({
         fallbackLng: 'en',
+        // Restrict to the languages we actually ship translations for.
+        // Without this, a detected `lng` (from the URL querystring, a
+        // cookie, or navigator.language via i18next-browser-languagedetector)
+        // is interpolated directly into the backend's loadPath template with
+        // no validation — an attacker-controlled `?lng=http:evil.example.com`
+        // would make the app fetch from an arbitrary origin.
+        supportedLngs: ['en', 'de'],
+        nonExplicitSupportedLngs: false,
         debug: import.meta.env.DEV,
 
         interpolation: {

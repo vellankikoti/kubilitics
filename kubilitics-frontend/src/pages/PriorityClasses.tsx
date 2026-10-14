@@ -78,7 +78,7 @@ interface PriorityClassRow {
 const SYSTEM_PRIORITY_NAMES = ['system-node-critical', 'system-cluster-critical'];
 
 function transformPriorityClass(r: PriorityClassResource): PriorityClassRow {
- const name = r.metadata.name;
+ const name = r.metadata?.name;
  const preemptionPolicy = r.preemptionPolicy || 'PreemptLowerPriority';
  return {
  name,
@@ -87,7 +87,7 @@ function transformPriorityClass(r: PriorityClassResource): PriorityClassRow {
  preemptionPolicy,
  podsUsing: '–',
  description: (r.description || '').slice(0, 60) + ((r.description?.length ?? 0) > 60 ? '…' : ''),
- age: calculateAge(r.metadata.creationTimestamp),
+ age: calculateAge(r.metadata?.creationTimestamp),
  creationTimestamp: r.metadata?.creationTimestamp,
  isSystem: SYSTEM_PRIORITY_NAMES.includes(name),
  preemptionEnabled: preemptionPolicy !== 'Never',
@@ -262,8 +262,8 @@ export default function PriorityClasses() {
  const map = new Map<string, Record<string, string>>();
  const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; labels?: Record<string, string> } }>;
  for (const n of selectedItems) {
- const raw = rawItems.find((r) => r.metadata.name === n);
- if (raw) map.set(n, raw.metadata.labels ?? {});
+ const raw = rawItems.find((r) => r.metadata?.name === n);
+ if (raw) map.set(n, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.allItems]);

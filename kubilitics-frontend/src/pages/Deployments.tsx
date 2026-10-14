@@ -191,15 +191,15 @@ function transformResource(resource: DeploymentResource): Deployment {
 
  return {
  uid: resource.metadata?.uid,
- name: resource.metadata.name,
- namespace: resource.metadata.namespace || 'default',
+ name: resource.metadata?.name,
+ namespace: resource.metadata?.namespace || 'default',
  status,
  statusReason,
  ready: `${ready}/${desired}`,
  upToDate: resource.status?.updatedReplicas ?? 0,
  available,
  strategy: resource.spec?.strategy?.type || 'RollingUpdate',
- age: calculateAge(resource.metadata.creationTimestamp),
+ age: calculateAge(resource.metadata?.creationTimestamp),
  creationTimestamp: resource.metadata?.creationTimestamp,
  replicas: desired,
  revision,
@@ -365,7 +365,7 @@ export default function Deployments() {
  const m: Record<string, { cpuMax?: number; memoryMax?: number }> = {};
  if (data?.items) {
  data.items.forEach((deploymentResource) => {
- const key = `${deploymentResource.metadata.namespace}/${deploymentResource.metadata.name}`;
+ const key = `${deploymentResource.metadata?.namespace}/${deploymentResource.metadata?.name}`;
  const containers = deploymentResource.spec?.template?.spec?.containers || [];
  const cpuMax = calculatePodResourceMax(containers, 'cpu');
  const memoryMax = calculatePodResourceMax(containers, 'memory');
@@ -498,8 +498,8 @@ export default function Deployments() {
  const map = new Map<string, Record<string, string>>();
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = (data?.items ?? []).find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = (data?.items ?? []).find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.items]);

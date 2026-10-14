@@ -171,7 +171,7 @@ export default function Events() {
  const { data: namespacesData } = usePaginatedResourceList('namespaces');
  const namespaceOptions = useMemo(() => {
  const items = (namespacesData?.allItems ?? []) as Array<{ metadata: { name: string } }>;
- return ['all', ...items.map((r) => r.metadata.name).filter(Boolean)];
+ return ['all', ...items.map((r) => r.metadata?.name).filter(Boolean)];
  }, [namespacesData?.allItems]);
 
  const rawRows: EventRow[] = useMemo(() => (eventsQuery.data ?? []).map(backendEventToRow), [eventsQuery.data]);

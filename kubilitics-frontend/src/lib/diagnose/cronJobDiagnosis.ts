@@ -22,8 +22,8 @@ export function diagnoseCronJob(
   events: WarningEvent[] = []
 ): Diagnosis {
   const kind = cronjob.kind ?? 'CronJob';
-  const name = cronjob.metadata.name;
-  const namespace = cronjob.metadata.namespace;
+  const name = cronjob.metadata?.name ?? 'unknown';
+  const namespace = cronjob.metadata?.namespace;
 
   if (cronjob.spec?.suspend === true) {
     return {

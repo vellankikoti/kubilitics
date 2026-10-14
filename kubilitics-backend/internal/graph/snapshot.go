@@ -459,10 +459,13 @@ func (s *GraphSnapshot) computeSingleResourceBlast(target models.ResourceRef, fa
 		Kind: target.Kind, Replicas: replicas, HasHPA: hasHPA, HasPDB: hasPDB, HasController: hasController,
 	})
 
-	// Count OTel consumers
+	// Count OTel consumers. FOLLOWUP-TOPO-2 partial mitigation: OTel edges
+	// carry no namespace, so a name shared across namespaces can't be
+	// safely attributed here either — same reasoning as computeConfidence.
 	consumerCount := 0
 	traceAvailable := s.OTelServiceMap != nil && len(s.OTelServiceMap.Edges) > 0
-	if traceAvailable {
+	targetNameAmbiguous := nameIsAmbiguousAcrossNamespaces(s, target.Name)
+	if traceAvailable && !targetNameAmbiguous {
 		for _, edge := range s.OTelServiceMap.Edges {
 			if strings.EqualFold(edge.Target, target.Name) {
 				consumerCount++
@@ -476,7 +479,7 @@ func (s *GraphSnapshot) computeSingleResourceBlast(target models.ResourceRef, fa
 	if traceAvailable {
 		for _, edge := range s.OTelServiceMap.Edges {
 			clusterTotalCalls += edge.Count
-			if strings.EqualFold(edge.Target, target.Name) {
+			if !targetNameAmbiguous && strings.EqualFold(edge.Target, target.Name) {
 				totalCallsToTarget += edge.Count
 			}
 		}

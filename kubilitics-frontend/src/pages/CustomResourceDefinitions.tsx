@@ -110,14 +110,14 @@ function transformCRD(resource: CRDResource): CustomResourceDefinition {
  );
 
  return {
- name: resource.metadata.name,
+ name: resource.metadata?.name,
  group,
  kind,
  scope,
  versionsCount,
  storageVersion,
  established,
- age: calculateAge(resource.metadata.creationTimestamp),
+ age: calculateAge(resource.metadata?.creationTimestamp),
  creationTimestamp: resource.metadata?.creationTimestamp,
  };
 }
@@ -260,8 +260,8 @@ export default function CustomResourceDefinitions() {
  const map = new Map<string, Record<string, string>>();
  const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; labels?: Record<string, string> } }>;
  for (const n of selectedItems) {
- const raw = rawItems.find((r) => r.metadata.name === n);
- if (raw) map.set(n, raw.metadata.labels ?? {});
+ const raw = rawItems.find((r) => r.metadata?.name === n);
+ if (raw) map.set(n, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.allItems]);

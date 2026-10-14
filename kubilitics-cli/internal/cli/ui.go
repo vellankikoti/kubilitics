@@ -50,7 +50,10 @@ Flags:
 // cluster cannot be reached within 5 seconds so the TUI can fall back to
 // polling gracefully.
 func tryStartInformerStore(a *app) *informer.Store {
-	bundle, err := k8sclient.NewBundle(a.kubeconfig, a.context)
+	// NewBundleForTUI (not NewBundle): client-go's default warning handler
+	// writes deprecation warnings directly to stderr, corrupting the TUI's
+	// managed alt-screen and making the header/footer appear to vanish.
+	bundle, err := k8sclient.NewBundleForTUI(a.kubeconfig, a.context)
 	if err != nil {
 		return nil
 	}

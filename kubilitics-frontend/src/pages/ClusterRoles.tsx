@@ -135,7 +135,7 @@ function transformClusterRole(r: ClusterRoleResource): ClusterRoleRow {
  const hasWildcardVerb = verbsList.includes('*');
  const isReadOnly = !hasWildcardVerb && verbsList.length > 0 && verbsList.every((v) => READ_ONLY_VERBS.has(v));
  const nonResourceURLsCount = countNonResourceURLs(rules);
- const name = r.metadata.name;
+ const name = r.metadata?.name;
  return {
  name,
  rulesCount: rules.length,
@@ -146,7 +146,7 @@ function transformClusterRole(r: ClusterRoleResource): ClusterRoleRow {
  nonResourceURLsCount,
  aggregation: r.aggregationRule ? aggregationLabel(r.aggregationRule) : '–',
  bindings: '–',
- age: calculateAge(r.metadata.creationTimestamp),
+ age: calculateAge(r.metadata?.creationTimestamp),
  creationTimestamp: r.metadata?.creationTimestamp,
  isSystem: name.startsWith('system:'),
  isAggregated: !!r.aggregationRule,
@@ -314,8 +314,8 @@ export default function ClusterRoles() {
  const map = new Map<string, Record<string, string>>();
  const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; labels?: Record<string, string> } }>;
  for (const n of selectedItems) {
- const raw = rawItems.find((r) => r.metadata.name === n);
- if (raw) map.set(n, raw.metadata.labels ?? {});
+ const raw = rawItems.find((r) => r.metadata?.name === n);
+ if (raw) map.set(n, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.allItems]);

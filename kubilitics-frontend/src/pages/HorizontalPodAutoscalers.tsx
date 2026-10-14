@@ -114,8 +114,8 @@ function transformHPA(h: HPAResource): HPARow {
  const scalingLimited = (h.status?.conditions ?? []).some((c) => c.type === 'ScalingLimited' && c.status === 'True');
  const isScaling = currentReplicas !== desiredReplicas;
  return {
- name: h.metadata.name,
- namespace: h.metadata.namespace || 'default',
+ name: h.metadata?.name,
+ namespace: h.metadata?.namespace || 'default',
  targetKind,
  targetName,
  minReplicas,
@@ -127,7 +127,7 @@ function transformHPA(h: HPAResource): HPARow {
  cpuCurrent: currentCpu != null ? `${currentCpu}%` : '–',
  customMetricsCount,
  lastScale: h.status?.lastScaleTime ? calculateAge(h.status.lastScaleTime) : '–',
- age: calculateAge(h.metadata.creationTimestamp),
+ age: calculateAge(h.metadata?.creationTimestamp),
  creationTimestamp: h.metadata?.creationTimestamp,
  isScaling,
  scalingUp: isScaling && desiredReplicas > currentReplicas,
@@ -313,8 +313,8 @@ export default function HorizontalPodAutoscalers() {
  const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; namespace?: string; labels?: Record<string, string> } }>;
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = rawItems.find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = rawItems.find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.allItems]);

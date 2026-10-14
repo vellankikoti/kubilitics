@@ -90,12 +90,12 @@ function transformRuntimeClass(resource: RuntimeClassResource): RuntimeClass {
  else if (hasScheduling) category = 'With Scheduling';
 
  return {
- name: resource.metadata.name,
+ name: resource.metadata?.name,
  handler: resource.handler ?? '-',
  overheadCpu,
  overheadMemory,
  schedulingCount,
- age: calculateAge(resource.metadata.creationTimestamp),
+ age: calculateAge(resource.metadata?.creationTimestamp),
  creationTimestamp: resource.metadata?.creationTimestamp,
  hasOverhead,
  hasScheduling,

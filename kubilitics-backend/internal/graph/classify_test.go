@@ -2,9 +2,11 @@ package graph
 
 import (
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/kubilitics/kubilitics-backend/internal/models"
+	"github.com/kubilitics/kubilitics-backend/internal/otel"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -121,15 +123,113 @@ func TestClassifyServiceImpact_NoImpact(t *testing.T) {
 }
 
 func TestComputeBlastRadiusPercent(t *testing.T) {
+	// Three genuinely distinct services (not the same resource observed
+	// through overlapping taxonomies) — computeBlastRadiusPercent dedupes
+	// by resource identity (FOLLOWUP-TOPO-1 fix), so this must use 3
+	// different Service refs to still exercise additive weighting across
+	// real, distinct impacts.
 	impacts := []models.ServiceImpact{
-		{Classification: "broken", Service: models.ResourceRef{Namespace: "default"}},
-		{Classification: "degraded", Service: models.ResourceRef{Namespace: "default"}},
-		{Classification: "self-healing", Service: models.ResourceRef{Namespace: "default"}},
+		{Classification: "broken", Service: models.ResourceRef{Kind: "Service", Namespace: "default", Name: "svc-broken"}},
+		{Classification: "degraded", Service: models.ResourceRef{Kind: "Service", Namespace: "default", Name: "svc-degraded"}},
+		{Classification: "self-healing", Service: models.ResourceRef{Kind: "Service", Namespace: "default", Name: "svc-self-healing"}},
 	}
 	pct := computeBlastRadiusPercent(impacts, nil, nil, 10, nil)
 	expected := 15.0
 	if pct != expected {
 		t.Errorf("expected %.1f%%, got %.1f%%", expected, pct)
+	}
+}
+
+// TestComputeBlastRadiusPercent_DistinctConsumerStillAddsBlast guards against
+// the FOLLOWUP-TOPO-1 fix over-correcting: a genuinely distinct consumer
+// workload (a different Deployment, not the same resource observed twice)
+// must still add its own weight, not be swallowed by the same-resource dedup.
+func TestComputeBlastRadiusPercent_DistinctConsumerStillAddsBlast(t *testing.T) {
+	svcImpacts := []models.ServiceImpact{
+		{Classification: "broken", Service: models.ResourceRef{Kind: "Service", Namespace: "default", Name: "checkout"}},
+	}
+	consumerImpacts := []models.ConsumerImpact{
+		{Classification: "degraded", Workload: models.ResourceRef{Kind: "Deployment", Namespace: "default", Name: "other-app"}, DependsOn: "checkout"},
+	}
+
+	pct := computeBlastRadiusPercent(svcImpacts, nil, consumerImpacts, 10, nil)
+
+	// 1.0 (broken checkout) + 0.5 (degraded, distinct consumer) = 1.5/10 = 15%
+	if pct != 15.0 {
+		t.Errorf("expected 15.0%% (distinct service + distinct consumer both counted), got %.1f%%", pct)
+	}
+}
+
+// TestComputeBlastRadiusPercent_IngressFoldsOntoBackingService is the
+// narrower unit-level pin for FOLLOWUP-TOPO-1's ingress-side fold: an
+// Ingress impact for the SAME backing Service as an existing ServiceImpact
+// must not add a second distinct unit of weight.
+func TestComputeBlastRadiusPercent_IngressFoldsOntoBackingService(t *testing.T) {
+	svc := models.ResourceRef{Kind: "Service", Namespace: "default", Name: "checkout"}
+	ing := models.ResourceRef{Kind: "Ingress", Namespace: "default", Name: "checkout-ing"}
+
+	snap := &GraphSnapshot{}
+	snap.EnsureMaps()
+	snap.Nodes[refKey(svc)] = svc
+	snap.Nodes[refKey(ing)] = ing
+	snap.Forward[refKey(ing)] = map[string]bool{refKey(svc): true}
+
+	svcImpacts := []models.ServiceImpact{{Classification: "broken", Service: svc}}
+	ingImpacts := []models.IngressImpact{{Classification: "broken", Ingress: ing}}
+
+	withIngress := computeBlastRadiusPercent(svcImpacts, ingImpacts, nil, 10, snap)
+	withoutIngress := computeBlastRadiusPercent(svcImpacts, nil, nil, 10, snap)
+
+	if withIngress != withoutIngress {
+		t.Errorf("ingress routing to an already-counted service should not change the percentage: with=%.1f%% without=%.1f%%", withIngress, withoutIngress)
+	}
+}
+
+// TestComputeConfidence_AmbiguousNameAcrossNamespacesGetsNoFalseTraceCredit
+// is the safe mitigation for FOLLOWUP-TOPO-2 that IS achievable within the
+// graph package: OTel service-map edges carry no namespace (confirmed at
+// internal/otel/types.go's ServiceEdge — Source/Target are bare strings),
+// so when a name exists under more than one namespace in the snapshot,
+// computeConfidence can no longer tell which one a same-named trace edge
+// really belongs to. Rather than crediting ALL same-named targets with
+// trace coverage (today's false-positive behavior), an ambiguous name
+// gets credited to NONE of them — a conservative fix that closes the
+// false-positive direction without fabricating namespace data that
+// doesn't exist. This does NOT fully resolve FOLLOWUP-TOPO-2 (the
+// genuinely-traced target also loses credit when ambiguous); full
+// resolution needs internal/otel's ServiceMap to carry a namespace,
+// which is out of this fix's scope — see TestFollowupTopo2_* (skipped)
+// and the task report for the precise remaining gap.
+func TestComputeConfidence_AmbiguousNameAcrossNamespacesGetsNoFalseTraceCredit(t *testing.T) {
+	prodTarget := models.ResourceRef{Kind: "Deployment", Namespace: "prod", Name: "checkout"}
+	stagingTarget := models.ResourceRef{Kind: "Deployment", Namespace: "staging", Name: "checkout"}
+
+	snap := &GraphSnapshot{}
+	snap.EnsureMaps()
+	snap.Nodes[refKey(prodTarget)] = prodTarget
+	snap.Nodes[refKey(stagingTarget)] = stagingTarget
+	snap.OTelServiceMap = &otel.ServiceMap{
+		Edges: []otel.ServiceEdge{
+			{Source: "staging-frontend", Target: "checkout", Count: 50},
+		},
+	}
+
+	prodScore, prodNote := computeConfidence(snap, &prodTarget)
+	if strings.Contains(prodNote, "traces") {
+		t.Errorf("ambiguous name %q should not silently credit prod with trace coverage meant for staging, got note %q (score %d)", "checkout", prodNote, prodScore)
+	}
+
+	// Unambiguous case: a uniquely-named resource keeps its real trace credit.
+	uniqueTarget := models.ResourceRef{Kind: "Deployment", Namespace: "prod", Name: "billing"}
+	uniqueSnap := &GraphSnapshot{}
+	uniqueSnap.EnsureMaps()
+	uniqueSnap.Nodes[refKey(uniqueTarget)] = uniqueTarget
+	uniqueSnap.OTelServiceMap = &otel.ServiceMap{
+		Edges: []otel.ServiceEdge{{Source: "web", Target: "billing", Count: 50}},
+	}
+	_, uniqueNote := computeConfidence(uniqueSnap, &uniqueTarget)
+	if !strings.Contains(uniqueNote, "traces") {
+		t.Errorf("unambiguous name should keep real trace credit, got note %q", uniqueNote)
 	}
 }
 

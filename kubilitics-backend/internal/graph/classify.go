@@ -366,7 +366,14 @@ func computeBlastRadiusPercent(
 		return 0
 	}
 
-	var totalWeight float64
+	// FOLLOWUP-TOPO-1 fix: one real failure often surfaces through all three
+	// taxonomies at once (its own Service, the Ingress that routes to that
+	// Service, OTel consumers calling it) — summing each taxonomy's weight
+	// independently counted the SAME underlying failure up to 3x. Instead,
+	// accumulate weight per distinct entity key and take the max weight any
+	// taxonomy assigned to that entity, so overlapping paths never inflate
+	// the distinct affected-workload percentage.
+	weightByKey := make(map[string]float64)
 
 	for _, si := range svcImpacts {
 		weight := classificationWeight(si.Classification)
@@ -397,8 +404,11 @@ func computeBlastRadiusPercent(
 				}
 			}
 
-			// Traffic hotspot amplification from OTel data
-			if snap != nil && snap.OTelServiceMap != nil && len(snap.OTelServiceMap.Edges) > 0 {
+			// Traffic hotspot amplification from OTel data. FOLLOWUP-TOPO-2
+			// partial mitigation: skip attributing calls to this service if
+			// its name is ambiguous across namespaces (no namespace on
+			// OTel edges — same reasoning as computeConfidence).
+			if snap != nil && snap.OTelServiceMap != nil && len(snap.OTelServiceMap.Edges) > 0 && !nameIsAmbiguousAcrossNamespaces(snap, si.Service.Name) {
 				totalCalls := 0
 				serviceCalls := 0
 				for _, edge := range snap.OTelServiceMap.Edges {
@@ -424,15 +434,47 @@ func computeBlastRadiusPercent(
 				weight *= 1.5
 			}
 		}
-		totalWeight += weight
+
+		key := refKey(si.Service)
+		if weight > weightByKey[key] {
+			weightByKey[key] = weight
+		}
 	}
 
 	for _, ii := range ingImpacts {
-		totalWeight += classificationWeight(ii.Classification)
+		weight := classificationWeight(ii.Classification)
+		if weight == 0 {
+			continue
+		}
+
+		// An Ingress is not itself a counted workload/service unit — it's a
+		// routing front for the Service(s) it forwards to. Fold its weight
+		// onto the backing Service's entry (already present from svcImpacts
+		// in the normal case) instead of adding a brand-new distinct unit;
+		// that fold is exactly what closes the double-count.
+		key := backingServiceKey(snap, ii.Ingress)
+		if key == "" {
+			key = refKey(ii.Ingress)
+		}
+		if weight > weightByKey[key] {
+			weightByKey[key] = weight
+		}
 	}
 
 	for _, ci := range consumerImpacts {
-		totalWeight += classificationWeight(ci.Classification)
+		weight := classificationWeight(ci.Classification)
+		if weight == 0 {
+			continue
+		}
+		key := refKey(ci.Workload)
+		if weight > weightByKey[key] {
+			weightByKey[key] = weight
+		}
+	}
+
+	var totalWeight float64
+	for _, w := range weightByKey {
+		totalWeight += w
 	}
 
 	pct := (totalWeight / float64(totalWorkloads)) * 100.0
@@ -440,6 +482,23 @@ func computeBlastRadiusPercent(
 		pct = 100.0
 	}
 	return pct
+}
+
+// backingServiceKey resolves an Ingress's backing Service via forward edges
+// — mirrors classifyIngressImpact's own traversal — so an Ingress's weight
+// folds onto the Service it routes to rather than contributing as a
+// separate distinct unit in computeBlastRadiusPercent (FOLLOWUP-TOPO-1).
+func backingServiceKey(snap *GraphSnapshot, ingress models.ResourceRef) string {
+	if snap == nil {
+		return ""
+	}
+	ingKey := refKey(ingress)
+	for depKey := range snap.Forward[ingKey] {
+		if depRef, ok := snap.Nodes[depKey]; ok && depRef.Kind == "Service" {
+			return depKey
+		}
+	}
+	return ""
 }
 
 // buildImpactSummary builds the summary counts and capacity notes.
@@ -617,6 +676,24 @@ func findMatchingPDBByLabels(
 	return nil, false
 }
 
+// nameIsAmbiguousAcrossNamespaces reports whether more than one namespace in
+// this snapshot has a resource with the given bare name — the condition
+// under which a name-only OTel service-map edge (no namespace component)
+// cannot be safely attributed to one specific resource. Part of the
+// FOLLOWUP-TOPO-2 partial mitigation.
+func nameIsAmbiguousAcrossNamespaces(snap *GraphSnapshot, name string) bool {
+	if snap == nil {
+		return false
+	}
+	namespaces := make(map[string]bool)
+	for _, ref := range snap.Nodes {
+		if strings.EqualFold(ref.Name, name) {
+			namespaces[ref.Namespace] = true
+		}
+	}
+	return len(namespaces) > 1
+}
+
 // computeConfidence scores how much to trust the blast-radius result based on
 // which data sources were available during classification. target scopes the
 // PDB/HPA/trace signals to the specific resource being analyzed — without it,
@@ -639,10 +716,26 @@ func computeConfidence(snap *GraphSnapshot, target *models.ResourceRef) (int, st
 		hasPDBs = snap.NodeHasPDB[key]
 		hasHPAs = snap.NodeHasHPA[key]
 		if snap.OTelServiceMap != nil {
-			for _, edge := range snap.OTelServiceMap.Edges {
-				if strings.EqualFold(edge.Source, target.Name) || strings.EqualFold(edge.Target, target.Name) {
-					hasTraces = true
-					break
+			// FOLLOWUP-TOPO-2 partial mitigation: OTel service-map edges
+			// carry no namespace (otel.ServiceEdge is name-only), so a
+			// trace edge named "checkout" can't be distinguished between
+			// a traced staging/checkout and an untraced prod/checkout. If
+			// this target's name is ambiguous — some OTHER namespace in
+			// this snapshot also has a resource with the same name — we
+			// cannot safely attribute the trace to this target, so no
+			// target sharing that name gets credit. This closes the
+			// false-positive direction (an untraced resource no longer
+			// inherits a same-named peer's coverage); it does NOT fully
+			// resolve the issue, since the genuinely-traced peer also
+			// loses credit when ambiguous. Full resolution requires the
+			// OTel ingestion layer (internal/otel) to carry/resolve a
+			// namespace on service-map edges — out of this fix's scope.
+			if !nameIsAmbiguousAcrossNamespaces(snap, target.Name) {
+				for _, edge := range snap.OTelServiceMap.Edges {
+					if strings.EqualFold(edge.Source, target.Name) || strings.EqualFold(edge.Target, target.Name) {
+						hasTraces = true
+						break
+					}
 				}
 			}
 		}

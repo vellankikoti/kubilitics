@@ -104,14 +104,14 @@ function transformLimitRange(r: LimitRangeResource): LimitRangeRow {
  const maxCpu = container?.max?.cpu ?? pod?.max?.cpu ?? '–';
  const maxMemory = container?.max?.memory ?? pod?.max?.memory ?? '–';
  return {
- name: r.metadata.name,
- namespace: r.metadata.namespace || 'default',
+ name: r.metadata?.name,
+ namespace: r.metadata?.namespace || 'default',
  types,
  defaultCpu,
  defaultMemory,
  maxCpu,
  maxMemory,
- age: calculateAge(r.metadata.creationTimestamp),
+ age: calculateAge(r.metadata?.creationTimestamp),
  creationTimestamp: r.metadata?.creationTimestamp,
  hasContainer: !!container,
  hasPod: !!pod,
@@ -286,8 +286,8 @@ export default function LimitRanges() {
  const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; namespace?: string; labels?: Record<string, string> } }>;
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = rawItems.find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = rawItems.find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.allItems]);

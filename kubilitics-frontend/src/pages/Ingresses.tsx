@@ -165,8 +165,8 @@ export default function Ingresses() {
  ? `${ing.spec.defaultBackend.service.name}:${ing.spec.defaultBackend.service.port?.number ?? ing.spec.defaultBackend.service.port?.name ?? '-'}`
  : '-';
  return {
- name: ing.metadata.name,
- namespace: ing.metadata.namespace || 'default',
+ name: ing.metadata?.name,
+ namespace: ing.metadata?.namespace || 'default',
  class: ing.spec?.ingressClassName ?? '-',
  hosts,
  address,
@@ -174,7 +174,7 @@ export default function Ingresses() {
  tls: hasTLS,
  rulesCount,
  defaultBackend,
- age: calculateAge(ing.metadata.creationTimestamp),
+ age: calculateAge(ing.metadata?.creationTimestamp),
  creationTimestamp: ing.metadata?.creationTimestamp,
  status: address === '<pending>' ? 'Degraded' as const : 'Healthy' as const,
  };
@@ -347,8 +347,8 @@ spec:
  const map = new Map<string, Record<string, string>>();
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = (data?.items ?? []).find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = (data?.items ?? []).find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.items]);

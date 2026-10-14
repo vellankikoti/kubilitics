@@ -269,8 +269,8 @@ export default function StorageClasses() {
  const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; labels?: Record<string, string> } }>;
  for (const key of selectedItems) {
  const n = key.startsWith('_/') ? key.slice(2) : key;
- const raw = rawItems.find((r) => r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = rawItems.find((r) => r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.allItems]);

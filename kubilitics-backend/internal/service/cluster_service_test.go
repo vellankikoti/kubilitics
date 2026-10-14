@@ -467,3 +467,42 @@ func TestReconnectCluster_ErrorsWhenKubeconfigPathIsDirectory(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+// TestClusterService_AddCluster_WiresClusterIDForHealthMetrics is a
+// regression test for a real bug found via end-to-end verification against
+// a live cluster (not just unit-level mocking): AddCluster constructs a
+// k8s.Client, caches it in s.clients[cluster.ID] for the lifetime of the
+// app, but never called client.SetClusterID — so every subsequent periodic
+// health check on that cached client recorded
+// ClusterHealthCheckDurationSeconds/Failures with an empty cluster_id
+// label, forever, for any cluster added through this path (the primary
+// registration path). In a real multi-cluster deployment this makes the
+// per-cluster metric useless: every cluster's samples collapse into one
+// unlabeled series. client_health_metrics_test.go's existing tests never
+// caught this because they call SetClusterID manually before exercising
+// TestConnection in isolation — they never exercise the service-layer
+// registration flow that's supposed to wire it up in the first place.
+func TestClusterService_AddCluster_WiresClusterIDForHealthMetrics(t *testing.T) {
+	ctx := context.Background()
+	repo := &mockClusterRepo{clusters: make(map[string]*models.Cluster)}
+	factory := func(kubeconfigPath, contextName string) (*k8s.Client, error) {
+		return k8s.NewClientForTest(fake.NewSimpleClientset()), nil
+	}
+	svc := NewClusterServiceWithClientFactory(repo, nil, factory)
+
+	path := filepath.Join(t.TempDir(), "kubeconfig")
+	_ = os.WriteFile(path, []byte("apiVersion: v1\nkind: Config"), 0644)
+
+	c, err := svc.AddCluster(ctx, path, "ctx-health-metrics")
+	if err != nil {
+		t.Fatalf("AddCluster: %v", err)
+	}
+
+	cached, err := svc.GetClient(c.ID)
+	if err != nil {
+		t.Fatalf("GetClient after AddCluster: %v", err)
+	}
+	if got := cached.ClusterID(); got != c.ID {
+		t.Fatalf("cached client's ClusterID() = %q, want %q (cluster.ID) — every future health check on this client will mislabel its metrics", got, c.ID)
+	}
+}

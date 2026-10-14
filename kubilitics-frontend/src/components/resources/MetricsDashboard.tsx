@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Cpu, HardDrive, Network, Activity, TrendingUp, TrendingDown, RefreshCw, Info, BarChart2, Download, Copy } from 'lucide-react';
+import { Cpu, HardDrive, Network, Activity, TrendingUp, TrendingDown, RefreshCw, Info, BarChart2, Download, Copy, CalendarRange } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { SectionCard } from './SectionCard';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { parseK8sCpuToMillicores, parseK8sQuantityToBytes } from '@/lib/k8sQuantity';
+import { formatAxisTick, formatTooltipTimestamp, getDateRangeLabel } from '@/lib/chartTime';
 
 const TOOLTIP_CPU_UNIT = 'Processing power over time. 1000m = 1 CPU core. Spikes may indicate heavy computation or request surges.';
 const TOOLTIP_MEMORY_UNIT = 'RAM allocation over time. Steady growth may indicate a memory leak. Sudden drops typically mean a pod restart.';
@@ -43,13 +44,16 @@ import { BackendApiError } from '@/services/backendApiClient';
 import { useActiveClusterId } from '@/hooks/useActiveClusterId';
 interface MetricDataPoint {
   time: string;
+  /** Raw epoch seconds backing `time`'s formatted label — lets the tooltip
+   *  show the full absolute date+time regardless of the axis label's format. */
+  ts: number;
   value: number;
 }
 
 interface ResourceMetrics {
   cpu: MetricDataPoint[];
   memory: MetricDataPoint[];
-  network: { time: string; in: number; out: number }[];
+  network: { time: string; ts: number; in: number; out: number }[];
 }
 
 /** Optional pod spec for computing usage vs limits (same as Containers tab). */
@@ -172,14 +176,23 @@ function formatBytes(bytes: number): string {
   return `${val < 10 ? val.toFixed(2) : val < 100 ? val.toFixed(1) : val.toFixed(0)} ${units[idx]}`;
 }
 
+/**
+ * Tooltip label: always the full absolute date+time, read from the raw `ts`
+ * carried on the hovered point — independent of how the axis label itself is
+ * formatted, so hovering never leaves the day ambiguous even on short ranges.
+ */
+function tooltipLabelFormatter(label: string, payload?: Array<{ payload?: { ts?: number } }>): string {
+  const ts = payload?.[0]?.payload?.ts;
+  return typeof ts === 'number' ? formatTooltipTimestamp(ts) : label;
+}
+
 /** Compute per-interval deltas from cumulative network values */
 function computeNetworkRates(
-  points: { ts: number; network_rx?: number; network_tx?: number }[]
-): { time: string; in: number; out: number }[] {
+  points: { ts: number; network_rx?: number; network_tx?: number }[],
+  rangeValue: string
+): { time: string; ts: number; in: number; out: number }[] {
   if (points.length < 2) return [];
-  const fmtTime = (ts: number) =>
-    new Date(ts * 1000).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const result: { time: string; in: number; out: number }[] = [];
+  const result: { time: string; ts: number; in: number; out: number }[] = [];
   for (let i = 1; i < points.length; i++) {
     const prev = points[i - 1];
     const curr = points[i];
@@ -189,7 +202,8 @@ function computeNetworkRates(
     const txDelta = Math.max(0, (curr.network_tx ?? 0) - (prev.network_tx ?? 0));
     // Convert to KB/s
     result.push({
-      time: fmtTime(curr.ts),
+      time: formatAxisTick(curr.ts, rangeValue),
+      ts: curr.ts,
       in: (rxDelta / 1024) / dt,
       out: (txDelta / 1024) / dt,
     });
@@ -235,32 +249,33 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
 
   const historyPointCount = filteredHistory.length;
 
+  /** "Oct 8 – Oct 14, 2026"-style banner; null when everything's the same day. */
+  const dateRangeLabel = useMemo(() => getDateRangeLabel(filteredHistory), [filteredHistory]);
+
   /** Chart data from real history, filtered by selected time range. */
   const resourceMetrics = useMemo<ResourceMetrics | null>(() => {
     if (!summary) return null;
     const cpuVal = parseCPUToMillicores(summary.total_cpu);
     const memVal = parseMemoryToBytes(summary.total_memory) / (1024 * 1024);
 
-    const formatTime = (ts: number) =>
-      new Date(ts * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-
     let cpuPoints: MetricDataPoint[];
     let memPoints: MetricDataPoint[];
 
     if (filteredHistory.length >= 2) {
-      cpuPoints = filteredHistory.map((p) => ({ time: formatTime(p.ts), value: p.cpu_milli }));
-      memPoints = filteredHistory.map((p) => ({ time: formatTime(p.ts), value: p.memory_mib }));
+      cpuPoints = filteredHistory.map((p) => ({ time: formatAxisTick(p.ts, timeRange), ts: p.ts, value: p.cpu_milli }));
+      memPoints = filteredHistory.map((p) => ({ time: formatAxisTick(p.ts, timeRange), ts: p.ts, value: p.memory_mib }));
     } else {
-      const timeStr = formatTime(Date.now() / 1000);
-      cpuPoints = [{ time: timeStr, value: cpuVal }];
-      memPoints = [{ time: timeStr, value: memVal }];
+      const nowTs = Date.now() / 1000;
+      const timeStr = formatAxisTick(nowTs, timeRange);
+      cpuPoints = [{ time: timeStr, ts: nowTs, value: cpuVal }];
+      memPoints = [{ time: timeStr, ts: nowTs, value: memVal }];
     }
 
     // Network I/O — compute rates (KB/s) from cumulative values
-    const networkPoints = computeNetworkRates(filteredHistory);
+    const networkPoints = computeNetworkRates(filteredHistory, timeRange);
 
     return { cpu: cpuPoints, memory: memPoints, network: networkPoints };
-  }, [summary, filteredHistory]);
+  }, [summary, filteredHistory, timeRange]);
 
   useEffect(() => {
     if (resourceType === 'cluster') {
@@ -676,6 +691,12 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
 
             {/* Time range + controls — right-aligned, same row */}
             <div className="flex items-center gap-2">
+              {dateRangeLabel && (
+                <Badge variant="outline" className="gap-1 text-[10px] h-7 font-medium text-foreground">
+                  <CalendarRange className="h-3 w-3" />
+                  {dateRangeLabel}
+                </Badge>
+              )}
               <div className="flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5">
                 {TIME_RANGES.map((r) => (
                   <button
@@ -770,6 +791,7 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
                             boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
                             fontSize: '11px'
                           }}
+                          labelFormatter={tooltipLabelFormatter}
                           itemStyle={{ color: 'hsl(var(--primary))', fontWeight: 'bold' }}
                           formatter={(value: number) => [`${formatCpuMillicores(value)}`, 'CPU Usage']}
                         />
@@ -839,6 +861,7 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
                             boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
                             fontSize: '11px'
                           }}
+                          labelFormatter={tooltipLabelFormatter}
                           itemStyle={{ color: 'hsl(270, 70%, 60%)', fontWeight: 'bold' }}
                           formatter={(value: number) => [`${formatMemoryMi(value)}`, 'Memory Usage']}
                         />
@@ -872,7 +895,7 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
                           <CartesianGrid vertical={false} strokeDasharray="0" stroke="hsl(var(--border)/0.3)" />
                           <XAxis dataKey="time" stroke="hsl(var(--foreground))" fontSize={10} axisLine={false} tickLine={false} interval="preserveStartEnd" tick={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 600 }} />
                           <YAxis stroke="hsl(var(--foreground))" fontSize={10} axisLine={false} tickLine={false} tick={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 600 }} />
-                          <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
+                          <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} labelFormatter={tooltipLabelFormatter} />
                           <Bar dataKey="in" name="Inbound" fill="hsl(142, 70%, 45%)" radius={[4, 4, 0, 0]} />
                           <Bar dataKey="out" name="Outbound" fill="hsl(200, 70%, 50%)" radius={[4, 4, 0, 0]} />
                         </BarChart>
@@ -962,6 +985,7 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
                           borderRadius: '8px',
                           fontSize: '11px'
                         }}
+                          labelFormatter={tooltipLabelFormatter}
                         formatter={(value: number) => [`${formatCpuMillicores(value)}`, 'CPU Usage']}
                       />
                       <Line
@@ -1045,6 +1069,7 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
                           borderRadius: '8px',
                           fontSize: '11px'
                         }}
+                          labelFormatter={tooltipLabelFormatter}
                         formatter={(value: number) => [`${formatMemoryMi(value)}`, 'Memory Usage']}
                       />
                       <Line
@@ -1138,6 +1163,7 @@ export function MetricsDashboard({ resourceType, resourceName, namespace, podRes
                           border: '1px solid hsl(var(--border))',
                           borderRadius: '8px',
                         }}
+                          labelFormatter={tooltipLabelFormatter}
                       />
                       <Bar dataKey="in" name="Inbound" fill="hsl(142, 70%, 45%)" radius={[4, 4, 0, 0]} />
                       <Bar dataKey="out" name="Outbound" fill="hsl(200, 70%, 50%)" radius={[4, 4, 0, 0]} />

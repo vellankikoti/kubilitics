@@ -123,8 +123,8 @@ function transformResource(resource: DaemonSetResource): DaemonSet {
  else if (ready < desired) dsStatus = 'Progressing';
  return {
  uid: resource.metadata?.uid,
- name: resource.metadata.name,
- namespace: resource.metadata.namespace || 'default',
+ name: resource.metadata?.name,
+ namespace: resource.metadata?.namespace || 'default',
  status: dsStatus,
  desired,
  current: status.currentNumberScheduled || 0,
@@ -134,7 +134,7 @@ function transformResource(resource: DaemonSetResource): DaemonSet {
  nodeCoveragePct,
  updateStrategy: resource.spec?.updateStrategy?.type ?? 'RollingUpdate',
  nodeSelector: 'all nodes',
- age: calculateAge(resource.metadata.creationTimestamp),
+ age: calculateAge(resource.metadata?.creationTimestamp),
  creationTimestamp: resource.metadata?.creationTimestamp,
  cpu: '-',
  memory: '-',
@@ -242,7 +242,7 @@ export default function DaemonSets() {
  const m: Record<string, { cpuMax?: number; memoryMax?: number }> = {};
  if (data?.items) {
  data.items.forEach((dsResource) => {
- const key = `${dsResource.metadata.namespace}/${dsResource.metadata.name}`;
+ const key = `${dsResource.metadata?.namespace}/${dsResource.metadata?.name}`;
  const containers = dsResource.spec?.template?.spec?.containers || [];
  const cpuMax = calculatePodResourceMax(containers, 'cpu');
  const memoryMax = calculatePodResourceMax(containers, 'memory');
@@ -384,8 +384,8 @@ spec:
  const map = new Map<string, Record<string, string>>();
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = (data?.items ?? []).find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = (data?.items ?? []).find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.items]);

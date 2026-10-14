@@ -114,15 +114,15 @@ function transformRole(r: RoleResource): Role {
  const hasWildcardVerb = verbsList.includes('*');
  const isReadOnly = !hasWildcardVerb && verbsList.length > 0 && verbsList.every((v) => READ_ONLY_VERBS.has(v));
  return {
- name: r.metadata.name,
- namespace: r.metadata.namespace || 'default',
+ name: r.metadata?.name,
+ namespace: r.metadata?.namespace || 'default',
  rulesCount: rules.length,
  apiGroups: apiGroups.length ? apiGroups.slice(0, 3).join(', ') + (apiGroups.length > 3 ? '…' : '') : '–',
  resources: resources.length ? resources.slice(0, 4).join(', ') + (resources.length > 4 ? '…' : '') : '–',
  verbs: verbs.length ? verbs.join(', ') : '–',
  verbsList,
  bindings: '–',
- age: calculateAge(r.metadata.creationTimestamp),
+ age: calculateAge(r.metadata?.creationTimestamp),
  creationTimestamp: r.metadata?.creationTimestamp,
  hasWildcardVerb,
  isReadOnly,
@@ -296,8 +296,8 @@ export default function Roles() {
  const rawItems = (data?.allItems ?? []) as Array<{ metadata: { name: string; namespace?: string; labels?: Record<string, string> } }>;
  for (const key of selectedItems) {
  const [ns, n] = key.split('/');
- const raw = rawItems.find((r) => r.metadata.namespace === ns && r.metadata.name === n);
- if (raw) map.set(key, raw.metadata.labels ?? {});
+ const raw = rawItems.find((r) => r.metadata?.namespace === ns && r.metadata?.name === n);
+ if (raw) map.set(key, raw.metadata?.labels ?? {});
  }
  return map;
  }, [selectedItems, data?.allItems]);
