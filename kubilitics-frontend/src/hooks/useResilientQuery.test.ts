@@ -132,4 +132,58 @@ describe('useResilientQuery', () => {
     expect(result.current.data).toBeUndefined();
     expect(result.current.isStale).toBe(false);
   });
+
+  // Independent re-verification (Task 12): the 4 happy-path tests above all
+  // send a response that already matches ResilientResponse<T>'s envelope
+  // shape. None of them prove what happens when the backend sends something
+  // that DOESN'T — which is exactly the shape of bug that crashed Pod detail
+  // (an API response's actual runtime shape silently diverging from its
+  // declared TS type). `queryFn` does an unchecked `as ResilientResponse<T>`
+  // cast on raw `r.json()`, so this is the one call site in this hook that
+  // genuinely trusts the network over the type system.
+  it('does not crash when the backend returns a payload with none of the ResilientResponse envelope fields', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ unexpected: 'shape', totally: 'different' }), { status: 200 }),
+      ),
+    );
+    const { result } = renderHook(
+      () => useResilientQuery<{ count: number }>('/api/x'),
+      { wrapper: wrapper(qc) },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    // No throw reaching here is the test. Falls through to the "no-data"
+    // branch: reachable/stale default false since the fields are absent.
+    expect(result.current.isReachable).toBe(false);
+    expect(result.current.isStale).toBe(false);
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it('does not crash when the backend returns a bare array instead of the envelope object', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify([1, 2, 3]), { status: 200 })),
+    );
+    const { result } = renderHook(
+      () => useResilientQuery<{ count: number }>('/api/x'),
+      { wrapper: wrapper(qc) },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    // `env` is a real array (truthy), so `if (env)` is entered — `env.reachable`
+    // is undefined on an array, same fallthrough as the object case above.
+    expect(result.current.isReachable).toBe(false);
+    expect(result.current.data).toBeUndefined();
+  });
+
+  it('does not crash when the backend returns null', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('null', { status: 200 })));
+    const { result } = renderHook(
+      () => useResilientQuery<{ count: number }>('/api/x'),
+      { wrapper: wrapper(qc) },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.isReachable).toBe(false);
+    expect(result.current.data).toBeUndefined();
+  });
 });

@@ -185,4 +185,15 @@ describe('diagnosePod', () => {
     expect(d.conditions.length).toBeGreaterThan(0);
     expect(d.conditions.some(c => c.type === 'Ready' && c.status === 'False')).toBe(true);
   });
+
+  // Independent re-verification (Task 12, found via real page render, not
+  // code reading): PodDetail.tsx calls diagnoseWorkload({ ...pod, kind: 'Pod' }
+  // as unknown as ...) — when the cluster is disconnected, useResourceDetail's
+  // real runtime fallback makes `pod` an empty {} object (never null/undefined,
+  // but also never carrying .metadata). The `as unknown as` cast at the page
+  // call site suppresses the TS2339 error this would otherwise raise, hiding
+  // the gap from a tsc-error-based sweep.
+  it('does not crash when metadata is entirely absent (disconnected-cluster {} resource)', () => {
+    expect(() => diagnosePod({} as unknown as Parameters<typeof diagnosePod>[0])).not.toThrow();
+  });
 });

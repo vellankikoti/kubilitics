@@ -28,8 +28,8 @@ export function diagnoseController(
   events: WarningEvent[] = []
 ): Diagnosis {
   const kind = controller.kind ?? 'Deployment';
-  const name = controller.metadata.name;
-  const namespace = controller.metadata.namespace;
+  const name = controller.metadata?.name ?? 'unknown';
+  const namespace = controller.metadata?.namespace;
 
   const desiredReplicas = controller.spec?.replicas ?? 0;
   const statusReplicas = controller.status?.replicas ?? 0;

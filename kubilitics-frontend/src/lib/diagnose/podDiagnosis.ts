@@ -43,11 +43,11 @@ interface PodLike {
  */
 export function diagnosePod(pod: PodLike, events: WarningEvent[] = []): Diagnosis {
   const kind = pod.kind ?? 'Pod';
-  const name = pod.metadata.name;
-  const namespace = pod.metadata.namespace;
+  const name = pod.metadata?.name ?? 'unknown';
+  const namespace = pod.metadata?.namespace;
 
   // --- Deletion short-circuit ---
-  if (pod.metadata.deletionTimestamp) {
+  if (pod.metadata?.deletionTimestamp) {
     return {
       severity: 'unknown',
       headline: 'Pod is being deleted',
