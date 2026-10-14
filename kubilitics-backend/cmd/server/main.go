@@ -861,7 +861,11 @@ func main() {
 	// Readiness probe: /healthz/ready - dependencies are healthy (database connectivity)
 	router.HandleFunc("/healthz/ready", healthzHandler.Ready).Methods("GET", "HEAD")
 	
-	// Legacy health endpoint (backward compatibility); delegates to readiness
+	// Legacy health endpoint (backward compatibility) — unconditionally
+	// returns 200 and does NOT check dependency health; it does not
+	// delegate to Ready. Kept as-is for whatever external consumers rely
+	// on this always-200 behavior. Kubernetes probes must use
+	// /healthz/live and /healthz/ready instead (see deploy/helm/kubilitics).
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

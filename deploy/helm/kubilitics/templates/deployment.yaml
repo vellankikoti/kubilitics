@@ -209,13 +209,22 @@ spec:
               value: {{ .Values.publicHubURL | default (printf "http://%s.%s.svc:8190" .Release.Name .Release.Namespace) | quote }}
           livenessProbe:
             httpGet:
-              path: /health
+              # Liveness intentionally does NOT check dependency health
+              # (e.g. DB connectivity) — a transient DB blip should not
+              # trigger a container restart. /healthz/live only confirms
+              # the process itself is alive.
+              path: /healthz/live
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
           readinessProbe:
             httpGet:
-              path: /health
+              # Must be /healthz/ready, not the legacy /health endpoint —
+              # /health unconditionally returns 200 regardless of backend
+              # state, so Kubernetes could never mark the pod NotReady even
+              # with a broken DB connection. /healthz/ready actually checks
+              # dependency health (see internal/api/rest/healthz.go).
+              path: /healthz/ready
               port: http
             initialDelaySeconds: 3
             periodSeconds: 5
