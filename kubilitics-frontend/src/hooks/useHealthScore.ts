@@ -95,7 +95,7 @@ export function useHealthScore(): HealthScore {
   // `isBackendConfigured`, meant isError could never be true in direct-K8s
   // mode no matter how badly podsList/nodesList failed — silently
   // rendering a perfect "Grade A" health score on a fully-failed fetch.
-  const usingBackendHealthPath = isBackendConfigured && !!overviewQuery.data;
+  const usingBackendHealthPath = isBackendConfigured && !!overviewQuery.data?.health;
   const isError = !!activeCluster
     && !usingBackendHealthPath
     && (podsList.isError || nodesList.isError);
@@ -112,8 +112,15 @@ export function useHealthScore(): HealthScore {
       };
     }
 
-    if (isBackendConfigured && overviewQuery.data) {
-      // Use backend's enterprise health scoring — already cached by Dashboard
+    if (isBackendConfigured && overviewQuery.data?.health) {
+      // Use backend's enterprise health scoring — already cached by Dashboard.
+      // Gated on `overviewQuery.data?.health` (not just `.data`): a backend
+      // overview response can be a real 200 that omits `health` (e.g. a
+      // partial/degraded snapshot — the response body isn't schema-validated
+      // on the way in), and `ClusterOverview.health` being typed required
+      // doesn't make that true at runtime. Falling through to the direct-K8s
+      // path below is the same honest-fallback behavior this hook already
+      // uses when the backend path isn't usable at all.
       const ov = overviewQuery.data;
       const health = ov.health as unknown as {
         score: number;
