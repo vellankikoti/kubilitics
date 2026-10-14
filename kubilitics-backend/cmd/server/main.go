@@ -472,13 +472,22 @@ func main() {
 		})
 	} else if cfg.KubeconfigAutoLoad {
 		// DB is empty (first run) — auto-load from the default kubeconfig.
-		// Runs synchronously: this is a one-time, first-run-only path (not the
-		// recurring-restart path STARTUP-1/the measurement above addresses),
-		// deliberately left out of this phase's scope — see docs/PRODUCTION-
-		// HARDENING-EXECUTION.md Phase 4 record. Checking existingClusters
-		// (read once, above) instead of re-querying also avoids racing the
-		// background LoadClustersFromRepo goroutine: the two branches are
-		// mutually exclusive on the same upfront snapshot.
+		//
+		// Task 9 (quality-attributes audit, 2026-10-14): this was previously
+		// synchronous and deliberately left out of Phase 4's scope as a
+		// documented, known gap (see docs/PRODUCTION-HARDENING-EXECUTION.md
+		// Phase 4 record) — reasoned as "one-time, first-run-only" and
+		// therefore lower priority than the recurring-restart path STARTUP-1
+		// fixed. Measured empirically: a first run with even one unreachable
+		// kubeconfig context blocked the listener bind for 5+ seconds (the
+		// per-context connection-test timeout), compounding per unreachable
+		// context — a real first-impression problem for any new user whose
+		// kubeconfig has stale/unreachable contexts, which is a common case,
+		// not an edge case. Fixed using the exact same background pattern as
+		// the sibling branch above (safego.Go + clusterService.AddCluster is
+		// already safe for progressive/eventual-consistency population, same
+		// as LoadClustersFromRepo — ListClusters already live-refreshes on
+		// every read).
 		kubeconfigPath := cfg.KubeconfigPath
 		if kubeconfigPath == "" {
 			kubeconfigPath = os.Getenv("KUBECONFIG")
@@ -493,14 +502,16 @@ func main() {
 			if err != nil {
 				log.Warn("Could not list kubeconfig contexts", "kubeconfig", kubeconfigPath, "error", err)
 			} else {
-				for _, contextName := range contexts {
-					_, err := clusterService.AddCluster(ctx, kubeconfigPath, contextName)
-					if err != nil {
-						log.Warn("Could not add cluster", "context", contextName, "error", err)
-					} else {
-						log.Info("Auto-added cluster context", "context", contextName)
+				safego.Go("startup-first-run-kubeconfig-autoload", func() {
+					for _, contextName := range contexts {
+						_, err := clusterService.AddCluster(ctx, kubeconfigPath, contextName)
+						if err != nil {
+							log.Warn("Could not add cluster", "context", contextName, "error", err)
+						} else {
+							log.Info("Auto-added cluster context", "context", contextName)
+						}
 					}
-				}
+				})
 			}
 		}
 	}
