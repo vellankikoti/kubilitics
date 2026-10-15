@@ -12,7 +12,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  GO_VERSION: '1.25.8'  # must be >= go directive in kubilitics-backend/go.mod
+  GO_VERSION: '1.26.0'  # must be >= go directive in kubilitics-backend/go.mod
   # Pinned kubectl — keep aligned with k8s.io/client-go major version in go.mod
   # k8s.io/client-go v0.33.x → kubectl v1.33.x
   KUBECTL_VERSION: 'v1.33.3'
