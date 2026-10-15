@@ -55,6 +55,8 @@ interface AISidecarStatus {
 }
 
 export default function Settings() {
+  const appVersion = typeof __VITE_APP_VERSION__ !== 'undefined' ? __VITE_APP_VERSION__ : '1.0.0';
+
   // Backend config store — use individual selectors to avoid subscribing to entire store
   const backendBaseUrl = useBackendConfigStore((s) => s.backendBaseUrl);
   const setBackendBaseUrl = useBackendConfigStore((s) => s.setBackendBaseUrl);
@@ -353,7 +355,7 @@ export default function Settings() {
           </div>
           <div className="hidden sm:flex items-center gap-2">
             <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium border-blue-200 text-blue-700 dark:border-blue-800 dark:text-blue-300">
-              v1.0.0
+              v{appVersion}
             </Badge>
             <Badge variant="outline" className="rounded-full px-3 py-1 text-xs font-medium">
               {typeof __VITE_IS_TAURI_BUILD__ !== 'undefined' && __VITE_IS_TAURI_BUILD__ ? 'Desktop' : 'Browser'}
