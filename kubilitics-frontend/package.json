@@ -6,6 +6,10 @@
   "overrides": {
     "monaco-editor": {
       "dompurify": "3.4.17"
+    },
+    "postcss-selector-parser": "7.1.6",
+    "@storybook/addon-essentials": {
+      "uuid": "13.0.2"
     }
   },
   "scripts": {

@@ -44,6 +44,76 @@ can only ever disable ITS OWN cache-first path, never the main ~34-kind
 cache or another aux kind. Regression tests:
 `internal/k8s/informer_aux_factories_test.go`.
 
+## Security disposition (v1.2.5, 2026-10-15)
+
+48 open Dependabot/code-scanning findings reduced to 5, via (in order):
+Go toolchain 1.25.8→1.26.0 + `x/net`→v0.61.0/`x/crypto`→v0.58.0 (closed
+~30 real CVE duplicates across the 5 Go modules), dismissing 14 confirmed
+false positives (bidi attack-detection literals, intentional JSON
+decode-into-`interface{}`, intentional dedup-map pattern, TLS-at-Ingress
+nginx config, marshaled-JSON ResponseWriter write, a fake test-probe
+string — all re-verified against the actual source before dismissal),
+and npm `overrides` forcing `postcss-selector-parser`→7.1.6 and
+`uuid`→13.0.2 to their real patched versions without a Tailwind/Storybook
+major-version migration (verified: `tsc`, full vitest suite 1100/1101,
+`vite build`, and `storybook build` all unchanged/clean with the
+overrides in place).
+
+**Fixed and verified:**
+- All ~30 Go CVE duplicates (`x/net/http2` DoS/smuggling family,
+  `x/crypto/ssh` DoS family) — real upgrade, not a rescan artifact;
+  confirmed via `go build`/`vet`/`test` on all 5 modules plus a real
+  Docker image rebuild on the new toolchain, both locally and on the
+  actual `Backend CI` GitHub Actions runner.
+- `postcss-selector-parser` (CVE-2026-104844) → 7.1.6 via `overrides`.
+- `uuid` (CVE-2026-41907, Storybook-only) → 13.0.2 via a nested
+  `overrides` entry scoped to `@storybook/addon-essentials` (can't
+  override at top level — conflicts with the already-correct direct
+  dependency).
+
+**Waiting on upstream — no patched version exists:**
+- `braces` (CVE-2026-93687, GHSA-vfj7-8cjw-p6xm) — advisory's own
+  `first_patched_version` is `null`; latest release is still 3.0.3.
+  **Mitigated, not fixed**: the CVE requires attacker-controlled input
+  reaching `braces`' recursive parser. Our only consumers are
+  `tailwindcss`'s `chokidar` (file-watcher, watches our own fixed
+  source paths) and `micromatch` (glob-matches our own
+  `tailwind.config.ts` content array) — both invoked only at local
+  build time over developer-controlled strings, never over
+  network/user input. Re-check when micromatch/braces ships a fix.
+- `GO-2026-5932` (`x/crypto/openpgp` unmaintained) — transitive via
+  `helm.sh/helm/v3/pkg/{action,provenance}`, pulled in by
+  `kubilitics-backend/internal/addon/helm`. **Mitigated, not fixed**:
+  grepped `internal/addon/helm/{install,upgrade,dryrun}.go` for
+  `Verify` — the field is never set, so it stays at its Go zero-value
+  `false`; Helm's `action.Install.Verify`/`Upgrade.Verify` gate is what
+  calls into `provenance`/`openpgp` at all, and our code never does. The
+  openpgp code is linked but never executed by any Kubilitics code path.
+  Re-check if provenance verification is ever added as a feature, or
+  when Helm migrates off `x/crypto/openpgp` upstream.
+
+**Accepted risk for this release — build-tool only, real fix requires a
+major-version migration not undertaken as part of a security pass:**
+- `glib` (GHSA-wrw7-89jp-8q8g, `VariantStrIter`/`DoubleEndedIterator`
+  unsoundness) — hard-locked to `0.18.5` by `tauri@2.12.3`'s own `gtk
+  v0.18.2` dependency (`cargo update -p glib --precise 0.20.0 --dry-run`
+  fails with the conflict). Our own Rust code never calls the affected
+  `VariantStrIter` API directly (grepped, zero hits) — exposure is
+  limited to whatever GTK's own internals do with GVariant data on
+  Linux desktop integration paths (window menus, clipboard, D-Bus),
+  not anything reachable from the Tauri webview's untrusted web content.
+  Owner/trigger: reassess when Tauri bumps its `gtk` dependency past
+  0.18, or ships a release built against a patched glib.
+
+Severity/exploitability note: all 5 remaining findings require either
+(a) a build machine already running attacker-controlled glob/brace
+input (not our threat model — CI runs our own fixed config), or (b) a
+GTK-internal/openpgp code path our own code never invokes. None are
+reachable from the shipped desktop app's actual attack surface (the
+Tauri webview, the backend's HTTP API, or cluster-facing code). Do not
+mark any of them "resolved" — they are open, tracked, and re-assessed
+at the next upstream release of the relevant tool.
+
 ## Pre-existing, confirmed not regressions
 
 - **CORRECTION (2026-10-10):** `ClusterPickerPage.test.tsx` ×2 and
